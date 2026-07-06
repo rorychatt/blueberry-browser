@@ -270,7 +270,7 @@ export const SettingsApp: React.FC = () => {
       <div className="absolute bottom-[-10%] right-[-10%] w-[45%] h-[45%] rounded-full bg-primary/5 dark:bg-primary/5 blur-[130px] pointer-events-none" />
 
       {/* Main Glassmorphic Dashboard Window */}
-      <div className="relative flex w-full max-w-5xl mx-auto rounded-3xl overflow-hidden border border-border/50 bg-card/70 backdrop-blur-xl shadow-2xl">
+      <div className="relative flex h-full w-full max-w-5xl mx-auto rounded-3xl overflow-hidden border border-border/50 bg-card/70 backdrop-blur-xl shadow-2xl">
         {/* Left Navigation Panel */}
         <aside className="w-64 border-r border-border/30 bg-secondary/30 p-6 flex flex-col gap-6">
           <div className="flex items-center gap-3 px-2">
