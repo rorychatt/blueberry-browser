@@ -11,6 +11,12 @@ const settingsAPI = {
   saveShortcuts: async (shortcuts: unknown) => ipcRenderer.invoke("save-shortcuts", shortcuts),
   getSettings: async () => ipcRenderer.invoke("get-settings"),
   saveSettings: async (settings: unknown) => ipcRenderer.invoke("save-settings", settings),
+  getPlatform: () => process.platform,
+  getVersions: () => ({
+    electron: process.versions.electron,
+    chrome: process.versions.chrome,
+    node: process.versions.node,
+  }),
 };
 
 if (isSettingsPage) {

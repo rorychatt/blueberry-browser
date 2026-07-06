@@ -80,6 +80,12 @@ export const SettingsApp: React.FC = () => {
     "general" | "shortcuts" | "about" | "shortcuts_legacy"
   >("general");
 
+  // Safe checks for platform and version info to prevent renderer crashes
+  const platform = window.settingsAPI?.getPlatform ? window.settingsAPI.getPlatform() : "darwin";
+  const versions = window.settingsAPI?.getVersions
+    ? window.settingsAPI.getVersions()
+    : { electron: "", chrome: "", node: "" };
+
   // General settings state
   const [landingPage, setLandingPage] = useState<string>("https://www.google.com");
   const [selectedLandingOption, setSelectedLandingOption] = useState<string>("google");
@@ -613,7 +619,7 @@ export const SettingsApp: React.FC = () => {
                                     className="px-2.5 py-1 text-xs font-bold rounded-lg border border-border bg-card text-foreground shadow-sm"
                                   >
                                     {part === "CmdOrCtrl"
-                                      ? process.platform === "darwin"
+                                      ? platform === "darwin"
                                         ? "⌘ Cmd"
                                         : "Ctrl"
                                       : part}
@@ -676,7 +682,7 @@ export const SettingsApp: React.FC = () => {
                         Runtime Environment
                       </span>
                       <span className="font-bold text-foreground">
-                        Electron {process.versions.electron}
+                        Electron {versions.electron || "N/A"}
                       </span>
                     </div>
                     <div>
@@ -684,21 +690,23 @@ export const SettingsApp: React.FC = () => {
                         Chrome Engine
                       </span>
                       <span className="font-bold text-foreground">
-                        Chromium {process.versions.chrome}
+                        Chromium {versions.chrome || "N/A"}
                       </span>
                     </div>
                     <div>
                       <span className="font-semibold text-muted-foreground block">
                         Node Module Engine
                       </span>
-                      <span className="font-bold text-foreground">v{process.versions.node}</span>
+                      <span className="font-bold text-foreground">
+                        {versions.node ? `v${versions.node}` : "N/A"}
+                      </span>
                     </div>
                     <div>
                       <span className="font-semibold text-muted-foreground block">
                         Operating System
                       </span>
                       <span className="font-bold text-foreground">
-                        {process.platform === "darwin" ? "macOS" : process.platform}
+                        {platform === "darwin" ? "macOS" : platform || "N/A"}
                       </span>
                     </div>
                   </div>

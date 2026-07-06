@@ -91,6 +91,12 @@ export interface SettingsAPI {
   saveShortcuts: (shortcuts: unknown) => Promise<boolean>;
   getSettings: () => Promise<unknown>;
   saveSettings: (settings: unknown) => Promise<boolean>;
+  getPlatform?: () => string;
+  getVersions?: () => {
+    electron?: string;
+    chrome?: string;
+    node?: string;
+  };
 }
 
 declare global {
