@@ -29,23 +29,16 @@ impl OllamaAgent {
             .timeout(Duration::from_secs(60))
             .build()?;
 
-        let system_prompt = r#"You are Blueberry-Agent, an advanced visual/textual E2E testing agent.
-Your job is to analyze the current text content of a webpage and determine if the user's assertion/goal has been met.
-You MUST output your response as a valid JSON object with the following schema:
-{
-  "success": true or false,
-  "reason": "A concise explanation based on the evidence found in the webpage content."
-}
-Only output the JSON object. Do not include markdown code blocks or conversational text outside of the JSON."#;
+        let mut values = std::collections::HashMap::new();
+        values.insert("Assertion".to_string(), prompt.to_string());
+        values.insert("PageContent".to_string(), page_text.to_string());
 
-        let full_prompt = format!(
-            "Goal/Assertion: {}\n\nWebpage Text Content:\n---\n{}\n---\n\nRespond with the JSON object:",
-            prompt, page_text
-        );
+        let (system, user) = crate::promptware::compile_prompt_system_and_user("AssertionAgent", &values)?;
 
         let body = serde_json::json!({
             "model": self.model,
-            "prompt": format!("{}\n\n{}", system_prompt, full_prompt),
+            "system": system,
+            "prompt": user,
             "stream": false,
             "options": {
                 "temperature": 0.1
@@ -104,6 +97,44 @@ Only output the JSON object. Do not include markdown code blocks or conversation
 
         let body = serde_json::json!({
             "model": self.model,
+            "prompt": prompt,
+            "stream": false,
+            "options": {
+                "temperature": 0.1
+            }
+        });
+
+        let url = format!("{}/api/generate", self.endpoint);
+        
+        let response = client
+            .post(&url)
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| anyhow!("Failed to send request to Ollama ({}): {}. Make sure Ollama is running local.", url, e))?;
+
+        if !response.status().is_success() {
+            return Err(anyhow!("Ollama returned error status: {}", response.status()));
+        }
+
+        let resp_json: serde_json::Value = response.json().await?;
+        let output_text = resp_json["response"]
+            .as_str()
+            .ok_or_else(|| anyhow!("Ollama response did not contain a response text string"))?
+            .trim()
+            .to_string();
+
+        Ok(output_text)
+    }
+
+    pub async fn generate_with_system(&self, system: &str, prompt: &str) -> Result<String> {
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(60))
+            .build()?;
+
+        let body = serde_json::json!({
+            "model": self.model,
+            "system": system,
             "prompt": prompt,
             "stream": false,
             "options": {
