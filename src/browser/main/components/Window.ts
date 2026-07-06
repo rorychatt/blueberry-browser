@@ -2,6 +2,9 @@ import { BaseWindow, shell, WebContents } from "electron";
 import { Tab } from "./Tab";
 import { TopBar } from "./TopBar";
 import { SideBar } from "./SideBar";
+import { getBaseWindowOptions } from "../utils/windowOptions";
+import { calculateTabBounds } from "../utils/bounds";
+import { registerKeyboardShortcuts } from "../utils/shortcuts";
 
 export class Window {
   private readonly _baseWindow: BaseWindow;
@@ -13,16 +16,7 @@ export class Window {
 
   constructor() {
     // Create the browser window.
-    this._baseWindow = new BaseWindow({
-      width: 1000,
-      height: 800,
-      show: true,
-      backgroundColor: "#18181b",
-      autoHideMenuBar: false,
-      titleBarStyle: "hidden",
-      ...(process.platform === "darwin" ? {} : { titleBarOverlay: true }),
-      trafficLightPosition: { x: 15, y: 13 },
-    });
+    this._baseWindow = new BaseWindow(getBaseWindowOptions());
 
     this._baseWindow.setMinimumSize(1000, 800);
 
@@ -107,15 +101,8 @@ export class Window {
     this._baseWindow.contentView.addChildView(tab.view);
 
     // Set the bounds to fill the window below the topbar and to the left of sidebar
-    const bounds = this._baseWindow.getContentBounds();
-    const sidebarWidth = this._sideBar.getIsVisible() ? 400 : 0;
-    const GAP = 8;
-    tab.view.setBounds({
-      height: bounds.height - 88 - 2 * GAP, // Subtract topbar height and vertical margins
-      width: bounds.width - sidebarWidth - (sidebarWidth > 0 ? 2 * GAP : 2 * GAP), // Symmetrical gutters on sides
-      x: GAP,
-      y: 88 + GAP, // Start below the topbar with a gap
-    });
+    const bounds = this._baseWindow.getBounds();
+    tab.view.setBounds(calculateTabBounds(bounds, this._sideBar.getIsVisible()));
 
     // Store the tab
     this.tabsMap.set(tabId, tab);
@@ -248,21 +235,14 @@ export class Window {
 
   // Handle window resize to update tab bounds
   private updateTabBounds(): void {
-    const bounds = this._baseWindow.getContentBounds();
-    // Only subtract sidebar width if it's visible
-    const sidebarWidth = this._sideBar.getIsVisible() ? 400 : 0;
-    const GAP = 8;
+    const bounds = this._baseWindow.getBounds();
+    const isSidebarVisible = this._sideBar.getIsVisible();
 
     this.tabsMap.forEach((tab) => {
       if (tab.view.webContents.isDestroyed()) {
         return;
       }
-      tab.view.setBounds({
-        height: bounds.height - 88 - 2 * GAP, // Subtract topbar height and margins
-        width: bounds.width - sidebarWidth - (sidebarWidth > 0 ? 2 * GAP : 2 * GAP),
-        x: GAP,
-        y: 88 + GAP, // Start below the topbar with a gap
-      });
+      tab.view.setBounds(calculateTabBounds(bounds, isSidebarVisible));
     });
   }
 
@@ -301,70 +281,6 @@ export class Window {
 
   // Register standard keyboard shortcuts on a WebContents
   registerKeyboardShortcuts(webContents: WebContents): void {
-    webContents.on("before-input-event", (event, input) => {
-      if (input.type !== "keyDown") return;
-
-      const isCmdOrCtrl = process.platform === "darwin" ? input.meta : input.control;
-
-      // CMD+T / CTRL+T: New Tab
-      if (isCmdOrCtrl && input.key.toLowerCase() === "t") {
-        event.preventDefault();
-        this.createTab();
-        return;
-      }
-
-      // CMD+W / CTRL+W: Close Tab
-      if (isCmdOrCtrl && input.key.toLowerCase() === "w") {
-        event.preventDefault();
-        if (this.activeTab) {
-          this.closeTab(this.activeTab.id);
-        }
-        return;
-      }
-
-      // CMD+R / CTRL+R: Reload
-      if (isCmdOrCtrl && input.key.toLowerCase() === "r" && !input.shift) {
-        event.preventDefault();
-        if (this.activeTab) {
-          this.activeTab.reload();
-        }
-        return;
-      }
-
-      // CMD+SHIFT+R / CTRL+SHIFT+R: Force Reload
-      if (isCmdOrCtrl && input.key.toLowerCase() === "r" && input.shift) {
-        event.preventDefault();
-        if (this.activeTab) {
-          this.activeTab.webContents.reloadIgnoringCache();
-        }
-        return;
-      }
-
-      // CMD+E / CTRL+E: Toggle Sidebar
-      if (isCmdOrCtrl && input.key.toLowerCase() === "e") {
-        event.preventDefault();
-        this.sidebar.toggle();
-        this.updateAllBounds();
-        return;
-      }
-
-      // CMD+LEFT / CTRL+LEFT or ALT+LEFT: Go Back
-      if ((isCmdOrCtrl || input.alt) && input.key === "ArrowLeft") {
-        if (this.activeTab) {
-          event.preventDefault();
-          this.activeTab.goBack();
-        }
-        return;
-      }
-
-      // CMD+RIGHT / CTRL+RIGHT or ALT+RIGHT: Go Forward
-      if ((isCmdOrCtrl || input.alt) && input.key === "ArrowRight") {
-        if (this.activeTab) {
-          event.preventDefault();
-          this.activeTab.goForward();
-        }
-        return;
-      }
-    });
+    registerKeyboardShortcuts(this, webContents);
   }
 }
