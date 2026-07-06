@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -8,12 +8,23 @@ import {
   RefreshCw,
   Settings,
   History,
+  Search,
 } from "lucide-react";
 import { useBrowser } from "../contexts/BrowserContext";
 import { ToolBarButton } from "../components/ToolBarButton";
 import { Favicon } from "../components/Favicon";
 import { HistoryDropdown } from "./HistoryDropdown";
 import { cn } from "@common/lib/utils";
+import type { HistoryEntry } from "../../../common/types/preload";
+
+const getFaviconUrl = (urlStr: string) => {
+  try {
+    const hostname = new URL(urlStr).hostname;
+    return `https://www.google.com/s2/favicons?domain=${hostname}&sz=32`;
+  } catch {
+    return null;
+  }
+};
 
 export const AddressBar: React.FC = () => {
   const { activeTab, navigateToUrl, goBack, goForward, reload, isLoading, createTab } =
@@ -23,6 +34,8 @@ export const AddressBar: React.FC = () => {
   const [isFocused, setIsFocused] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isHistoryDropdownOpen, setIsHistoryDropdownOpen] = useState(false);
+  const [historyList, setHistoryList] = useState<HistoryEntry[]>([]);
+  const addressBarRef = useRef<HTMLDivElement>(null);
 
   // Update URL when active tab changes
   useEffect(() => {
@@ -30,6 +43,76 @@ export const AddressBar: React.FC = () => {
       setUrl(activeTab.url || "");
     }
   }, [activeTab, isEditing]);
+
+  // Load history for autocomplete list when focused
+  useEffect(() => {
+    if (isFocused) {
+      const fetchHistory = async () => {
+        if (window.historyAPI && window.historyAPI.getHistory) {
+          try {
+            const list = await window.historyAPI.getHistory();
+            setHistoryList(list || []);
+          } catch (error) {
+            console.error("Error loading autocomplete history:", error);
+          }
+        }
+      };
+      void fetchHistory();
+    }
+  }, [isFocused]);
+
+  // Handle click outside entire address bar container safely to cancel editing state
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (addressBarRef.current && !addressBarRef.current.contains(event.target as Node)) {
+        setIsEditing(false);
+        setIsFocused(false);
+        if (activeTab) {
+          setUrl(activeTab.url || "");
+        }
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [activeTab]);
+
+  // Compute matched autocomplete items
+  const autocompleteSuggestions = useMemo(() => {
+    if (!url.trim()) {
+      return [];
+    }
+    const lowerQuery = url.toLowerCase();
+
+    // Filter history matching title or URL
+    const filtered = historyList.filter(
+      (entry) =>
+        (entry.title && entry.title.toLowerCase().includes(lowerQuery)) ||
+        (entry.url && entry.url.toLowerCase().includes(lowerQuery)),
+    );
+
+    // De-duplicate matching URLs
+    const seenUrls = new Set<string>();
+    const unique: HistoryEntry[] = [];
+    for (const entry of filtered) {
+      try {
+        const cleanUrl = new URL(entry.url).href;
+        if (!seenUrls.has(cleanUrl)) {
+          seenUrls.add(cleanUrl);
+          unique.push(entry);
+        }
+      } catch {
+        if (!seenUrls.has(entry.url)) {
+          seenUrls.add(entry.url);
+          unique.push(entry);
+        }
+      }
+    }
+
+    return unique.slice(0, 5); // Show top 5 matches
+  }, [url, historyList]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,15 +143,6 @@ export const AddressBar: React.FC = () => {
   const handleFocus = () => {
     setIsEditing(true);
     setIsFocused(true);
-  };
-
-  const handleBlur = () => {
-    setIsEditing(false);
-    setIsFocused(false);
-    // Reset to current tab URL if editing was cancelled
-    if (activeTab) {
-      setUrl(activeTab.url || "");
-    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -131,7 +205,10 @@ export const AddressBar: React.FC = () => {
   };
 
   return (
-    <>
+    <div
+      ref={addressBarRef}
+      className="flex-1 flex items-center justify-between gap-4 h-full relative"
+    >
       {/* Navigation Controls */}
       <div className="flex gap-2 app-region-no-drag">
         <ToolBarButton Icon={ArrowLeft} onClick={goBack} active={canGoBack && !isLoading} />
@@ -148,7 +225,10 @@ export const AddressBar: React.FC = () => {
       {/* Address Bar */}
       {isFocused ? (
         // Expanded State
-        <form onSubmit={handleSubmit} className="flex-1 min-w-0 max-w-full app-region-no-drag">
+        <form
+          onSubmit={handleSubmit}
+          className="flex-1 min-w-0 max-w-full app-region-no-drag relative"
+        >
           <div className="bg-background rounded-lg border border-primary/25 dark:border-primary/45 shadow-expanded ring-2 ring-primary/5 dark:ring-primary/15 h-8 px-2 flex items-center dark:bg-secondary">
             <input
               type="text"
@@ -157,7 +237,6 @@ export const AddressBar: React.FC = () => {
                 setUrl(e.target.value);
               }}
               onFocus={handleFocus}
-              onBlur={handleBlur}
               onKeyDown={handleKeyDown}
               className="w-full px-1 py-0 text-xs outline-none bg-transparent text-foreground truncate"
               placeholder={activeTab ? "Enter URL or search term" : "No active tab"}
@@ -166,6 +245,81 @@ export const AddressBar: React.FC = () => {
               autoFocus
             />
           </div>
+
+          {/* Autocomplete Dropdown under Input */}
+          {isFocused && (autocompleteSuggestions.length > 0 || url.trim()) && (
+            <div
+              className={cn(
+                "absolute left-0 right-0 top-full mt-1.5 z-50 p-1.5 rounded-xl flex flex-col gap-0.5",
+                "border border-border/40 backdrop-blur-xl bg-card/95 dark:bg-card/90 shadow-2xl text-foreground text-left",
+                "animate-in fade-in slide-in-from-top-1 duration-150 ease-out max-h-64 overflow-y-auto",
+              )}
+            >
+              {autocompleteSuggestions.map((suggestion) => (
+                <div
+                  key={suggestion.id}
+                  onMouseDown={(e) => e.preventDefault()} // Keep focus on input
+                  onClick={() => {
+                    void navigateToUrl(suggestion.url);
+                    setIsEditing(false);
+                    setIsFocused(false);
+                  }}
+                  className={cn(
+                    "group flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all duration-150",
+                    "hover:bg-muted/60 dark:hover:bg-muted/30 border border-transparent hover:border-border/15 min-w-0",
+                  )}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    <div className="size-4 flex-shrink-0 flex items-center justify-center">
+                      <Favicon src={getFaviconUrl(suggestion.url)} />
+                    </div>
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <span className="text-xs font-semibold truncate text-foreground group-hover:text-primary transition-colors">
+                        {suggestion.title || "Untitled Page"}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground/70 truncate">
+                        {suggestion.url}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-muted dark:bg-muted/50 text-muted-foreground font-semibold tracking-wide ml-2 flex-shrink-0">
+                    History
+                  </span>
+                </div>
+              ))}
+
+              {/* Search Query Option */}
+              {url.trim() && (
+                <div
+                  onMouseDown={(e) => e.preventDefault()} // Keep focus on input
+                  onClick={() => {
+                    const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(url.trim())}`;
+                    void navigateToUrl(searchUrl);
+                    setIsEditing(false);
+                    setIsFocused(false);
+                  }}
+                  className={cn(
+                    "group flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all duration-150",
+                    "hover:bg-muted/60 dark:hover:bg-muted/30 border border-transparent hover:border-border/15 min-w-0 mt-0.5 border-t border-border/10 pt-2",
+                  )}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    <div className="size-4 flex-shrink-0 flex items-center justify-center text-primary">
+                      <Search className="size-3.5" />
+                    </div>
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <span className="text-xs font-semibold truncate text-foreground group-hover:text-primary transition-colors">
+                        Search Google for &quot;{url}&quot;
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 font-semibold tracking-wide ml-2 flex-shrink-0">
+                    Search
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
         </form>
       ) : (
         // Collapsed State
@@ -231,6 +385,6 @@ export const AddressBar: React.FC = () => {
           className="hover:rotate-45 transition-transform duration-300"
         />
       </div>
-    </>
+    </div>
   );
 };
