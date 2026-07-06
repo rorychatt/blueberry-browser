@@ -341,7 +341,8 @@ export class EventManager {
         // Run blueberry-core binary to execute the yaml test case
         const binaryPath = path.join(
           process.cwd(),
-          "blueberry-core",
+          "src",
+          "code",
           "target",
           "debug",
           "blueberry-core",
@@ -357,7 +358,7 @@ export class EventManager {
           childProcess = spawn("cargo", [
             "run",
             "--manifest-path",
-            "blueberry-core/Cargo.toml",
+            "src/code/Cargo.toml",
             "--",
             testPath,
           ]);
@@ -423,7 +424,9 @@ export class EventManager {
                 resolve();
                 return;
               }
-              webContents.once("did-stop-loading", () => resolve());
+              webContents.once("did-stop-loading", () => {
+                resolve();
+              });
             });
             log("stdout", `✓ Navigated to ${step.url}\n`);
           } else if (step.type === "wait") {
@@ -579,7 +582,7 @@ Only output the JSON object. Do not include markdown code blocks or conversation
           if (key === "navigate") {
             steps.push({ type: "navigate", url: val });
           } else if (key === "wait") {
-            steps.push({ ms: parseInt(val, 10), type: "wait" });
+            steps.push({ ms: Number.parseInt(val, 10), type: "wait" });
           } else if (key === "click") {
             steps.push({ selector: val, type: "click" });
           } else if (key === "wait_for") {

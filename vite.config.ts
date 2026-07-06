@@ -26,13 +26,7 @@ export default defineConfig({
       registerProcessor: "readonly",
       sampleRate: "readonly",
     },
-    ignorePatterns: [
-      "**/node_modules",
-      "**/dist",
-      "**/out",
-      "**/blueberry-sdk",
-      "**/blueberry-core",
-    ],
+    ignorePatterns: ["**/node_modules", "**/dist", "**/out", "**/src/sdk", "**/src/code"],
     jsPlugins: [
       {
         name: "vite-plus",

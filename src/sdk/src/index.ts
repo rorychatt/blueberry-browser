@@ -94,7 +94,7 @@ export class Blueberry {
     fs.writeFileSync(tempFilePath, yamlContent);
 
     // Resolve path to the compiled Rust CLI
-    const rustBinPath = path.resolve(__dirname, "../../blueberry-core/target/debug/blueberry-core");
+    const rustBinPath = path.resolve(__dirname, "../../code/target/debug/blueberry-core");
 
     const headfulFlag = options.headful ? "--headful" : "";
     const command = `"${rustBinPath}" run "${tempFilePath}" ${headfulFlag}`;

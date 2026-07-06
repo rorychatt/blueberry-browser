@@ -73,28 +73,33 @@ To support scalability, we standardized the folder structure of the main process
 
 ```
 blueberry-browser/
-├── blueberry-core/               # Rust-based E2E Test Runner
-│   ├── Cargo.toml                # Rust package manifest
-│   └── src/
-│       ├── main.rs               # CLI interface, runner, and orchestrator
-│       ├── browser.rs            # Chrome DevTools Protocol interaction engine
-│       ├── yaml_parser.rs        # YAML deserialization & AST schemas
-│       └── ollama_agent.rs       # Semantic AI Agent loop for offline assertions
 ├── src/
-│   ├── main/                     # Electron Main Process (Modularized)
-│   │   ├── index.ts              # System bootstrap & entrypoint
-│   │   ├── components/           # Window, sidebars, tabs, menu logic
-│   │   │   ├── Window.ts
-│   │   │   ├── Menu.ts
-│   │   │   ├── SideBar.ts
-│   │   │   ├── Tab.ts
-│   │   │   └── TopBar.ts
-│   │   ├── ipc/                  # Main-to-Renderer IPC Bridges
-│   │   │   └── EventManager.ts
-│   │   └── services/             # External integration services
-│   │       └── LLMClient.ts      # Multi-provider chat client (OpenAI, Anthropic, Ollama)
-│   ├── renderer/                 # React UI layer
-│   └── preload/                  # Electron security preloads
+│   ├── browser/                  # Electron Host: Blueberry Browser
+│   │   ├── main/                 # Electron Main Process (Modularized)
+│   │   │   ├── index.ts          # System bootstrap & entrypoint
+│   │   │   ├── components/       # Window, sidebars, tabs, menu logic
+│   │   │   │   ├── Window.ts
+│   │   │   │   ├── Menu.ts
+│   │   │   │   ├── SideBar.ts
+│   │   │   │   ├── Tab.ts
+│   │   │   │   └── TopBar.ts
+│   │   │   ├── ipc/              # Main-to-Renderer IPC Bridges
+│   │   │   │   └── EventManager.ts
+│   │   │   └── services/         # External integration services
+│   │   │       └── LLMClient.ts  # Multi-provider chat client
+│   │   ├── renderer/             # React UI layer
+│   │   └── preload/              # Electron security preloads
+│   ├── code/                     # Rust-based E2E Test Runner (blueberry-core)
+│   │   ├── Cargo.toml            # Rust package manifest
+│   │   └── src/
+│   │       ├── main.rs           # CLI interface, runner, and orchestrator
+│   │       ├── browser.rs        # Chrome DevTools Protocol interaction engine
+│   │       ├── yaml_parser.rs    # YAML deserialization & AST schemas
+│   │       └── ollama_agent.rs   # Semantic AI Agent loop for offline assertions
+│   └── sdk/                      # TypeScript SDK (blueberry-sdk)
+│       ├── package.json          # SDK package manifest
+│       └── src/
+│           └── index.ts          # Programmatic builder API
 ├── AGENTS.md                     # Custom agent developer instructions
 ├── package.json                  # Pinned, non-drifting dependency index
 └── pnpm-workspace.yaml           # Monorepo / local package catalog config

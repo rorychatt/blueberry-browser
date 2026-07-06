@@ -137,5 +137,5 @@ logs/
 
 # Rust / Cargo
 target/
-/blueberry-core/target/
+/src/code/target/
 **/target/

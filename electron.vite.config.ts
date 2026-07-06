@@ -5,6 +5,9 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   main: {
     build: {
+      lib: {
+        entry: resolve(__dirname, "src/browser/main/index.ts"),
+      },
       rollupOptions: {
         external: ["electron"],
       },
@@ -16,8 +19,8 @@ export default defineConfig({
       rollupOptions: {
         external: ["electron"],
         input: {
-          sidebar: resolve(__dirname, "src/preload/sidebar.ts"),
-          topbar: resolve(__dirname, "src/preload/topbar.ts"),
+          sidebar: resolve(__dirname, "src/browser/preload/sidebar.ts"),
+          topbar: resolve(__dirname, "src/browser/preload/topbar.ts"),
         },
       },
     },
@@ -27,19 +30,19 @@ export default defineConfig({
     build: {
       rollupOptions: {
         input: {
-          sidebar: resolve(__dirname, "src/renderer/sidebar/index.html"),
-          topbar: resolve(__dirname, "src/renderer/topbar/index.html"),
+          sidebar: resolve(__dirname, "src/browser/renderer/sidebar/index.html"),
+          topbar: resolve(__dirname, "src/browser/renderer/topbar/index.html"),
         },
       },
     },
     plugins: [react()],
     resolve: {
       alias: {
-        "@common": resolve("src/renderer/common"),
-        "@renderer": resolve("src/renderer/src"),
+        "@common": resolve("src/browser/renderer/common"),
+        "@renderer": resolve("src/browser/renderer/src"),
       },
     },
-    root: "src/renderer",
+    root: "src/browser/renderer",
     server: {
       fs: {
         allow: [".."],
