@@ -182,13 +182,13 @@ const CustomCode: React.FC<React.ComponentProps<"code">> = ({ className, childre
   const inline = !className;
   return inline ? (
     <code
-      className="bg-muted dark:bg-muted/50 px-1 py-0.5 rounded text-sm text-foreground"
+      className="bg-muted dark:bg-muted/50 px-1 py-0.5 rounded text-sm text-foreground whitespace-pre-wrap break-all break-words"
       {...props}
     >
       {children}
     </code>
   ) : (
-    <code className={className} {...props}>
+    <code className={`${className || ""} whitespace-pre-wrap break-all break-words`} {...props}>
       {children}
     </code>
   );
@@ -215,6 +215,7 @@ const Markdown: React.FC<{ content: string }> = ({ content }) => (
                     prose-a:text-primary hover:prose-a:underline
                     prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 
                     prose-code:rounded prose-code:text-sm prose-code:text-foreground
+                    prose-code:whitespace-pre-wrap prose-code:break-all prose-code:break-words
                     prose-pre:bg-muted dark:prose-pre:bg-muted/50 prose-pre:p-3 
                     prose-pre:rounded-lg prose-pre:overflow-x-auto"
   >

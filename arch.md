@@ -6,7 +6,7 @@ Welcome to the **Blueberry Browser** and **Blueberry Playwright** central archit
 
 ## 🗺️ Architectural Ecosystem Overview
 
-Blueberry Browser is a state-of-the-art, AI-native desktop browser and testing platform. The ecosystem integrates an Electron and React desktop application, an offline-first AI core, and a lightweight, high-performance Rust E2E runtime.
+Blueberry Browser is an AI-native desktop browser and testing platform. The ecosystem integrates an Electron and React desktop application, an offline-first AI core, and a lightweight, high-performance Rust E2E runtime.
 
 ```mermaid
 graph TD
@@ -16,8 +16,12 @@ graph TD
     subgraph electron_app [Electron Host: Blueberry Browser]
         BrowserUI -->|React Renderer IPC| MainProcess[Electron Main Process]
         MainProcess -->|IPC Router| EventManager[ipc/EventManager]
-        MainProcess -->|Orchestrates| TabComponent[components/Tab]
-        MainProcess -->|Compiles OpenCode| LLMClient[services/LLMClient]
+        EventManager -->|Delegates to| Handlers[ipc/handlers/*]
+        Handlers -->|Orchestrates| TabComponent[components/Tab]
+        Handlers -->|Loads/Saves Session| SessionManager[services/llm/SessionManager]
+        Handlers -->|Compiles OpenCode| LLMClient[services/LLMClient]
+        LLMClient -->|Resolves Model| ModelManager[services/llm/ModelManager]
+        LLMClient -->|Compiles Prompts| PromptwareCompiler[services/llm/PromptwareCompiler]
         LLMClient -->|Extracts Structure| AccessibilityExtractor[services/AccessibilityExtractor]
         LLMClient -->|Intercepts JSON| BrowserSkills[services/BrowserSkills]
         BrowserSkills -->|Runs Page Actions| TabComponent
@@ -33,7 +37,7 @@ graph TD
 
     subgraph local_env [Local Offline Environment]
         AgentClient -->|HTTP API: /api/generate| LocalOllama[Ollama: opencode]
-        LLMClient -->|Local API / opencode| LocalOllama
+        ModelManager -->|Local API / opencode| LocalOllama
         Interaction -->|Direct WebSockets CDP| HeadlessChrome[Headless / Headful Chrome]
     end
 
@@ -42,7 +46,8 @@ graph TD
     end
 
     subgraph cloud_env [Cloud AI Environment]
-        LLMClient -->|Vercel AI SDK| CloudLLM[OpenAI / Anthropic Cloud APIs]
+        ModelManager -->|Cloud API| CloudLLM[OpenAI / Anthropic Cloud APIs]
+        BrowserUI -->|PCM16 Stream WebSocket| VoiceAPI[Ivy Transcription API]
     end
 ```
 
@@ -62,10 +67,11 @@ The project utilizes **Vite+**—a high-performance, consolidated web developmen
 
 ### 2. Electron Desktop Runtime
 
-- **Electron (v43.0.0)**: Chromium-powered main process environment.
-- **React (v19.2.7) & TypeScript (v6.0.3)**: High-performance React renderer utilizing custom CSS variables and TailwindCSS layers.
-- **TailwindCSS (v4.3.2)**: Integrated via modern CSS-first `@tailwindcss/postcss` for optimal layout styling.
-- **Vercel AI SDK (v7.0.15) & AI Core (`ai`)**: Standardized multi-provider LLM connector.
+- **Electron**: Chromium-powered main process environment.
+- **React & TypeScript**: High-performance React renderer utilizing custom CSS variables.
+- **TailwindCSS**: Integrated for layout styling.
+- **Vercel AI SDK**: Standardized multi-provider LLM connector.
+- **WebSocket PCM16 Transcription**: Direct connection to `wss://tendril-api.ivy.app/transcribe/ws` for streaming voice control.
 
 ### 3. Native Rust Core (`blueberry-core`)
 
@@ -92,64 +98,125 @@ blueberry-browser/
 │   │   │   │   ├── Tab.ts        # Isolation wrapper for webContents
 │   │   │   │   └── TopBar.ts     # Browser frame headers and address controls
 │   │   │   ├── ipc/              # Inter-Process Communication Bridges
-│   │   │   │   └── EventManager.ts # Direct IPC message routing & E2E events
-│   │   │   └── services/         # Core application services
-│   │   │       ├── LLMClient.ts  # System-prompt compiler & streaming LLM router
-│   │   │       ├── AccessibilityExtractor.ts # Client-side DOM outline engine
-│   │   │       └── BrowserSkills.ts          # Page control actions registry
-│   │   ├── renderer/             # React App UI layer (Sidebar, Settings, Frame)
+│   │   │   │   ├── EventManager.ts # Direct IPC message routing & registration
+│   │   │   │   └── handlers/     # Domain-specific IPC handlers
+│   │   │   │       ├── BaseHandler.ts         # Abstract base class
+│   │   │   │       ├── E2ETestHandler.ts      # Test runs, compilation, logging, and reflections
+│   │   │   │       ├── HistoryHandler.ts      # Browsing history IPC bridge
+│   │   │   │       ├── PageContentHandler.ts  # Active tab page extraction IPC
+│   │   │   │       ├── SettingsHandler.ts     # Configuration and shortcut overrides
+│   │   │   │       ├── SidebarHandler.ts      # Sidebar status IPC
+│   │   │   │       ├── TabHandler.ts          # Tab creation and navigation events
+│   │   │   │       └── ThemeHandler.ts        # CSS variables and system/dark mode IPC
+│   │   │   ├── services/         # Core application services
+│   │   │   │   ├── LLMClient.ts  # Master connection wrapper for AI
+│   │   │   │   ├── AccessibilityExtractor.ts # Client-side DOM outline engine
+│   │   │   │   ├── BrowserSkills.ts          # Page control actions registry & agent visuals
+│   │   │   │   ├── HistoryManager.ts         # User browsing history persistence
+│   │   │   │   ├── ChatHistoryManager.ts     # Saved chat sessions persistence
+│   │   │   │   ├── SettingsManager.ts        # User settings and default shortcut options
+│   │   │   │   └── llm/          # Modular LLM Sub-services
+│   │   │   │       ├── ModelManager.ts       # LLM provider (OpenAI, Anthropic, Ollama)
+│   │   │   │       ├── OllamaStreamFilter.ts # Formatting reasoning <think> stream for Ollama
+│   │   │   │       ├── PromptwareCompiler.ts # Compile system prompt, memory files, and skills
+│   │   │   │       └── SessionManager.ts     # Active chat session state tracking and persistence
+│   │   │   └── utils/
+│   │   │       ├── bounds.ts     # Window sizing & layout helpers
+│   │   │       ├── promptware.ts # IPC-level promptware compilation utility functions
+│   │   │       ├── shortcuts.ts  # Keyboard shortcuts register
+│   │   │       └── windowOptions.ts # Base window options descriptor
+│   │   ├── renderer/             # React App UI layer
+│   │   │   ├── common/           # Shared components, hooks, type definitions, and libs
+│   │   │   ├── settings/         # App settings app (SettingsApp.tsx)
+│   │   │   ├── sidebar/          # Sidebar app
+│   │   │   │   └── src/
+│   │   │   │       ├── SidebarApp.tsx  # Sidebar layout router
+│   │   │   │       ├── components/
+│   │   │   │       │   ├── Chat.tsx           # Sidebar AI Chat UI & suggestions panel
+│   │   │   │       │   ├── TestRunner.tsx     # E2E Test execution runner UI
+│   │   │   │       │   └── voice-recorder.ts  # Real-time PCM16 voice capture client
+│   │   │   │       └── contexts/
+│   │   │   │           └── ChatContext.tsx    # App chat provider state
+│   │   │   └── topbar/           # Browser window header address panel
 │   │   └── preload/              # Electron secure bridges and API exposure
 │   ├── promptwares/              # Self-evolving agentic application firmware
 │   │   ├── OpenCode/             # Master browser companion chat loop
 │   │   ├── E2ETest/              # Autonomous test runner loop
 │   │   ├── AssertionAgent/       # Semantic assertion checking module
-│   │   └── ChatCompanion/        # Template-based offline conversational helper
-│   │       ├── Program.md / system_prompt.md  # Immutable agent firmware instructions
-│   │       ├── user_prompt.md                 # Substitutable template triggers
-│   │       ├── memory/                        # Evolving markdown learnings/rules
-│   │       └── logs/                          # Run history and performance logs
-│   ├── code/                     # Rust E2E CLI core (blueberry-core)
-│   │   ├── Cargo.toml            # Rust manifest
-│   │   └── src/
-│   │       ├── main.rs           # CLI interface & subcommand router
-│   │       ├── browser.rs        # Headless Chrome WebSocket controller
-│   │       ├── yaml_parser.rs    # YAML AST schema parser
-│   │       ├── promptware.rs     # Rust promptware compiler & runner
-│   │       └── ollama_agent.rs   # Local Ollama client & assertion loop
-│   └── sdk/                      # TypeScript SDK (blueberry-sdk)
-│       └── src/index.ts          # Programmatic builder interface
-├── AGENTS.md                     # Agent specific instructions & linter definitions
-├── package.json                  # Pinned monorepo index
-└── pnpm-workspace.yaml           # Catalog configurations
+│   │   ├── ChatCompanion/        # Template-based offline conversational helper
+│   │   └── HistoryAgent/         # Context-aware browser assistant suggestions agent
+│   │       ├── system_prompt.md  # Immutable agent firmware instructions
+   │       ├── user_prompt.md    # Substitutable template triggers
+   │       ├── memory/           # Evolving markdown learnings/rules (ignored in git)
+   │       └── logs/             # Run history and performance logs (ignored in git)
+   ├── code/                     # Rust E2E CLI core (blueberry-core)
+   │   ├── Cargo.toml            # Rust manifest
+   │   └── src/
+   │   	├── main.rs           # CLI interface & subcommand router
+   │   	├── browser.rs        # Headless Chrome WebSocket controller
+   │   	├── yaml_parser.rs    # YAML AST schema parser
+   │   	├── promptware.rs     # Rust promptware compiler & runner
+   │   	└── ollama_agent.rs   # Local Ollama client & assertion loop
+   └── sdk/                      # TypeScript SDK (blueberry-sdk)
+       └── src/index.ts          # Programmatic builder interface
+   ├── AGENTS.md                     # Agent specific instructions & linter definitions
+   ├── package.json                  # Pinned monorepo index
+   └── pnpm-workspace.yaml           # Catalog configurations
 ```
+
+### File Links
+
+- Bootstrap Entry: [index.ts](file:///Users/rorychatt/git/rorychatt/blueberry-browser/src/browser/main/index.ts)
+- Electron Main Window: [Window.ts](file:///Users/rorychatt/git/rorychatt/blueberry-browser/src/browser/main/components/Window.ts)
+- Sidebar View Component: [SideBar.ts](file:///Users/rorychatt/git/rorychatt/blueberry-browser/src/browser/main/components/SideBar.ts)
+- Web View Isolation wrapper: [Tab.ts](file:///Users/rorychatt/git/rorychatt/blueberry-browser/src/browser/main/components/Tab.ts)
+- Main Event Manager: [EventManager.ts](file:///Users/rorychatt/git/rorychatt/blueberry-browser/src/browser/main/ipc/EventManager.ts)
+- E2E Test Handler: [E2ETestHandler.ts](file:///Users/rorychatt/git/rorychatt/blueberry-browser/src/browser/main/ipc/handlers/E2ETestHandler.ts)
+- LLM Service Client: [LLMClient.ts](file:///Users/rorychatt/git/rorychatt/blueberry-browser/src/browser/main/services/LLMClient.ts)
+- Model Provider Manager: [ModelManager.ts](file:///Users/rorychatt/git/rorychatt/blueberry-browser/src/browser/main/services/llm/ModelManager.ts)
+- Prompt Compiler: [PromptwareCompiler.ts](file:///Users/rorychatt/git/rorychatt/blueberry-browser/src/browser/main/services/llm/PromptwareCompiler.ts)
+- Chat Session Manager: [SessionManager.ts](file:///Users/rorychatt/git/rorychatt/blueberry-browser/src/browser/main/services/llm/SessionManager.ts)
+- Browser History Persistence Manager: [HistoryManager.ts](file:///Users/rorychatt/git/rorychatt/blueberry-browser/src/browser/main/services/HistoryManager.ts)
+- Chat History Persistence Manager: [ChatHistoryManager.ts](file:///Users/rorychatt/git/rorychatt/blueberry-browser/src/browser/main/services/ChatHistoryManager.ts)
+- Settings Persistence Manager: [SettingsManager.ts](file:///Users/rorychatt/git/rorychatt/blueberry-browser/src/browser/main/services/SettingsManager.ts)
+- Browser Skills & Vignette Injected Visuals: [BrowserSkills.ts](file:///Users/rorychatt/git/rorychatt/blueberry-browser/src/browser/main/services/BrowserSkills.ts)
+- DOM Outliner: [AccessibilityExtractor.ts](file:///Users/rorychatt/git/rorychatt/blueberry-browser/src/browser/main/services/AccessibilityExtractor.ts)
+- Chat Screen Renderer UI: [Chat.tsx](file:///Users/rorychatt/git/rorychatt/blueberry-browser/src/browser/renderer/sidebar/src/components/Chat.tsx)
+- Real-time Voice Capture: [voice-recorder.ts](file:///Users/rorychatt/git/rorychatt/blueberry-browser/src/browser/renderer/sidebar/src/components/voice-recorder.ts)
+- Settings React UI: [SettingsApp.tsx](file:///Users/rorychatt/git/rorychatt/blueberry-browser/src/browser/renderer/settings/src/SettingsApp.tsx)
+- Rust Entrypoint: [main.rs](file:///Users/rorychatt/git/rorychatt/blueberry-browser/src/code/src/main.rs)
+- Rust promptware loop: [promptware.rs](file:///Users/rorychatt/git/rorychatt/blueberry-browser/src/code/src/promptware.rs)
+- TS SDK Index: [index.ts](file:///Users/rorychatt/git/rorychatt/blueberry-browser/src/sdk/src/index.ts)
 
 ---
 
 ## 🧩 The Promptware Framework
 
-A core architectural breakthrough in Blueberry Browser is **Promptwares**—self-contained, "evolving agentic applications" designed to compile dynamically, query local/remote LLMs, record execution logs, and write persistent, self-improving memory reflections.
+**Promptwares** are self-contained, "evolving agentic applications" designed to compile dynamically, query local/remote LLMs, record execution logs, and write persistent, self-improving memory reflections.
 
 ### 1. File Structure of a Promptware Folder
 
-Each promptware folder (e.g. `AssertionAgent`, `E2ETest`, `OpenCode`) operates as an isolated package:
+Each promptware folder (e.g. `AssertionAgent`, `E2ETest`, `OpenCode`, `HistoryAgent`) operates as an isolated package:
 
 1. **Firmware (`system_prompt.md` or `Program.md`)**: The immutable, system-level instructions directing the agent's core capabilities, operating constraints, and expected output format.
 2. **Trigger (`user_prompt.md`)**: A markdown template compiled at runtime, substituting variables wrapped in double-curly braces (e.g., `{{CurrentUrl}}`, `{{Prompt}}`).
-3. **Memory (`memory/*.md`)**: Persistent, user-editable markdown files where the agent reads compiled historical learnings and writes back reflections after each execution loop.
-4. **Logs (`logs/*.md`)**: Dynamic job output transcripts detailing timestamps, extracted parameters, model responses, and actions.
+3. **Memory (`memory/*.md`)**: Persistent, user-editable markdown files where the agent reads compiled historical learnings and writes back reflections after each execution loop. (Ignored in git to prevent constant developer workflow conflicts).
+4. **Logs (`logs/*.md`)**: Dynamic job output transcripts detailing timestamps, extracted parameters, model responses, and actions. (Ignored in git).
 
 ### 2. Compilation and Substitution Pipeline
 
-When a promptware is compiled (by `LLMClient.ts` in JS or `promptware.rs` in Rust):
+When a promptware is compiled (by [PromptwareCompiler.ts](file:///Users/rorychatt/git/rorychatt/blueberry-browser/src/browser/main/services/llm/PromptwareCompiler.ts) in JS or [promptware.rs](file:///Users/rorychatt/git/rorychatt/blueberry-browser/src/code/src/promptware.rs) in Rust):
 
 - The compiler loads the core firmware file.
 - It scans the `memory/` directory, aggregating all accumulated learnings, reflections, and historical rules into the system prompt context.
 - It injects execution-specific headers (e.g., `CurrentTime`, `CurrentUrl`, `PageContent`, `AccessibilityContext`).
-- If required, it substitutes custom markdown placeholders (such as `{{BrowserSkills}}`) with detailed API instructions.
+- If required, it substitutes custom markdown placeholders (such as `{{BrowserSkills}}`) with detailed API instructions parsed from [BrowserSkills.ts](file:///Users/rorychatt/git/rorychatt/blueberry-browser/src/browser/main/services/BrowserSkills.ts).
 
 ---
 
-## 🤖 The Electron Sidebar & OpenCode Master Agent
+## 🤖 The Electron Sidebar & Master Agents
+
+### 1. OpenCode Interactive Chat Loop
 
 The persistent LLM Companion Panel (the Sidebar chat) is orchestrated by the **OpenCode** master browser agent.
 
@@ -172,7 +239,7 @@ The persistent LLM Companion Panel (the Sidebar chat) is orchestrated by the **O
              ```
                          │
                          ▼
-         [EventManager / BrowserSkills] Executes Action
+          [EventManager / BrowserSkills] Executes Action
                          │
                          ▼
         State Changed? ──► YES ──► (Sleep 1.5s) ──► Re-trigger OpenCode Loop!
@@ -180,33 +247,17 @@ The persistent LLM Companion Panel (the Sidebar chat) is orchestrated by the **O
             └──► NO ──► Render final explanation to User
 ````
 
-### 1. AccessibilityExtractor
+- **AccessibilityExtractor**: To feed lightweight but complete DOM context to the agent without exceeding LLM context windows, [AccessibilityExtractor.ts](file:///Users/rorychatt/git/rorychatt/blueberry-browser/src/browser/main/services/AccessibilityExtractor.ts) runs client-side DOM-inspection scripts to build a highly structured, semantic Markdown outline.
+- **BrowserSkills & Dynamic Permissions**: [BrowserSkills.ts](file:///Users/rorychatt/git/rorychatt/blueberry-browser/src/browser/main/services/BrowserSkills.ts) handles the execution of actions parsed from the agent's JSON output. It maps schema parameters to programmatic browser APIs and manages a dynamic permissions gate.
+- **Agent Visuals & Vignette Overlay**: To indicate to the user that the AI is actively controlling the page, [BrowserSkills.ts](file:///Users/rorychatt/git/rorychatt/blueberry-browser/src/browser/main/services/BrowserSkills.ts) injects a glowing border vignette CSS effect (`.blueberry-vignette`), a pulsing agent status badge (`.blueberry-badge`), and draws an animated virtual cursor (`.blueberry-cursor`) matching the target element coordinates.
 
-To feed lightweight but complete DOM context to the agent without exceeding LLM context windows, `AccessibilityExtractor.ts` runs client-side DOM-inspection scripts to build a highly structured, semantic Markdown outline:
+### 2. HistoryAgent suggestions
 
-- **Landmarks & Sections**: Summarizes structural roles (`<nav>`, `<main>`, `<header>`, `section`).
-- **Headings Hierarchy**: Indents headings based on tag level (`H1`, `H2`, `H3`).
-- **Interactive Elements**: Filters for actionable anchors, buttons, inputs, textareas, and inputs with custom roles, appending current state flags (`Disabled`, `Checked`, `Required`) and extracting unique, clean CSS selectors.
+The Suggestions Panel is powered by the **HistoryAgent** promptware. It runs asynchronously in the background when the user navigates:
 
-### 2. BrowserSkills & Dynamic Permissions
-
-`BrowserSkills.ts` handles the execution of actions parsed from the agent's JSON output. It maps schema parameters to programmatic browser APIs and manages a dynamic permissions gate:
-
-| Skill Action     | Description                         | Parameters Schema                                                                      |
-| :--------------- | :---------------------------------- | :------------------------------------------------------------------------------------- |
-| **`open_tab`**   | Opens a new browser tab.            | `url` (optional, string), `activate` (optional, boolean)                               |
-| **`close_tab`**  | Closes a tab by its ID.             | `tabId` (required, string)                                                             |
-| **`switch_tab`** | Activates another tab by its ID.    | `tabId` (required, string)                                                             |
-| **`navigate`**   | Navigates the current tab to a URL. | `url` (required, string)                                                               |
-| **`click`**      | Simulates a physical DOM click.     | `selector` (required, string)                                                          |
-| **`type`**       | Inputs text into a target field.    | `selector` (required, string), `text` (required, string), `submit` (optional, boolean) |
-| **`scroll_to`**  | Scrolls the active viewport.        | `direction` (required: `'up' \| 'down' \| 'top' \| 'bottom'`)                          |
-| **`wait`**       | Sleeps the current thread.          | `ms` (required, number)                                                                |
-| **`go_back`**    | Standard back navigation.           | _(No parameters)_                                                                      |
-| **`go_forward`** | Standard forward navigation.        | _(No parameters)_                                                                      |
-
-> [!TIP]
-> **Dynamic Permissions Gate**: Each skill is registered in a permissions map. If an action's permission is programmatically disabled (e.g., due to user preferences or security profiles), the execution is aborted immediately, returning a standard restriction payload to the agent.
+- Reads the user's local history file (`history.json`) and the current page context.
+- Generates 3-5 suggestions containing contextual search terms or pages to revisit.
+- Returns a structured JSON output with a `reason` and `reflection_title` to summarize user context.
 
 ---
 
@@ -214,7 +265,7 @@ To feed lightweight but complete DOM context to the agent without exceeding LLM 
 
 The localized alternative to Playwright is the compiled `blueberry-core` Rust binary. It parses YAML test plans and supports both classical sequential actions and completely autonomous Promptware-driven E2E loops.
 
-### 1. YAML Parser Schema Layout (`yaml_parser.rs`)
+### 1. YAML Parser Schema Layout ([yaml_parser.rs](file:///Users/rorychatt/git/rorychatt/blueberry-browser/src/code/src/yaml_parser.rs))
 
 Test suites are declared in highly structured YAML configurations. The engine supports two execution branches:
 
@@ -241,7 +292,7 @@ name: "Search Flow Autonomous Agent Test"
 prompt: "Search for Blueberry Browser on Google and verify that the results are loaded correctly"
 ```
 
-### 2. Rust Promptware Run Loop (`promptware::run_e2e_loop`)
+### 2. Rust Promptware Run Loop ([promptware.rs](file:///Users/rorychatt/git/rorychatt/blueberry-browser/src/code/src/promptware.rs))
 
 If a YAML file specifies a global `prompt` instead of a static sequence of `steps`, the Rust runner launches an **Autonomous Agent Loop**:
 
