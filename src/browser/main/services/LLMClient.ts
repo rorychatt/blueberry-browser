@@ -51,6 +51,7 @@ export class LLMClient {
   private readonly sessionManager: SessionManager;
   private currentAbortController: AbortController | null = null;
   private isCancelled = false;
+  private activeActionReject: ((reason: Error) => void) | null = null;
 
   constructor(webContents: WebContents) {
     this.webContents = webContents;
@@ -70,6 +71,10 @@ export class LLMClient {
     if (this.currentAbortController) {
       this.currentAbortController.abort();
       this.currentAbortController = null;
+    }
+    if (this.activeActionReject) {
+      this.activeActionReject(new Error("ExecutionCancelled"));
+      this.activeActionReject = null;
     }
     if (this.window) {
       void BrowserSkills.hideAgentVisuals(this.window);
@@ -523,10 +528,9 @@ export class LLMClient {
               action.reflection,
             );
             console.log(`[LLMClient] Saved learning reflection to memory: ${reflectionFilename}`);
-            this.messages.push({
-              role: "assistant",
-              content: `💡 **Saved learning reflection to memory:** \`${reflectionFilename}\``,
-            });
+
+            // Append the notification directly to the streamed message to avoid grouping issues in Chat.tsx
+            assistantMessage.content = `${accumulatedText.trim()}\n\n💡 **Saved learning reflection to memory:** \`${reflectionFilename}\``;
             this.sendMessagesToRenderer();
           } catch (saveErr) {
             console.error("[LLMClient] Failed to save reflection memory:", saveErr);
@@ -551,7 +555,30 @@ export class LLMClient {
             // Re-show agent visuals in case of navigation or state changes
             void BrowserSkills.showAgentVisuals(this.window);
 
-            const result = await BrowserSkills.executeAction(this.window, action);
+            let result;
+            try {
+              result = await Promise.race([
+                BrowserSkills.executeAction(this.window, action),
+                new Promise<{ success: boolean; message: string; stateChanged: boolean }>(
+                  (_, reject) => {
+                    this.activeActionReject = reject;
+                    // Enforce a timeout of 15 seconds as a safety fallback
+                    setTimeout(
+                      () => reject(new Error("Browser action timed out after 15 seconds.")),
+                      15000,
+                    );
+                  },
+                ),
+              ]);
+            } catch (err) {
+              result = {
+                success: false,
+                message: (err as Error).message,
+                stateChanged: false,
+              };
+            } finally {
+              this.activeActionReject = null;
+            }
 
             this.checkCancellation();
 
