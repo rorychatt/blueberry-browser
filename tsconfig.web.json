@@ -9,16 +9,14 @@
     "src/renderer/sidebar/**/*",
     "src/renderer/sidebar/**/*.tsx",
     "src/renderer/topbar/**/*",
-    "src/renderer/topbar/**/*.tsx",
-    "src/preload/*.d.ts"
+    "src/renderer/topbar/**/*.tsx"
   ],
   "compilerOptions": {
     "composite": true,
     "jsx": "react-jsx",
-    "baseUrl": ".",
     "paths": {
-      "@renderer/*": ["src/renderer/src/*"],
-      "@common/*": ["src/renderer/common/*"]
+      "@renderer/*": ["./src/renderer/src/*"],
+      "@common/*": ["./src/renderer/common/*"]
     }
   }
 }
