@@ -24,20 +24,20 @@ const TabItem: React.FC<TabItemProps> = ({
   onActivate,
 }) => {
   const baseClassName = cn(
-    "relative flex items-center h-8 pl-2 pr-1.5 select-none rounded-md",
+    "relative flex items-center h-8 pl-3.5 pr-2.5 select-none rounded-lg gap-2",
     "text-primary group/tab transition-all duration-200 cursor-pointer",
     "app-region-no-drag", // Make tabs clickable
     isActive
-      ? "bg-background shadow-tab dark:bg-secondary dark:shadow-none"
+      ? "bg-background shadow-tab dark:bg-secondary dark:shadow-none font-medium"
       : "bg-transparent hover:bg-muted/50 dark:hover:bg-muted/30",
-    isPinned ? "w-8 !px-0 justify-center" : "",
+    isPinned ? "w-8 !px-0 justify-center gap-0" : "",
   );
 
   return (
-    <div className="py-1 px-0.5">
+    <div className="py-1">
       <div className={baseClassName} onClick={() => !isActive && onActivate()}>
         {/* Favicon */}
-        <div className={cn(!isPinned && "mr-2")}>
+        <div className="flex-shrink-0 flex items-center">
           <Favicon src={favicon} />
         </div>
 
@@ -88,7 +88,7 @@ export const TabBar: React.FC = () => {
   return (
     <div className="flex-1 overflow-x-hidden flex items-center">
       {/* Tabs */}
-      <div className="flex-1 overflow-x-auto flex">
+      <div className="flex-1 overflow-x-auto flex items-center px-4 gap-2">
         {tabs.map((tab) => (
           <TabItem
             key={tab.id}
@@ -103,7 +103,7 @@ export const TabBar: React.FC = () => {
       </div>
 
       {/* Add Tab Button */}
-      <div className="pl-1 pr-2">
+      <div className="pl-1.5 pr-4">
         <TabBarButton Icon={Plus} onClick={handleCreateTab} />
       </div>
     </div>
