@@ -139,3 +139,8 @@ logs/
 target/
 /src/code/target/
 **/target/
+
+# Promptware runtime logs and memories
+**/promptwares/*/memory/reflection_*.md
+**/promptwares/*/logs/*.md
+**/promptwares/*/logs/job_*.md
