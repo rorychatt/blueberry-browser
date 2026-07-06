@@ -7,7 +7,8 @@ use std::path::Path;
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TestSuite {
     pub name: String,
-    pub steps: Vec<TestStep>,
+    pub steps: Option<Vec<TestStep>>,
+    pub prompt: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

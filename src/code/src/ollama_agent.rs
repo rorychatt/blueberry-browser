@@ -96,4 +96,41 @@ Only output the JSON object. Do not include markdown code blocks or conversation
 
         Ok(agent_resp)
     }
+
+    pub async fn generate_raw(&self, prompt: &str) -> Result<String> {
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(60))
+            .build()?;
+
+        let body = serde_json::json!({
+            "model": self.model,
+            "prompt": prompt,
+            "stream": false,
+            "options": {
+                "temperature": 0.1
+            }
+        });
+
+        let url = format!("{}/api/generate", self.endpoint);
+        
+        let response = client
+            .post(&url)
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| anyhow!("Failed to send request to Ollama ({}): {}. Make sure Ollama is running local.", url, e))?;
+
+        if !response.status().is_success() {
+            return Err(anyhow!("Ollama returned error status: {}", response.status()));
+        }
+
+        let resp_json: serde_json::Value = response.json().await?;
+        let output_text = resp_json["response"]
+            .as_str()
+            .ok_or_else(|| anyhow!("Ollama response did not contain a response text string"))?
+            .trim()
+            .to_string();
+
+        Ok(output_text)
+    }
 }
