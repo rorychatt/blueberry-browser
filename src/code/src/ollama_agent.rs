@@ -23,7 +23,13 @@ impl OllamaAgent {
         Self { endpoint, model }
     }
 
-    pub async fn assert(&self, prompt: &str, page_text: &str) -> Result<AgentResponse> {
+    pub async fn assert(
+        &self,
+        prompt: &str,
+        page_text: &str,
+        console_logs: &str,
+        network_events: &str,
+    ) -> Result<AgentResponse> {
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(180))
             .build()?;
@@ -31,8 +37,8 @@ impl OllamaAgent {
         let mut values = std::collections::HashMap::new();
         values.insert("Assertion".to_string(), prompt.to_string());
         values.insert("PageContent".to_string(), page_text.to_string());
-        values.insert("ConsoleLogs".to_string(), "[]".to_string());
-        values.insert("NetworkEvents".to_string(), "[]".to_string());
+        values.insert("ConsoleLogs".to_string(), console_logs.to_string());
+        values.insert("NetworkEvents".to_string(), network_events.to_string());
 
         let (system, user) =
             crate::promptware::compile_prompt_system_and_user("AssertionAgent", &values)?;

@@ -1,5 +1,5 @@
 name: "API 403 Status Event Test"
 steps:
-  - navigate: "data:text/html,%3C!DOCTYPE%20html%3E%3Chtml%3E%3Chead%3E%3Ctitle%3EAPI%20403%20Test%3C/title%3E%3C/head%3E%3Cbody%3E%3Ch1%3EAPI%20403%20Test%20Page%3C/h1%3E%3Cp%20id=%22status%22%3ESending%20request...%3C/p%3E%3Cscript%3Efetch('https://httpbin.org/status/403').then(res=%3E%7Bdocument.getElementById('status').innerText='Completed:%20'+res.status;%7D).catch(err=%3E%7Bdocument.getElementById('status').innerText='Error:%20'+err.message;%7D);%3C/script%3E%3C/body%3E%3C/html%3E"
+  - navigate: "data:text/html,%3C!DOCTYPE%20html%3E%3Chtml%3E%3Chead%3E%3Ctitle%3EAPI%20403%20Test%3C/title%3E%3C/head%3E%3Cbody%3E%3Ch1%3EAPI%20403%20Test%20Page%3C/h1%3E%3Ciframe%20src=%22https://httpbin.org/status/403%22%3E%3C/iframe%3E%3C/body%3E%3C/html%3E"
   - wait: 2000
   - agent: "Verify that the Network Events section shows a completed request to httpbin.org/status/403 returning status code 403."

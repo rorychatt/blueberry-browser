@@ -70,6 +70,7 @@ export const AddressBar: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isHistoryDropdownOpen, setIsHistoryDropdownOpen] = useState(false);
   const [historyList, setHistoryList] = useState<HistoryEntry[]>([]);
+  const [selectedIndex, setSelectedIndex] = useState<number>(-1);
   const addressBarRef = useRef<HTMLDivElement>(null);
 
   // Update URL when active tab changes
@@ -93,6 +94,8 @@ export const AddressBar: React.FC = () => {
         }
       };
       void fetchHistory();
+    } else {
+      setSelectedIndex(-1);
     }
   }, [isFocused]);
 
@@ -183,8 +186,29 @@ export const AddressBar: React.FC = () => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent | React.KeyboardEvent) => {
     e.preventDefault();
+
+    if (selectedIndex >= 0) {
+      if (selectedIndex < autocompleteSuggestions.length) {
+        const suggestion = autocompleteSuggestions[selectedIndex];
+        void navigateToUrl(suggestion.url);
+        setIsEditing(false);
+        setIsFocused(false);
+        setSelectedIndex(-1);
+        (document.activeElement as HTMLElement)?.blur();
+        return;
+      } else if (url.trim() && selectedIndex === autocompleteSuggestions.length) {
+        const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(url.trim())}`;
+        void navigateToUrl(searchUrl);
+        setIsEditing(false);
+        setIsFocused(false);
+        setSelectedIndex(-1);
+        (document.activeElement as HTMLElement)?.blur();
+        return;
+      }
+    }
+
     if (!url.trim()) {
       return;
     }
@@ -206,22 +230,50 @@ export const AddressBar: React.FC = () => {
     void navigateToUrl(finalUrl);
     setIsEditing(false);
     setIsFocused(false);
+    setSelectedIndex(-1);
     (document.activeElement as HTMLElement)?.blur();
   };
 
   const handleFocus = () => {
     setIsEditing(true);
     setIsFocused(true);
+    setSelectedIndex(-1);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
       setIsEditing(false);
       setIsFocused(false);
+      setSelectedIndex(-1);
       if (activeTab) {
         setUrl(activeTab.url || "");
       }
       (e.target as HTMLInputElement).blur();
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      handleSubmit(e);
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      const totalItems = autocompleteSuggestions.length + (url.trim() ? 1 : 0);
+      if (totalItems > 0) {
+        setSelectedIndex((prev) => {
+          if (prev === totalItems - 1) {
+            return -1;
+          }
+          return prev + 1;
+        });
+      }
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      const totalItems = autocompleteSuggestions.length + (url.trim() ? 1 : 0);
+      if (totalItems > 0) {
+        setSelectedIndex((prev) => {
+          if (prev === -1) {
+            return totalItems - 1;
+          }
+          return prev - 1;
+        });
+      }
     }
   };
 
@@ -304,6 +356,7 @@ export const AddressBar: React.FC = () => {
               value={url}
               onChange={(e) => {
                 setUrl(e.target.value);
+                setSelectedIndex(-1);
               }}
               onFocus={handleFocus}
               onKeyDown={handleKeyDown}
@@ -324,54 +377,73 @@ export const AddressBar: React.FC = () => {
                 "animate-in fade-in slide-in-from-top-1 duration-150 ease-out max-h-64 overflow-y-auto",
               )}
             >
-              {autocompleteSuggestions.map((suggestion) => (
-                <div
-                  key={suggestion.id}
-                  onMouseDown={(e) => e.preventDefault()} // Keep focus on input
-                  onClick={() => {
-                    void navigateToUrl(suggestion.url);
-                    setIsEditing(false);
-                    setIsFocused(false);
-                  }}
-                  className={cn(
-                    "group flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all duration-150",
-                    "hover:bg-muted/60 dark:hover:bg-muted/30 border border-transparent hover:border-border/15 min-w-0",
-                  )}
-                >
-                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                    <div className="size-4 flex-shrink-0 flex items-center justify-center">
-                      <Favicon src={getFaviconUrl(suggestion.url)} />
+              {autocompleteSuggestions.map((suggestion, idx) => {
+                const isSelected = idx === selectedIndex;
+                return (
+                  <div
+                    key={suggestion.id}
+                    onMouseDown={(e) => e.preventDefault()} // Keep focus on input
+                    onClick={() => {
+                      void navigateToUrl(suggestion.url);
+                      setIsEditing(false);
+                      setIsFocused(false);
+                      setSelectedIndex(-1);
+                    }}
+                    className={cn(
+                      "group flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all duration-150",
+                      "border border-transparent min-w-0",
+                      isSelected
+                        ? "bg-primary/10 dark:bg-primary/20 border-primary/25 dark:border-primary/45 shadow-sm"
+                        : "hover:bg-muted/60 dark:hover:bg-muted/30 hover:border-border/15",
+                    )}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <div className="size-4 flex-shrink-0 flex items-center justify-center">
+                        <Favicon src={getFaviconUrl(suggestion.url)} />
+                      </div>
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <span
+                          className={cn(
+                            "text-xs font-semibold truncate text-foreground transition-colors",
+                            isSelected ? "text-primary" : "group-hover:text-primary",
+                          )}
+                        >
+                          {suggestion.title || "Untitled Page"}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground/70 truncate">
+                          {suggestion.url}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex flex-col min-w-0 flex-1">
-                      <span className="text-xs font-semibold truncate text-foreground group-hover:text-primary transition-colors">
-                        {suggestion.title || "Untitled Page"}
+                    <div className="flex items-center ml-2 flex-shrink-0 relative w-12 h-5 justify-end">
+                      <span
+                        className={cn(
+                          "text-[9px] px-1.5 py-0.5 rounded bg-muted dark:bg-muted/50 text-muted-foreground font-semibold tracking-wide transition-opacity duration-150",
+                          isSelected ? "opacity-100" : "group-hover:opacity-0",
+                        )}
+                      >
+                        History
                       </span>
-                      <span className="text-[10px] text-muted-foreground/70 truncate">
-                        {suggestion.url}
-                      </span>
+                      <button
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        onClick={(e) => handleDeleteHistoryEntry(e, suggestion.id)}
+                        className={cn(
+                          "absolute right-0 p-0.5 rounded-md text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10",
+                          isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+                          "transition-all duration-150 cursor-pointer",
+                        )}
+                        title="Remove from history"
+                      >
+                        <X className="size-3.5" />
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center ml-2 flex-shrink-0 relative w-12 h-5 justify-end">
-                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-muted dark:bg-muted/50 text-muted-foreground font-semibold tracking-wide group-hover:opacity-0 transition-opacity duration-150">
-                      History
-                    </span>
-                    <button
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                      }}
-                      onClick={(e) => handleDeleteHistoryEntry(e, suggestion.id)}
-                      className={cn(
-                        "absolute right-0 p-0.5 rounded-md text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10",
-                        "opacity-0 group-hover:opacity-100 transition-all duration-150 cursor-pointer",
-                      )}
-                      title="Remove from history"
-                    >
-                      <X className="size-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
 
               {/* Search Query Option */}
               {url.trim() && (
@@ -382,10 +454,14 @@ export const AddressBar: React.FC = () => {
                     void navigateToUrl(searchUrl);
                     setIsEditing(false);
                     setIsFocused(false);
+                    setSelectedIndex(-1);
                   }}
                   className={cn(
                     "group flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all duration-150",
-                    "hover:bg-muted/60 dark:hover:bg-muted/30 border border-transparent hover:border-border/15 min-w-0 mt-0.5 border-t border-border/10 pt-2",
+                    "border border-transparent min-w-0 mt-0.5 border-t border-border/10 pt-2",
+                    selectedIndex === autocompleteSuggestions.length
+                      ? "bg-primary/10 dark:bg-primary/20 border-primary/25 dark:border-primary/45 shadow-sm"
+                      : "hover:bg-muted/60 dark:hover:bg-muted/30 hover:border-border/15",
                   )}
                 >
                   <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -393,7 +469,14 @@ export const AddressBar: React.FC = () => {
                       <Search className="size-3.5" />
                     </div>
                     <div className="flex flex-col min-w-0 flex-1">
-                      <span className="text-xs font-semibold truncate text-foreground group-hover:text-primary transition-colors">
+                      <span
+                        className={cn(
+                          "text-xs font-semibold truncate text-foreground transition-colors",
+                          selectedIndex === autocompleteSuggestions.length
+                            ? "text-primary"
+                            : "group-hover:text-primary",
+                        )}
+                      >
                         Search Google for &quot;{url}&quot;
                       </span>
                     </div>

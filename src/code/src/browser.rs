@@ -1,18 +1,44 @@
 use anyhow::{Result, anyhow};
 use headless_chrome::{Browser, LaunchOptions, Tab};
-use std::sync::Arc;
+use headless_chrome::protocol::cdp::types::Event;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use chrono::Utc;
+use serde::Serialize;
+
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct E2EConsoleLog {
+    pub level: String,
+    pub message: String,
+    pub line: u32,
+    pub source_id: String,
+    pub timestamp: String,
+}
+
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct E2ENetworkEvent {
+    pub method: String,
+    pub url: String,
+    pub status_code: u16,
+    pub timestamp: String,
+}
 
 pub struct BrowserEngine {
     _browser: Browser,
     tab: Arc<Tab>,
+    console_logs: Arc<Mutex<Vec<E2EConsoleLog>>>,
+    network_events: Arc<Mutex<Vec<E2ENetworkEvent>>>,
 }
 
 impl BrowserEngine {
     pub fn new(headless: bool) -> Result<Self> {
+        let args = vec![std::ffi::OsStr::new("--disable-web-security")];
         let launch_options = LaunchOptions {
             headless,
             window_size: Some((1280, 800)),
+            args,
             ..Default::default()
         };
 
@@ -23,10 +49,85 @@ impl BrowserEngine {
             .new_tab()
             .map_err(|e| anyhow!("Failed to open new tab: {}", e))?;
 
+        // Enable domains to capture console logs and network events
+        tab.enable_log()?;
+        tab.enable_runtime()?;
+        tab.call_method(headless_chrome::protocol::cdp::Network::Enable {
+            max_total_buffer_size: None,
+            max_resource_buffer_size: None,
+            max_post_data_size: None,
+            report_direct_socket_traffic: None,
+            enable_durable_messages: None,
+        })?;
+
+        let console_logs = Arc::new(Mutex::new(Vec::new()));
+        let network_events = Arc::new(Mutex::new(Vec::new()));
+
+        let console_logs_clone = Arc::clone(&console_logs);
+        let network_events_clone = Arc::clone(&network_events);
+
+        tab.add_event_listener(Arc::new(move |event: &Event| {
+            match event {
+                Event::RuntimeConsoleAPICalled(params) => {
+                    let level = format!("{:?}", params.params.Type).to_lowercase();
+                    let message = params.params.args.iter()
+                        .map(|arg| {
+                            arg.value.as_ref()
+                                .map(|v| {
+                                    if let serde_json::Value::String(s) = v {
+                                        s.clone()
+                                    } else {
+                                        v.to_string()
+                                    }
+                                })
+                                .unwrap_or_default()
+                        })
+                        .collect::<Vec<String>>()
+                        .join(" ");
+
+                    let timestamp = Utc::now().to_rfc3339();
+                    let mut logs = console_logs_clone.lock().unwrap();
+                    logs.push(E2EConsoleLog {
+                        level,
+                        message,
+                        line: 0,
+                        source_id: "unknown".to_string(),
+                        timestamp,
+                    });
+                }
+                Event::NetworkResponseReceived(params) => {
+                    let url = params.params.response.url.clone();
+                    let status_code = params.params.response.status as u16;
+                    let timestamp = Utc::now().to_rfc3339();
+
+                    let mut events = network_events_clone.lock().unwrap();
+                    events.push(E2ENetworkEvent {
+                        method: "GET".to_string(),
+                        url,
+                        status_code,
+                        timestamp,
+                    });
+                }
+                _ => {}
+            }
+        }))?;
+
         Ok(Self {
             _browser: browser,
             tab,
+            console_logs,
+            network_events,
         })
+    }
+
+    pub fn get_console_logs_json(&self) -> String {
+        let logs = self.console_logs.lock().unwrap();
+        serde_json::to_string_pretty(&*logs).unwrap_or_else(|_| "[]".to_string())
+    }
+
+    pub fn get_network_events_json(&self) -> String {
+        let events = self.network_events.lock().unwrap();
+        serde_json::to_string_pretty(&*events).unwrap_or_else(|_| "[]".to_string())
     }
 
     pub async fn navigate(&self, url: &str) -> Result<()> {

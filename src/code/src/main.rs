@@ -192,7 +192,10 @@ async fn main() -> Result<()> {
                             }
                         };
 
-                        match agent.assert(prompt, &text_content).await {
+                        let console_logs_json = browser.get_console_logs_json();
+                        let network_events_json = browser.get_network_events_json();
+
+                        match agent.assert(prompt, &text_content, &console_logs_json, &network_events_json).await {
                             Ok(response) => {
                                 if response.success {
                                     println!("✓ ({:?})", step_start.elapsed());
@@ -252,7 +255,7 @@ async fn main() -> Result<()> {
             };
 
             let agent = OllamaAgent::new();
-            match agent.assert(&prompt, &context).await {
+            match agent.assert(&prompt, &context, "[]", "[]").await {
                 Ok(resp) => {
                     println!("Status: {}", if resp.success { "PASSED" } else { "FAILED" });
                     println!("Reason: {}", resp.reason);
