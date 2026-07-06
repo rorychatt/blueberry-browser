@@ -197,7 +197,7 @@ steps:
   const currentTest = tests.find((t) => t.filename === selectedFilename);
 
   return (
-    <div className="flex flex-col h-full bg-background overflow-hidden animate-fade-in">
+    <div className="flex flex-col h-full bg-transparent overflow-hidden animate-fade-in">
       {/* Test Selector Dropdown header */}
       <div className="p-4 border-b border-border bg-card/30 backdrop-blur-md flex items-center justify-between gap-2 relative">
         <div className="relative flex-1" ref={dropdownRef}>

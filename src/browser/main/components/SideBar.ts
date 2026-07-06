@@ -47,13 +47,12 @@ export class SideBar {
       return;
     }
     const bounds = this.baseWindow.getContentBounds();
-    const GAP = 8;
     if (this.isVisible) {
       this.webContentsView.setBounds({
-        height: bounds.height - 88 - 2 * GAP, // Subtract topbar height and vertical margins
-        width: 400 - GAP, // Leave GAP on the right side of the sidebar
-        x: bounds.width - 400, // Starts at bounds.width - 400, leaving GAP on the right (ends at bounds.width - GAP)
-        y: 88 + GAP, // Start below the topbar with a gap
+        height: bounds.height - 88, // Subtract topbar height
+        width: 400, // Take full 400px width
+        x: bounds.width - 400, // Sits exactly next to the tab view
+        y: 88, // Start below the topbar
       });
     } else {
       this.webContentsView.setBounds({

@@ -50,8 +50,10 @@ const SidebarContent: React.FC = () => {
       </div>
 
       {/* Main Tab Panels */}
-      <div className="flex-1 overflow-hidden min-h-0">
-        {activeTab === "chat" ? <Chat /> : <TestRunner />}
+      <div className="flex-1 overflow-hidden min-h-0 px-3 pb-3">
+        <div className="h-full rounded-xl border border-border/40 bg-background dark:bg-card/25 shadow-sm overflow-hidden">
+          {activeTab === "chat" ? <Chat /> : <TestRunner />}
+        </div>
       </div>
     </div>
   );

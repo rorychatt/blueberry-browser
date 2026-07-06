@@ -301,7 +301,7 @@ export const Chat: React.FC = () => {
   const showLoadingAfterLastTurn = isLoading && messages.at(-1)?.role === "user";
 
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div className="flex flex-col h-full bg-transparent">
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto">
         <div className="h-8 max-w-3xl mx-auto px-4">
