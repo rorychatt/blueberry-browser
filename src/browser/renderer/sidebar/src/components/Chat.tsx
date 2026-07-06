@@ -114,10 +114,10 @@ const Markdown: React.FC<{ content: string }> = ({ content }) => (
 );
 
 // Assistant Message Component - appears on the left
-const AssistantMessage: React.FC<{ content: string; isStreaming?: boolean }> = ({
-  content,
-  isStreaming,
-}) => (
+const AssistantMessage: React.FC<{
+  content: string;
+  isStreaming?: boolean;
+}> = ({ content, isStreaming }) => (
   <div className="relative w-full animate-fade-in">
     <div className="py-1">
       {isStreaming ? <StreamingText content={content} /> : <Markdown content={content} />}

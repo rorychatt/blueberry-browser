@@ -292,7 +292,10 @@ export class EventManager {
         // Sanitize filename to prevent directory traversal
         const safeName = path.basename(filename);
         if (!safeName.endsWith(".yaml") && !safeName.endsWith(".yml")) {
-          return { error: "Filename must end with .yaml or .yml", success: false };
+          return {
+            error: "Filename must end with .yaml or .yml",
+            success: false,
+          };
         }
         await fs.writeFile(path.join(testsDir, safeName), content, "utf8");
         return { success: true };
@@ -395,7 +398,10 @@ export class EventManager {
 
     ipcMain.handle("run-e2e-test-in-browser", async (_, filename: string) => {
       const log = (type: "stdout" | "stderr" | "system", text: string) => {
-        this.mainWindow.sidebar.view.webContents.send("e2e-test-log", { text, type });
+        this.mainWindow.sidebar.view.webContents.send("e2e-test-log", {
+          text,
+          type,
+        });
       };
 
       try {

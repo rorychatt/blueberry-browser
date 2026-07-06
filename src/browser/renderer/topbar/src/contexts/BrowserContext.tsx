@@ -181,6 +181,20 @@ export const BrowserProvider: React.FC<{ children: React.ReactNode }> = ({ child
     void refreshTabs();
   }, [refreshTabs]);
 
+  // Listen for tab updates from main process
+  useEffect(() => {
+    if (window.electron) {
+      const handleTabsUpdated = () => {
+        void refreshTabs();
+      };
+      window.electron.ipcRenderer.on("tabs-updated", handleTabsUpdated);
+      return () => {
+        window.electron.ipcRenderer.removeListener("tabs-updated", handleTabsUpdated);
+      };
+    }
+    return undefined;
+  }, [refreshTabs]);
+
   // Periodic refresh to keep tabs in sync
   useEffect(() => {
     const interval = setInterval(refreshTabs, 2000); // Refresh every 2 seconds

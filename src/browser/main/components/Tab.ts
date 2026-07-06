@@ -7,11 +7,13 @@ export class Tab {
   private _title: string;
   private _url: string;
   private _isVisible: boolean = false;
+  private readonly onUpdate?: () => void;
 
-  constructor(id: string, url: string = "https://www.google.com") {
+  constructor(id: string, url: string = "https://www.google.com", onUpdate?: () => void) {
     this._id = id;
     this._url = url;
     this._title = "New Tab";
+    this.onUpdate = onUpdate;
 
     // Create the WebContentsView for web content only
     this.webContentsView = new WebContentsView({
@@ -34,15 +36,18 @@ export class Tab {
     // Update title when page title changes
     this.webContentsView.webContents.on("page-title-updated", (_, title) => {
       this._title = title;
+      this.onUpdate?.();
     });
 
     // Update URL when navigation occurs
     this.webContentsView.webContents.on("did-navigate", (_, url) => {
       this._url = url;
+      this.onUpdate?.();
     });
 
     this.webContentsView.webContents.on("did-navigate-in-page", (_, url) => {
       this._url = url;
+      this.onUpdate?.();
     });
   }
 

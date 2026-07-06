@@ -103,7 +103,9 @@ export class Blueberry {
       console.log(`Running Blueberry E2E engine command: ${command}`);
       const stdout = execSync(command, { stdio: "inherit" });
     } catch (error) {
-      throw new Error(`Blueberry Playwright execution failed: ${error}`, { cause: error });
+      throw new Error(`Blueberry Playwright execution failed: ${error}`, {
+        cause: error,
+      });
     } finally {
       // Clean up the temp YAML file
       if (fs.existsSync(tempFilePath)) {

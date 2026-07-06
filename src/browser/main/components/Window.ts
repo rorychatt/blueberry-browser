@@ -1,4 +1,4 @@
-import { BaseWindow, shell } from "electron";
+import { BaseWindow, shell, WebContents } from "electron";
 import { Tab } from "./Tab";
 import { TopBar } from "./TopBar";
 import { SideBar } from "./SideBar";
@@ -17,6 +17,7 @@ export class Window {
       width: 1000,
       height: 800,
       show: true,
+      backgroundColor: "#18181b",
       autoHideMenuBar: false,
       titleBarStyle: "hidden",
       ...(process.platform === "darwin" ? {} : { titleBarOverlay: true }),
@@ -27,6 +28,10 @@ export class Window {
 
     this._topBar = new TopBar(this._baseWindow);
     this._sideBar = new SideBar(this._baseWindow);
+
+    // Register standard shortcuts on TopBar and SideBar
+    this.registerKeyboardShortcuts(this._topBar.view.webContents);
+    this.registerKeyboardShortcuts(this._sideBar.view.webContents);
 
     // Set the window reference on the LLM client to avoid circular dependency
     this._sideBar.client.setWindow(this);
@@ -40,7 +45,7 @@ export class Window {
       this._topBar.updateBounds();
       this._sideBar.updateBounds();
       // Notify renderer of resize through active tab
-      const bounds = this._baseWindow.getBounds();
+      const bounds = this._baseWindow.getContentBounds();
       if (this.activeTab) {
         this.activeTab.webContents.send("window-resized", {
           height: bounds.height,
@@ -93,19 +98,23 @@ export class Window {
   // Tab management methods
   createTab(url?: string): Tab {
     const tabId = `tab-${++this.tabCounter}`;
-    const tab = new Tab(tabId, url);
+    const tab = new Tab(tabId, url, () => this.notifyTabsUpdated());
+
+    // Register standard shortcuts on the tab
+    this.registerKeyboardShortcuts(tab.webContents);
 
     // Add the tab's WebContentsView to the window
     this._baseWindow.contentView.addChildView(tab.view);
 
     // Set the bounds to fill the window below the topbar and to the left of sidebar
-    const bounds = this._baseWindow.getBounds();
+    const bounds = this._baseWindow.getContentBounds();
     const sidebarWidth = this._sideBar.getIsVisible() ? 400 : 0;
+    const GAP = 8;
     tab.view.setBounds({
-      height: bounds.height - 88, // Subtract topbar height
-      width: bounds.width - sidebarWidth, // Subtract sidebar width if visible
-      x: 0,
-      y: 88, // Start below the topbar
+      height: bounds.height - 88 - 2 * GAP, // Subtract topbar height and vertical margins
+      width: bounds.width - sidebarWidth - (sidebarWidth > 0 ? 2 * GAP : 2 * GAP), // Symmetrical gutters on sides
+      x: GAP,
+      y: 88 + GAP, // Start below the topbar with a gap
     });
 
     // Store the tab
@@ -119,6 +128,7 @@ export class Window {
       tab.hide();
     }
 
+    this.notifyTabsUpdated();
     return tab;
   }
 
@@ -126,6 +136,12 @@ export class Window {
     const tab = this.tabsMap.get(tabId);
     if (!tab) {
       return false;
+    }
+
+    // If this is the last remaining tab, create a new tab first
+    // to prevent the browser window from closing.
+    if (this.tabsMap.size === 1) {
+      this.createTab();
     }
 
     // Remove the WebContentsView from the window
@@ -146,9 +162,11 @@ export class Window {
       }
     }
 
-    // If no tabs left, close the window
+    // If no tabs left, close the window (fallback check)
     if (this.tabsMap.size === 0) {
       this._baseWindow.close();
+    } else {
+      this.notifyTabsUpdated();
     }
 
     return true;
@@ -175,6 +193,7 @@ export class Window {
     // Update the window title to match the tab title
     this._baseWindow.setTitle(tab.title || "Blueberry Browser");
 
+    this.notifyTabsUpdated();
     return true;
   }
 
@@ -229,19 +248,20 @@ export class Window {
 
   // Handle window resize to update tab bounds
   private updateTabBounds(): void {
-    const bounds = this._baseWindow.getBounds();
+    const bounds = this._baseWindow.getContentBounds();
     // Only subtract sidebar width if it's visible
     const sidebarWidth = this._sideBar.getIsVisible() ? 400 : 0;
+    const GAP = 8;
 
     this.tabsMap.forEach((tab) => {
       if (tab.view.webContents.isDestroyed()) {
         return;
       }
       tab.view.setBounds({
-        height: bounds.height - 88, // Subtract topbar height
-        width: bounds.width - sidebarWidth,
-        x: 0,
-        y: 88, // Start below the topbar
+        height: bounds.height - 88 - 2 * GAP, // Subtract topbar height and margins
+        width: bounds.width - sidebarWidth - (sidebarWidth > 0 ? 2 * GAP : 2 * GAP),
+        x: GAP,
+        y: 88 + GAP, // Start below the topbar with a gap
       });
     });
   }
@@ -270,5 +290,81 @@ export class Window {
   // Getter for baseWindow to access from Menu
   get baseWindow(): BaseWindow {
     return this._baseWindow;
+  }
+
+  // Notify topbar that tabs have been updated
+  notifyTabsUpdated(): void {
+    if (this._topBar && !this._topBar.view.webContents.isDestroyed()) {
+      this._topBar.view.webContents.send("tabs-updated");
+    }
+  }
+
+  // Register standard keyboard shortcuts on a WebContents
+  registerKeyboardShortcuts(webContents: WebContents): void {
+    webContents.on("before-input-event", (event, input) => {
+      if (input.type !== "keyDown") return;
+
+      const isCmdOrCtrl = process.platform === "darwin" ? input.meta : input.control;
+
+      // CMD+T / CTRL+T: New Tab
+      if (isCmdOrCtrl && input.key.toLowerCase() === "t") {
+        event.preventDefault();
+        this.createTab();
+        return;
+      }
+
+      // CMD+W / CTRL+W: Close Tab
+      if (isCmdOrCtrl && input.key.toLowerCase() === "w") {
+        event.preventDefault();
+        if (this.activeTab) {
+          this.closeTab(this.activeTab.id);
+        }
+        return;
+      }
+
+      // CMD+R / CTRL+R: Reload
+      if (isCmdOrCtrl && input.key.toLowerCase() === "r" && !input.shift) {
+        event.preventDefault();
+        if (this.activeTab) {
+          this.activeTab.reload();
+        }
+        return;
+      }
+
+      // CMD+SHIFT+R / CTRL+SHIFT+R: Force Reload
+      if (isCmdOrCtrl && input.key.toLowerCase() === "r" && input.shift) {
+        event.preventDefault();
+        if (this.activeTab) {
+          this.activeTab.webContents.reloadIgnoringCache();
+        }
+        return;
+      }
+
+      // CMD+E / CTRL+E: Toggle Sidebar
+      if (isCmdOrCtrl && input.key.toLowerCase() === "e") {
+        event.preventDefault();
+        this.sidebar.toggle();
+        this.updateAllBounds();
+        return;
+      }
+
+      // CMD+LEFT / CTRL+LEFT or ALT+LEFT: Go Back
+      if ((isCmdOrCtrl || input.alt) && input.key === "ArrowLeft") {
+        if (this.activeTab) {
+          event.preventDefault();
+          this.activeTab.goBack();
+        }
+        return;
+      }
+
+      // CMD+RIGHT / CTRL+RIGHT or ALT+RIGHT: Go Forward
+      if ((isCmdOrCtrl || input.alt) && input.key === "ArrowRight") {
+        if (this.activeTab) {
+          event.preventDefault();
+          this.activeTab.goForward();
+        }
+        return;
+      }
+    });
   }
 }
