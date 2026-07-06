@@ -386,6 +386,16 @@ export class E2ETestHandler extends BaseHandler {
               log("stdout", `     💡 Saved learning reflection to memory: ${reflectionFilename}\n`);
             }
 
+            // Log execution details
+            const assertionJobId = `job_${new Date()
+              .toISOString()
+              .replace(/[-:T.]/g, "")
+              .slice(0, 15)}`;
+            const assertionLogContent = `# AssertionAgent Execution Log\n\n- **Job ID**: ${assertionJobId}\n- **Timestamp**: ${new Date().toISOString()}\n- **Assertion**: ${step.prompt}\n\n## System Prompt\n\n\`\`\`\n${compiled.system}\n\`\`\`\n\n## User Prompt\n\n\`\`\`\n${compiled.user}\n\`\`\`\n\n## Assistant Response (Raw)\n\n\`\`\`json\n${responseText}\n\`\`\`\n`;
+            void writeLog("AssertionAgent", assertionJobId, assertionLogContent).catch((err) => {
+              console.error("Failed to write AssertionAgent log:", err);
+            });
+
             if (parsedRes.success) {
               log("stdout", `✓ Agent Assertion Passed!\n     AI Reason: ${parsedRes.reason}\n`);
             } else {

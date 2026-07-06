@@ -10,6 +10,7 @@ import type { Window } from "../components/Window";
 import { AccessibilityExtractor } from "./AccessibilityExtractor";
 import { BrowserSkills } from "./BrowserSkills";
 import { ChatHistoryManager } from "./ChatHistoryManager";
+import { writeLog } from "../utils/promptware";
 
 // Load environment variables from .env file
 dotenv.config({ path: join(__dirname, "../../src/.env") });
@@ -39,6 +40,21 @@ const DEFAULT_MODELS: Record<LLMProvider, string> = {
 
 const MAX_CONTEXT_LENGTH = 4000;
 const DEFAULT_TEMPERATURE = 0.7;
+
+const formatMessageContent = (content: ModelMessage["content"]): string => {
+  if (typeof content === "string") {
+    return content;
+  }
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => {
+        if (part.type === "text") return part.text;
+        return JSON.stringify(part);
+      })
+      .join("\n");
+  }
+  return JSON.stringify(content);
+};
 
 export class LLMClient {
   private readonly webContents: WebContents;
@@ -602,7 +618,7 @@ ${programMd}
         temperature: DEFAULT_TEMPERATURE,
       });
 
-      await this.processStream(result.textStream, messageId, controller);
+      await this.processStream(result.textStream, messageId, controller, system);
     } catch (error) {
       console.error("[LLMClient] Error during text streaming:", error);
       throw error;
@@ -613,6 +629,7 @@ ${programMd}
     textStream: AsyncIterable<string>,
     messageId: string,
     controller: AbortController,
+    system: string,
   ): Promise<void> {
     let accumulatedText = "";
 
@@ -679,6 +696,19 @@ ${programMd}
         `[LLMClient] Stream completed successfully in ${duration}ms ` +
           `(${chunkCount} chunks, length: ${accumulatedText.length} characters)`,
       );
+
+      // Log execution details
+      const jobId = `job_${new Date()
+        .toISOString()
+        .replace(/[-:T.]/g, "")
+        .slice(0, 15)}_${messageId}`;
+      const messagesStr = this.messages
+        .map((m) => `### ${m.role}\n\n${formatMessageContent(m.content)}`)
+        .join("\n\n");
+      const logContent = `# OpenCode Agent Execution Log\n\n- **Job ID**: ${jobId}\n- **Timestamp**: ${new Date().toISOString()}\n- **Provider**: ${this.provider}\n- **Model**: ${this.modelName}\n- **Duration**: ${duration}ms\n\n## System Prompt\n\n\`\`\`\n${system}\n\`\`\`\n\n## Messages / Conversation\n\n${messagesStr}\n\n## Assistant Response (Raw)\n\n\`\`\`\n${accumulatedText}\n\`\`\`\n`;
+      void writeLog("OpenCode", jobId, logContent).catch((err) => {
+        console.error("Failed to write OpenCode log:", err);
+      });
     } catch (err) {
       if (controller.signal.aborted) {
         throw new Error(
@@ -748,11 +778,12 @@ ${programMd}
               void BrowserSkills.showAgentVisuals(this.window);
 
               // Prepare messages with fresh context and trigger stream
-              const { system, messages } = await this.prepareMessagesWithContext({
-                message: "Continue executing your plan based on the updated page context.",
-                messageId: `${messageId}-rerun`,
-              });
-              await this.streamResponse(messages, system, `${messageId}-rerun`);
+              const { system: rerunSystem, messages: rerunMessages } =
+                await this.prepareMessagesWithContext({
+                  message: "Continue executing your plan based on the updated page context.",
+                  messageId: `${messageId}-rerun`,
+                });
+              await this.streamResponse(rerunMessages, rerunSystem, `${messageId}-rerun`);
             } else {
               // Action succeeded but did not change state, or failed -> hide visuals
               void BrowserSkills.hideAgentVisuals(this.window);

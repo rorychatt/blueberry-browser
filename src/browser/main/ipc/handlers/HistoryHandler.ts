@@ -1,7 +1,11 @@
 import { ipcMain } from "electron";
 import { BaseHandler } from "./BaseHandler";
 import { HistoryManager, type HistoryEntry } from "../../services/HistoryManager";
-import { compilePromptwareSystemAndUser, saveReflectionMemory } from "../../utils/promptware";
+import {
+  compilePromptwareSystemAndUser,
+  saveReflectionMemory,
+  writeLog,
+} from "../../utils/promptware";
 export class HistoryHandler extends BaseHandler {
   public register(): void {
     // Get complete browsing history
@@ -128,6 +132,16 @@ export class HistoryHandler extends BaseHandler {
               parsedRes.reflection,
             );
           }
+
+          // Log execution details
+          const suggestionsJobId = `job_${new Date()
+            .toISOString()
+            .replace(/[-:T.]/g, "")
+            .slice(0, 15)}`;
+          const suggestionsLogContent = `# HistoryAgent Execution Log\n\n- **Job ID**: ${suggestionsJobId}\n- **Timestamp**: ${new Date().toISOString()}\n- **Endpoint**: ${endpoint}\n- **Model**: ${model}\n\n## System Prompt\n\n\`\`\`\n${compiled.system}\n\`\`\`\n\n## User Prompt\n\n\`\`\`\n${compiled.user}\n\`\`\`\n\n## Assistant Response (Raw)\n\n\`\`\`json\n${responseText}\n\`\`\`\n`;
+          void writeLog("HistoryAgent", suggestionsJobId, suggestionsLogContent).catch((err) => {
+            console.error("Failed to write HistoryAgent log:", err);
+          });
 
           return { suggestions: parsedRes.suggestions || [] };
         } catch (error) {
