@@ -63,6 +63,7 @@ export interface SidebarAPI {
 }
 
 export interface TopBarAPI {
+  platform: string;
   // Tab management
   createTab: (url?: string) => Promise<{ id: string; title: string; url: string } | null>;
   closeTab: (tabId: string) => Promise<boolean>;

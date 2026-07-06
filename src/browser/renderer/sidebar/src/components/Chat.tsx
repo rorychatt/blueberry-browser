@@ -129,22 +129,37 @@ const AssistantMessage: React.FC<{ content: string; isStreaming?: boolean }> = (
   </div>
 );
 
+const LOADING_PHASES = ["Thinking...", "Reading context...", "Tinkering..."];
+
 // Loading Indicator with spinning star
 const LoadingIndicator: React.FC = () => {
   const [isVisible, setIsVisible] = useState(false);
+  const [phase, setPhase] = useState(0);
 
   useEffect(() => {
     setIsVisible(true);
+    const interval = setInterval(() => {
+      setPhase((prev) => (prev + 1) % LOADING_PHASES.length);
+    }, 2000);
+    return () => clearInterval(interval);
   }, []);
 
   return (
     <div
       className={cn(
-        "transition-transform duration-300 ease-in-out",
-        isVisible ? "scale-100" : "scale-0",
+        "flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-muted/50 dark:bg-muted/10 border border-border/20 backdrop-blur-sm shadow-sm transition-all duration-300 ease-in-out w-fit animate-fade-in",
+        isVisible ? "scale-100 opacity-100" : "scale-95 opacity-0",
       )}
     >
-      ...
+      <div className="relative flex items-center justify-center size-5">
+        <span className="absolute inline-flex h-full w-full rounded-full bg-primary/20 animate-ping opacity-75" />
+        <div className="size-3.5 rounded-full bg-primary animate-pulse flex items-center justify-center">
+          <span className="text-[10px]">🫐</span>
+        </div>
+      </div>
+      <span className="text-xs font-semibold text-muted-foreground transition-all duration-300">
+        {LOADING_PHASES[phase]}
+      </span>
     </div>
   );
 };

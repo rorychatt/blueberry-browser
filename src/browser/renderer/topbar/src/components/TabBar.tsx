@@ -68,6 +68,16 @@ const TabItem: React.FC<TabItemProps> = ({
   );
 };
 
+// Extract favicon from URL (simplified - you might want to improve this)
+const getFavicon = (url: string) => {
+  try {
+    const domain = new URL(url).hostname;
+    return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+  } catch {
+    return null;
+  }
+};
+
 export const TabBar: React.FC = () => {
   const { tabs, createTab, closeTab, switchTab } = useBrowser();
 
@@ -75,17 +85,10 @@ export const TabBar: React.FC = () => {
     void createTab("https://www.google.com");
   };
 
-  // Extract favicon from URL (simplified - you might want to improve this)
-  const getFavicon = (url: string) => {
-    try {
-      const domain = new URL(url).hostname;
-      return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
-    } catch {
-      return null;
-    }
-  };
-
-  const isMac = typeof window !== "undefined" && window.navigator.userAgent.includes("Mac");
+  const isMac =
+    typeof window !== "undefined" &&
+    ((window.topBarAPI && window.topBarAPI.platform === "darwin") ||
+      window.navigator.userAgent.includes("Mac"));
 
   return (
     <div className={cn("flex-1 overflow-x-hidden flex items-center", isMac && "pl-20")}>

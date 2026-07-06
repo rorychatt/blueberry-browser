@@ -7,7 +7,7 @@ import { join } from "node:path";
 import type { Window } from "../components/Window";
 
 // Load environment variables from .env file
-dotenv.config({ path: join(__dirname, "../../.env") });
+dotenv.config({ path: join(__dirname, "../../src/.env") });
 
 interface ChatRequest {
   message: string;
@@ -178,8 +178,8 @@ export class LLMClient {
         return;
       }
 
-      const messages = await this.prepareMessagesWithContext(request);
-      await this.streamResponse(messages, request.messageId);
+      const { system, messages } = await this.prepareMessagesWithContext(request);
+      await this.streamResponse(messages, system, request.messageId);
     } catch (error) {
       console.error("Error in LLM request:", error);
       this.handleStreamError(error, request.messageId);
@@ -199,7 +199,9 @@ export class LLMClient {
     this.webContents.send("chat-messages-updated", this.messages);
   }
 
-  private async prepareMessagesWithContext(_request: ChatRequest): Promise<ModelMessage[]> {
+  private async prepareMessagesWithContext(
+    _request: ChatRequest,
+  ): Promise<{ system: string; messages: ModelMessage[] }> {
     // Get page context from active tab
     let pageUrl: string | null = null;
     let pageText: string | null = null;
@@ -216,14 +218,9 @@ export class LLMClient {
       }
     }
 
-    // Build system message
-    const systemMessage: ModelMessage = {
-      content: this.buildSystemPrompt(pageUrl, pageText),
-      role: "system",
-    };
+    const system = this.buildSystemPrompt(pageUrl, pageText);
 
-    // Include all messages in history (system + conversation)
-    return [systemMessage, ...this.messages];
+    return { system, messages: this.messages };
   }
 
   private buildSystemPrompt(url: string | null, pageText: string | null): string {
@@ -257,24 +254,25 @@ export class LLMClient {
     return `${text.substring(0, maxLength)}...`;
   }
 
-  private async streamResponse(messages: ModelMessage[], messageId: string): Promise<void> {
+  private async streamResponse(
+    messages: ModelMessage[],
+    system: string,
+    messageId: string,
+  ): Promise<void> {
     if (!this.model) {
       throw new Error("Model not initialized");
     }
 
-    try {
-      const result = streamText({
-        abortSignal: undefined, // Could add abort controller for cancellation
-        maxRetries: 3,
-        messages,
-        model: this.model,
-        temperature: DEFAULT_TEMPERATURE,
-      });
+    const result = streamText({
+      abortSignal: undefined, // Could add abort controller for cancellation
+      maxRetries: 3,
+      system,
+      messages,
+      model: this.model,
+      temperature: DEFAULT_TEMPERATURE,
+    });
 
-      await this.processStream(result.textStream, messageId);
-    } catch (error) {
-      throw error; // Re-throw to be handled by the caller
-    }
+    await this.processStream(result.textStream, messageId);
   }
 
   private async processStream(textStream: AsyncIterable<string>, messageId: string): Promise<void> {
@@ -358,6 +356,18 @@ export class LLMClient {
   }
 
   private sendErrorMessage(messageId: string, errorMessage: string): void {
+    const lastMessage = this.messages[this.messages.length - 1];
+    if (lastMessage && lastMessage.role === "assistant") {
+      const existingContent = typeof lastMessage.content === "string" ? lastMessage.content : "";
+      lastMessage.content = `${existingContent ? existingContent + "\n\n" : ""}❌ Error: ${errorMessage}`;
+    } else {
+      this.messages.push({
+        content: `❌ Error: ${errorMessage}`,
+        role: "assistant",
+      });
+    }
+    this.sendMessagesToRenderer();
+
     this.sendStreamChunk(messageId, {
       content: errorMessage,
       isComplete: true,

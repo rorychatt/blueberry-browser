@@ -3,6 +3,7 @@ import { electronAPI } from "@electron-toolkit/preload";
 
 // TopBar specific APIs
 const topBarAPI = {
+  platform: process.platform,
   // Tab management
   createTab: async (url?: string) => electronAPI.ipcRenderer.invoke("create-tab", url),
   closeTab: async (tabId: string) => electronAPI.ipcRenderer.invoke("close-tab", tabId),

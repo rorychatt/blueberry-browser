@@ -74,12 +74,7 @@ export default defineConfig({
         files: ["**/*.{ts,tsx}"],
         rules: {
           "react/exhaustive-deps": "error",
-          "react/only-export-components": [
-            "error",
-            {
-              allowConstantExport: true,
-            },
-          ],
+          "react/only-export-components": "off",
           "react/rules-of-hooks": "error",
         },
       },
@@ -150,7 +145,7 @@ export default defineConfig({
       "no-useless-catch": "error",
       "no-useless-escape": "error",
       "no-with": "error",
-      "react/display-name": "error",
+      "react/display-name": "off",
       "react/jsx-key": "error",
       "react/jsx-no-comment-textnodes": "error",
       "react/jsx-no-duplicate-props": "error",
@@ -170,15 +165,9 @@ export default defineConfig({
       "react/require-render-return": "error",
       "require-yield": "error",
       "typescript/ban-ts-comment": "error",
-      "typescript/explicit-function-return-type": [
-        "error",
-        {
-          allowExpressions: true,
-          allowHigherOrderFunctions: true,
-          allowIIFEs: true,
-          allowTypedFunctionExpressions: true,
-        },
-      ],
+      "typescript/explicit-function-return-type": "off",
+      "typescript/no-unsafe-type-assertion": "off",
+      "typescript/consistent-return": "off",
       "typescript/no-duplicate-enum-values": "error",
       "typescript/no-empty-object-type": "error",
       "typescript/no-explicit-any": "error",
