@@ -36,15 +36,29 @@ export interface TabInfo {
   canGoForward?: boolean;
 }
 
+export interface PreloadChatSession {
+  id: string;
+  title: string;
+  messages: PreloadChatMessage[];
+  updatedAt: number;
+}
+
 export interface SidebarAPI {
   // Chat functionality
   sendChatMessage: (request: Partial<ChatRequest>) => Promise<void>;
   clearChat: () => Promise<void>;
   getMessages: () => Promise<PreloadChatMessage[]>;
+  getCurrentSessionId: () => Promise<string | null>;
+  getChatSessions: () => Promise<PreloadChatSession[]>;
+  loadChatSession: (id: string) => Promise<PreloadChatMessage[]>;
+  deleteChatSession: (id: string) => Promise<boolean>;
+  renameChatSession: (id: string, title: string) => Promise<boolean>;
   onChatResponse: (callback: (data: ChatResponse) => void) => void;
   onMessagesUpdated: (callback: (messages: PreloadChatMessage[]) => void) => void;
+  onChatSessionsUpdated: (callback: () => void) => void;
   removeChatResponseListener: () => void;
   removeMessagesUpdatedListener: () => void;
+  removeChatSessionsUpdatedListener: () => void;
 
   // Page content access
   getPageContent: () => Promise<string | null>;

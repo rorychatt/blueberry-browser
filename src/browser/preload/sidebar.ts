@@ -40,6 +40,19 @@ const sidebarAPI = {
 
   getMessages: async () => electronAPI.ipcRenderer.invoke("sidebar-get-messages"),
 
+  getCurrentSessionId: async () => electronAPI.ipcRenderer.invoke("sidebar-get-current-session-id"),
+
+  getChatSessions: async () => electronAPI.ipcRenderer.invoke("sidebar-get-chat-sessions"),
+
+  loadChatSession: async (id: string) =>
+    electronAPI.ipcRenderer.invoke("sidebar-load-chat-session", id),
+
+  deleteChatSession: async (id: string) =>
+    electronAPI.ipcRenderer.invoke("sidebar-delete-chat-session", id),
+
+  renameChatSession: async (id: string, title: string) =>
+    electronAPI.ipcRenderer.invoke("sidebar-rename-chat-session", { id, title }),
+
   onChatResponse: (callback: (data: ChatResponse) => void) => {
     electronAPI.ipcRenderer.on("chat-response", (_, data) => {
       callback(data);
@@ -52,12 +65,22 @@ const sidebarAPI = {
     });
   },
 
+  onChatSessionsUpdated: (callback: () => void) => {
+    electronAPI.ipcRenderer.on("chat-sessions-updated", () => {
+      callback();
+    });
+  },
+
   removeChatResponseListener: () => {
     electronAPI.ipcRenderer.removeAllListeners("chat-response");
   },
 
   removeMessagesUpdatedListener: () => {
     electronAPI.ipcRenderer.removeAllListeners("chat-messages-updated");
+  },
+
+  removeChatSessionsUpdatedListener: () => {
+    electronAPI.ipcRenderer.removeAllListeners("chat-sessions-updated");
   },
 
   // Page content access

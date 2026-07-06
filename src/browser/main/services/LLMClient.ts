@@ -9,6 +9,7 @@ import * as fs from "node:fs/promises";
 import type { Window } from "../components/Window";
 import { AccessibilityExtractor } from "./AccessibilityExtractor";
 import { BrowserSkills } from "./BrowserSkills";
+import { ChatHistoryManager } from "./ChatHistoryManager";
 
 // Load environment variables from .env file
 dotenv.config({ path: join(__dirname, "../../src/.env") });
@@ -46,6 +47,8 @@ export class LLMClient {
   private readonly modelName: string;
   private readonly model: LanguageModel | null;
   private messages: ModelMessage[] = [];
+  private currentSessionId: string | null = null;
+  private sessionTitle: string | null = null;
 
   constructor(webContents: WebContents) {
     this.webContents = webContents;
@@ -54,6 +57,7 @@ export class LLMClient {
     this.model = this.initializeModel();
 
     this.logInitializationStatus();
+    void this.initializeSession();
   }
 
   // Set the window reference after construction to avoid circular dependencies
@@ -230,6 +234,11 @@ export class LLMClient {
 
   async sendChatMessage(request: ChatRequest): Promise<void> {
     try {
+      // Show agent visual feedback at the beginning of the request
+      if (this.window) {
+        void BrowserSkills.showAgentVisuals(this.window);
+      }
+
       // Get screenshot from active tab if available
       let screenshot: string | null = null;
       if (this.window) {
@@ -305,17 +314,102 @@ export class LLMClient {
     }
   }
 
-  clearMessages(): void {
+  public async initializeSession(): Promise<void> {
+    try {
+      const history = ChatHistoryManager.getInstance();
+      const sessions = await history.getSessions();
+      if (sessions.length > 0) {
+        const latest = sessions[0];
+        const fullSession = await history.getSession(latest.id);
+        if (fullSession) {
+          this.currentSessionId = fullSession.id;
+          this.sessionTitle = fullSession.title;
+          this.messages = fullSession.messages;
+          this.sendMessagesToRenderer();
+          return;
+        }
+      }
+    } catch (error) {
+      console.error("[LLMClient] Failed to load latest session:", error);
+    }
+    this.startNewSession();
+  }
+
+  public startNewSession(): void {
+    this.currentSessionId = `session-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    this.sessionTitle = null;
     this.messages = [];
     this.sendMessagesToRenderer();
+    this.webContents.send("chat-sessions-updated");
+  }
+
+  public async loadSession(id: string): Promise<ModelMessage[]> {
+    const history = ChatHistoryManager.getInstance();
+    const session = await history.getSession(id);
+    if (session) {
+      this.currentSessionId = session.id;
+      this.sessionTitle = session.title;
+      this.messages = session.messages;
+      this.sendMessagesToRenderer();
+      return this.messages;
+    }
+    throw new Error(`Session ${id} not found`);
+  }
+
+  private async saveCurrentSession(): Promise<void> {
+    if (!this.currentSessionId || this.messages.length === 0) {
+      return;
+    }
+
+    if (!this.sessionTitle) {
+      const firstUserMsg = this.messages.find((m) => m.role === "user");
+      let rawTitle = "New Chat";
+      if (firstUserMsg && typeof firstUserMsg.content === "string") {
+        rawTitle = firstUserMsg.content;
+      } else if (firstUserMsg && Array.isArray(firstUserMsg.content)) {
+        const textPart = firstUserMsg.content.find(
+          (p) => typeof p === "object" && p && "type" in p && p.type === "text",
+        );
+        if (textPart) {
+          rawTitle = textPart.text;
+        }
+      }
+      this.sessionTitle = rawTitle.trim().substring(0, 40) || "New Chat";
+    }
+
+    try {
+      const history = ChatHistoryManager.getInstance();
+      await history.saveSession({
+        id: this.currentSessionId,
+        title: this.sessionTitle,
+        messages: this.messages,
+        updatedAt: Date.now(),
+      });
+      this.webContents.send("chat-sessions-updated");
+    } catch (error) {
+      console.error("[LLMClient] Failed to save current session:", error);
+    }
+  }
+
+  clearMessages(): void {
+    this.startNewSession();
   }
 
   getMessages(): ModelMessage[] {
     return this.messages;
   }
 
+  getCurrentSessionId(): string | null {
+    return this.currentSessionId;
+  }
+
+  setSessionTitle(title: string): void {
+    this.sessionTitle = title;
+  }
+
   private sendMessagesToRenderer(): void {
     this.webContents.send("chat-messages-updated", this.messages);
+    void this.saveCurrentSession();
   }
 
   private getPromptwaresDir(): string {
@@ -600,6 +694,7 @@ ${programMd}
     // Detect and parse single JSON browser control skill action blocks from OpenCode's streamed response
     const jsonBlockRegex = /```json\s*([\s\S]*?)\s*```/g;
     const matches = [...accumulatedText.matchAll(jsonBlockRegex)];
+    let actionExecuted = false;
 
     for (const match of matches) {
       const jsonContent = match[1].trim();
@@ -608,6 +703,8 @@ ${programMd}
 
         // A valid browser action block must be an object with an "action" string field
         if (action && typeof action === "object" && typeof action.action === "string") {
+          actionExecuted = true;
+
           // Log beginning of execution
           const execMessageIndex = this.messages.length;
           this.messages.push({
@@ -617,6 +714,9 @@ ${programMd}
           this.sendMessagesToRenderer();
 
           if (this.window) {
+            // Re-show agent visuals in case of navigation or state changes
+            void BrowserSkills.showAgentVisuals(this.window);
+
             const result = await BrowserSkills.executeAction(this.window, action);
 
             // Update log with execution result
@@ -644,12 +744,18 @@ ${programMd}
               });
               this.sendMessagesToRenderer();
 
+              // Make sure visuals are shown before starting the stream rerun
+              void BrowserSkills.showAgentVisuals(this.window);
+
               // Prepare messages with fresh context and trigger stream
               const { system, messages } = await this.prepareMessagesWithContext({
                 message: "Continue executing your plan based on the updated page context.",
                 messageId: `${messageId}-rerun`,
               });
               await this.streamResponse(messages, system, `${messageId}-rerun`);
+            } else {
+              // Action succeeded but did not change state, or failed -> hide visuals
+              void BrowserSkills.hideAgentVisuals(this.window);
             }
           }
           // Only execute the first valid action block we successfully find
@@ -665,8 +771,19 @@ ${programMd}
             content: `❌ **Failed to parse/execute action block:** ${(err as Error).message}`,
           });
           this.sendMessagesToRenderer();
+
+          if (this.window) {
+            void BrowserSkills.hideAgentVisuals(this.window);
+          }
           break;
         }
+      }
+    }
+
+    if (!actionExecuted) {
+      // No action block found, meaning the agent only generated a message -> hide visuals
+      if (this.window) {
+        void BrowserSkills.hideAgentVisuals(this.window);
       }
     }
   }
@@ -676,6 +793,10 @@ ${programMd}
 
     const errorMessage = this.getErrorMessage(error);
     this.sendErrorMessage(messageId, errorMessage);
+
+    if (this.window) {
+      void BrowserSkills.hideAgentVisuals(this.window);
+    }
   }
 
   private getErrorMessage(error: unknown): string {
