@@ -226,14 +226,34 @@ export class LLMClient {
   private async compilePromptware(name: string, headers: Record<string, string>): Promise<string> {
     const promptwaresDir = this.getPromptwaresDir();
     const programFolder = join(promptwaresDir, name);
-    const programMdPath = join(programFolder, "Program.md");
 
     let programMd = "";
-    try {
-      programMd = await fs.readFile(programMdPath, "utf8");
-    } catch (error) {
-      console.error(`Failed to read Program.md for promptware ${name}:`, error);
+    let loadedPath = "";
+
+    const primaryPath = join(programFolder, "system_prompt.md");
+    const fallbackPath = join(programFolder, "Program.md");
+
+    if (existsSync(primaryPath)) {
+      try {
+        programMd = await fs.readFile(primaryPath, "utf8");
+        loadedPath = primaryPath;
+      } catch (error) {
+        console.error(`Failed to read system_prompt.md for promptware ${name}:`, error);
+      }
+    }
+
+    if (!programMd && existsSync(fallbackPath)) {
+      try {
+        programMd = await fs.readFile(fallbackPath, "utf8");
+        loadedPath = fallbackPath;
+      } catch (error) {
+        console.error(`Failed to read Program.md fallback for promptware ${name}:`, error);
+      }
+    }
+
+    if (!programMd) {
       programMd = `# ${name} Program\nNo instructions found.`;
+      loadedPath = primaryPath;
     }
 
     // Sort keys and format frontmatter header
@@ -249,7 +269,7 @@ export class LLMClient {
     try {
       await fs.mkdir(memoryDir, { recursive: true });
       const files = await fs.readdir(memoryDir);
-      const mdFiles = files.filter((f) => f.endsWith(".md"));
+      const mdFiles = files.filter((f) => f.endsWith(".md") && f !== ".gitkeep");
 
       for (const file of mdFiles) {
         memoryFiles.push(file);
@@ -282,7 +302,7 @@ Your program folder is: ${programFolder}
 
 ## Goal
 
-Your goal is to complete the instructions in the **Program** section below (inlined from Program.md) with the following priority:
+Your goal is to complete the instructions in the **Program** section below (inlined from ${loadedPath.endsWith("system_prompt.md") ? "system_prompt.md" : "Program.md"}) with the following priority:
 
 1. Completeness
 2. Speed

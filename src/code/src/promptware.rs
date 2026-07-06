@@ -86,41 +86,32 @@ pub fn write_log(promptware_name: &str, job_id: &str, content: &str) -> Result<(
     Ok(())
 }
 
-pub fn compile_prompt(promptware_name: &str, values: &HashMap<String, String>) -> Result<String> {
+pub fn compile_prompt_system_and_user(
+    promptware_name: &str,
+    values: &HashMap<String, String>,
+) -> Result<(String, String)> {
     let promptwares_dir = find_promptwares_dir();
-    let program_folder = promptwares_dir.join(promptware_name);
-    let program_md_path = program_folder.join("Program.md");
-
-    if !program_md_path.exists() {
-        return Err(anyhow!("Program.md not found at {:?}", program_md_path));
-    }
-
-    let program_md = fs::read_to_string(&program_md_path)
-        .map_err(|e| anyhow!("Failed to read Program.md: {}", e))?;
-
-    // Pre-calculate CurrentTime if not supplied
-    let mut headers = values.clone();
-    if !headers.contains_key("CurrentTime") {
-        headers.insert("CurrentTime".to_string(), Utc::now().to_rfc3339());
-    }
-
-    // Build frontmatter header
-    let mut header_keys: Vec<&String> = headers.keys().collect();
-    header_keys.sort();
+    let folder = promptwares_dir.join(promptware_name);
     
-    let mut header_str = String::new();
-    for key in header_keys {
-        if let Some(val) = headers.get(key) {
-            header_str.push_str(&format!("{}: {}\n", key, val));
-        }
+    // Try system_prompt.md, fallback to Program.md
+    let mut system_md_path = folder.join("system_prompt.md");
+    if !system_md_path.exists() {
+        system_md_path = folder.join("Program.md");
     }
+    
+    if !system_md_path.exists() {
+        return Err(anyhow!("Neither system_prompt.md nor Program.md found at {:?}", folder));
+    }
+    
+    let system_instructions = fs::read_to_string(&system_md_path)
+        .map_err(|e| anyhow!("Failed to read system instructions file: {}", e))?;
 
     // Load Memory files
     let mut memory_files = Vec::new();
     let mut memory_contents = String::new();
     
-    let memory_dir = program_folder.join("memory");
-    let memory_dir_alt = program_folder.join("Memory");
+    let memory_dir = folder.join("memory");
+    let memory_dir_alt = folder.join("Memory");
     let active_memory_dir = if memory_dir.exists() {
         Some(memory_dir)
     } else if memory_dir_alt.exists() {
@@ -135,9 +126,11 @@ pub fn compile_prompt(promptware_name: &str, values: &HashMap<String, String>) -
                 let path = entry.path();
                 if path.is_file() && path.extension().map_or(false, |ext| ext == "md") {
                     if let Some(filename) = path.file_name().and_then(|f| f.to_str()) {
-                        memory_files.push(filename.to_string());
-                        if let Ok(content) = fs::read_to_string(&path) {
-                            memory_contents.push_str(&format!("### File: {}\n\n{}\n\n---\n\n", filename, content));
+                        if filename != ".gitkeep" {
+                            memory_files.push(filename.to_string());
+                            if let Ok(content) = fs::read_to_string(&path) {
+                                memory_contents.push_str(&format!("### File: {}\n\n{}\n\n---\n\n", filename, content));
+                            }
                         }
                     }
                 }
@@ -157,21 +150,16 @@ pub fn compile_prompt(promptware_name: &str, values: &HashMap<String, String>) -
         memory_contents
     };
 
-    // Construct the ultimate prompt (Firmware Template)
-    let firmware_prompt = format!(
-r#"---
-{}---
-You are an agentic application that evolves over time.
+    let system_prompt = format!(
+r#"You are an agentic application that evolves over time.
 
 This prompt is your Firmware and is never allowed to change.
-
-The header above contains your named parameters for this execution.
 
 Your program folder is: {:?}
 
 ## Goal
 
-Your goal is to complete the instructions in the **Program** section below (inlined from Program.md) with the following priority:
+Your goal is to complete the instructions in the **System Instructions** section below with the following priority:
 
 1. Completeness
 2. Speed
@@ -194,19 +182,54 @@ Complete your task and return the appropriate output.
 Every execution needs to end with a reflection step. This is your opportunity to improve over time. What did we learn during this session?
 When you return your final JSON response, provide a `reflection` field containing your key takeaways, lessons, or rules learned. This will be automatically written to a memory file for you.
 
-## Program
+## System Instructions
 
 {}
 "#,
-        header_str,
-        program_folder,
+        folder,
         memory_files_listing,
         memory_contents_section,
         promptware_name,
-        program_md
+        system_instructions
     );
 
-    Ok(firmware_prompt)
+    // Now load user prompt
+    let user_md_path = folder.join("user_prompt.md");
+    let user_prompt = if user_md_path.exists() {
+        let user_template = fs::read_to_string(&user_md_path)
+            .map_err(|e| anyhow!("Failed to read user_prompt.md: {}", e))?;
+        
+        let mut compiled_user = user_template;
+        for (key, val) in values {
+            compiled_user = compiled_user.replace(&format!("{{{{{}}}}}", key), val);
+        }
+        compiled_user
+    } else {
+        // Fallback to default user prompt format using values HashMap
+        let mut headers = values.clone();
+        if !headers.contains_key("CurrentTime") {
+            headers.insert("CurrentTime".to_string(), Utc::now().to_rfc3339());
+        }
+
+        let mut header_keys: Vec<&String> = headers.keys().collect();
+        header_keys.sort();
+        
+        let mut header_str = String::new();
+        for key in header_keys {
+            if let Some(val) = headers.get(key) {
+                header_str.push_str(&format!("{}: {}\n", key, val));
+            }
+        }
+
+        format!("---\n{}---", header_str)
+    };
+
+    Ok((system_prompt, user_prompt))
+}
+
+pub fn compile_prompt(promptware_name: &str, values: &HashMap<String, String>) -> Result<String> {
+    let (system, user) = compile_prompt_system_and_user(promptware_name, values)?;
+    Ok(format!("{}\n\n{}", system, user))
 }
 
 fn clean_json_response(output: &str) -> &str {
@@ -262,10 +285,10 @@ pub async fn run_e2e_loop(browser: &BrowserEngine, agent: &OllamaAgent, test_pro
         values.insert("CurrentUrl".to_string(), current_url.clone());
         values.insert("PageContent".to_string(), page_text_truncated);
 
-        let compiled_prompt = compile_prompt("E2ETest", &values)?;
+        let (system_prompt, user_prompt) = compile_prompt_system_and_user("E2ETest", &values)?;
 
         println!("  [Step {}] Evaluating next action using local Ollama model...", step_num);
-        let response_raw = agent.generate_raw(&compiled_prompt).await?;
+        let response_raw = agent.generate_with_system(&system_prompt, &user_prompt).await?;
         let cleaned_json = clean_json_response(&response_raw);
 
         let action: PromptwareAction = match serde_json::from_str(cleaned_json) {
