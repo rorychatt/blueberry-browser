@@ -5,6 +5,8 @@ interface TabInfo {
   title: string;
   url: string;
   isActive: boolean;
+  canGoBack?: boolean;
+  canGoForward?: boolean;
 }
 
 interface BrowserContextType {

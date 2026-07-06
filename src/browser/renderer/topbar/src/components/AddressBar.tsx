@@ -7,10 +7,12 @@ import {
   PanelLeftClose,
   RefreshCw,
   Settings,
+  History,
 } from "lucide-react";
 import { useBrowser } from "../contexts/BrowserContext";
 import { ToolBarButton } from "../components/ToolBarButton";
 import { Favicon } from "../components/Favicon";
+import { HistoryDropdown } from "./HistoryDropdown";
 import { cn } from "@common/lib/utils";
 
 export const AddressBar: React.FC = () => {
@@ -20,6 +22,7 @@ export const AddressBar: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isHistoryDropdownOpen, setIsHistoryDropdownOpen] = useState(false);
 
   // Update URL when active tab changes
   useEffect(() => {
@@ -79,8 +82,8 @@ export const AddressBar: React.FC = () => {
     }
   };
 
-  const canGoBack = activeTab !== null;
-  const canGoForward = activeTab !== null;
+  const canGoBack = activeTab ? !!activeTab.canGoBack : false;
+  const canGoForward = activeTab ? !!activeTab.canGoForward : false;
 
   // Extract domain and title for display
   const getDomain = () => {
@@ -211,6 +214,17 @@ export const AddressBar: React.FC = () => {
           onClick={toggleSidebar}
           toggled={isSidebarOpen}
         />
+        <div className="relative">
+          <ToolBarButton
+            Icon={History}
+            onClick={() => setIsHistoryDropdownOpen(!isHistoryDropdownOpen)}
+            toggled={isHistoryDropdownOpen}
+            className="hover:scale-105 transition-all duration-200"
+          />
+          {isHistoryDropdownOpen && (
+            <HistoryDropdown onClose={() => setIsHistoryDropdownOpen(false)} />
+          )}
+        </div>
         <ToolBarButton
           Icon={Settings}
           onClick={() => createTab("blueberry://settings")}
