@@ -1051,23 +1051,31 @@ export const Chat: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col h-full bg-transparent">
+    <div className="flex flex-col h-full bg-transparent relative">
+      {/* Sticky New Chat Button */}
+      {messages.length > 0 && (
+        <div className="absolute top-3 right-3 z-30">
+          <Button
+            onClick={clearChat}
+            title="Start new chat"
+            variant="outline"
+            className="group flex items-center justify-center h-8 rounded-full border border-border/60 bg-background/80 dark:bg-card/40 hover:bg-background/95 hover:border-primary/30 backdrop-blur-md shadow-sm transition-all duration-300 ease-out px-2 hover:px-3"
+          >
+            <Plus className="size-4 text-muted-foreground group-hover:text-primary transition-transform duration-300 group-hover:rotate-90" />
+            <span className="text-xs font-semibold text-muted-foreground group-hover:text-primary overflow-hidden transition-all duration-300 max-w-0 group-hover:max-w-[70px] whitespace-nowrap opacity-0 group-hover:opacity-100 ml-0 group-hover:ml-1.5">
+              New Chat
+            </span>
+          </Button>
+        </div>
+      )}
+
       {/* Messages Area */}
       <div ref={containerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto">
-        <div className="h-8 max-w-3xl mx-auto px-4 mt-2">
-          {/* New Chat Button - Floating */}
-          {messages.length > 0 && (
-            <Button onClick={clearChat} title="Start new chat" variant="ghost">
-              <Plus className="size-4" />
-              New Chat
-            </Button>
-          )}
-        </div>
-
         <div
           ref={innerRef}
           className={cn(
             "pb-4 relative max-w-3xl mx-auto px-4",
+            messages.length > 0 ? "pt-12" : "pt-0",
             messages.length === 0 && "h-full flex flex-col justify-center",
           )}
         >
