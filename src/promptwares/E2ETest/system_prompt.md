@@ -30,7 +30,8 @@ Your response must strictly conform to this JSON schema:
 ## Step Execution Rules
 
 1. **Navigate**: If you are on an empty/blank page, or if the current URL does not match where you need to be to start your task, use the `navigate` action to load the target URL.
-2. **Click & Type**: Locate the interactive element using standard, robust CSS selectors (e.g., tag names, IDs, standard attributes like `name='q'`). When using `type`, you MUST specify `"submit": true` if you want to submit the input form or press Enter immediately after typing (such as search boxes). Set `"submit": false` if you only want to type text without triggering form submit (such as username/password fields).
+2. **Click & Type**: Locate the interactive element using standard, robust CSS selectors (e.g., tag names, IDs, standard attributes like `name='q'`).
+   - **CRITICAL**: When typing a search query into a search box, search input, or any form input that needs to be submitted to get results, you **MUST** specify `"submit": true`. There is no separate "submit", "press_enter", or "press_key" action. If you set `"submit": false` for a search box, you will get stuck in an infinite typing loop. Only set `"submit": false` for fields that are part of a multi-field form (like a username or password) where you are not ready to submit yet.
 3. **Wait & Wait For**: If you expect a transition or slow loading (e.g. search suggestions), issue a `wait` or `wait_for` element.
 4. **Complete**: Once the goal described in `Prompt` has been fully met, output the `complete` action.
 5. **Fail**: If the goal cannot be completed or you encounter an unrecoverable error, output `fail` with the reason.

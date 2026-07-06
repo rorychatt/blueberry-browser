@@ -199,6 +199,212 @@ export class BrowserSkills {
   }
 
   /**
+   * Injects the CSS and JS for vignette and virtual cursor into the active tab.
+   */
+  private static async injectVisuals(window: Window): Promise<void> {
+    const tab = window.activeTab;
+    if (!tab) return;
+
+    const script = `
+      (() => {
+        const styleId = "blueberry-agent-styles";
+        if (!document.getElementById(styleId)) {
+          const style = document.createElement("style");
+          style.id = styleId;
+          style.textContent = \`
+            .blueberry-vignette {
+              position: fixed;
+              inset: 0;
+              pointer-events: none;
+              z-index: 99999999;
+              box-shadow: inset 0 0 50px rgba(59, 130, 246, 0.35), inset 0 0 120px rgba(99, 102, 241, 0.15);
+              border: 4px solid rgba(59, 130, 246, 0.3);
+              opacity: 0;
+              transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+              display: flex;
+              align-items: flex-start;
+              justify-content: flex-end;
+              padding: 16px;
+            }
+            .blueberry-vignette.active {
+              opacity: 1;
+            }
+            .blueberry-badge {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              background: rgba(15, 23, 42, 0.85);
+              backdrop-filter: blur(12px);
+              -webkit-backdrop-filter: blur(12px);
+              border: 1px solid rgba(59, 130, 246, 0.4);
+              padding: 8px 16px;
+              border-radius: 9999px;
+              color: #f8fafc;
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+              font-size: 13px;
+              font-weight: 600;
+              letter-spacing: 0.3px;
+              box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 15px rgba(59, 130, 246, 0.25);
+              transform: translateY(-10px);
+              transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+              pointer-events: auto;
+            }
+            .blueberry-vignette.active .blueberry-badge {
+              transform: translateY(0);
+            }
+            .blueberry-badge-dot {
+              width: 10px;
+              height: 10px;
+              background: #3b82f6;
+              border-radius: 50%;
+              display: inline-block;
+              box-shadow: 0 0 10px #3b82f6, 0 0 20px #3b82f6;
+              animation: blueberry-pulse-animation 1.5s infinite ease-in-out;
+            }
+            @keyframes blueberry-pulse-animation {
+              0% { transform: scale(0.85); opacity: 0.5; }
+              50% { transform: scale(1.15); opacity: 1; }
+              100% { transform: scale(0.85); opacity: 0.5; }
+            }
+            .blueberry-cursor {
+              position: fixed;
+              pointer-events: none;
+              z-index: 100000000;
+              left: 0;
+              top: 0;
+              width: 36px;
+              height: 36px;
+              opacity: 0;
+              transform: translate3d(\${window.innerWidth / 2}px, \${window.innerHeight + 50}px, 0);
+              transition: transform 0.8s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s ease;
+              filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.4));
+            }
+            .blueberry-cursor.visible {
+              opacity: 1;
+            }
+            .blueberry-click-ripple {
+              position: fixed;
+              border: 2.5px solid #6366f1;
+              background: rgba(99, 102, 241, 0.2);
+              border-radius: 50%;
+              width: 12px;
+              height: 12px;
+              opacity: 1;
+              transform: translate3d(-50%, -50%, 0) scale(1);
+              transition: transform 0.5s cubic-bezier(0.1, 0.8, 0.3, 1), opacity 0.5s ease-out;
+              pointer-events: none;
+              z-index: 99999998;
+            }
+          \`;
+          document.head.appendChild(style);
+        }
+
+        let vignette = document.querySelector(".blueberry-vignette");
+        if (!vignette) {
+          vignette = document.createElement("div");
+          vignette.className = "blueberry-vignette";
+          vignette.innerHTML = \`
+            <div class="blueberry-badge">
+              <span class="blueberry-badge-dot"></span>
+              <span>Blueberry Agent Active</span>
+            </div>
+          \`;
+          document.body.appendChild(vignette);
+        }
+
+        let cursor = document.querySelector(".blueberry-cursor");
+        if (!cursor) {
+          cursor = document.createElement("div");
+          cursor.className = "blueberry-cursor";
+          cursor.innerHTML = \\\`
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M4 2.5L25 15.5L15.5 17.5L21.5 25.5L18.5 27L12.5 19L4 24.5V2.5Z" fill="#3b82f6" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"/>
+              <circle cx="4" cy="2.5" r="3" fill="#6366f1" stroke="#ffffff" stroke-width="1.5"/>
+            </svg>
+          \\\`;
+          document.body.appendChild(cursor);
+        }
+
+        window.__blueberryAgent = {
+          showVignette() {
+            const v = document.querySelector(".blueberry-vignette");
+            if (v) v.classList.add("active");
+          },
+          hideVignette() {
+            const v = document.querySelector(".blueberry-vignette");
+            if (v) v.classList.remove("active");
+            const c = document.querySelector(".blueberry-cursor");
+            if (c) c.classList.remove("visible");
+          },
+          async moveCursorTo(x, y) {
+            const c = document.querySelector(".blueberry-cursor");
+            const v = document.querySelector(".blueberry-vignette");
+            if (v) v.classList.add("active");
+            if (!c) return;
+
+            c.classList.add("visible");
+            c.style.transform = \\\`translate3d(\\\${x}px, \\\${y}px, 0)\\\`;
+
+            window.__blueberryLastCursorX = x;
+            window.__blueberryLastCursorY = y;
+
+            await new Promise(resolve => setTimeout(resolve, 800));
+
+            const ripple = document.createElement("div");
+            ripple.className = "blueberry-click-ripple";
+            ripple.style.left = \\\`\\\${x}px\\\`;
+            ripple.style.top = \\\`\\\${y}px\\\`;
+            document.body.appendChild(ripple);
+
+            void ripple.offsetWidth;
+            ripple.style.transform = "translate3d(-50%, -50%, 0) scale(4)";
+            ripple.style.opacity = "0";
+
+            setTimeout(() => ripple.remove(), 500);
+            await new Promise(resolve => setTimeout(resolve, 150));
+          }
+        };
+      })();
+    `;
+    try {
+      await tab.runJs(script);
+    } catch (e) {
+      console.error("Failed to inject agent visuals script:", e);
+    }
+  }
+
+  /**
+   * Helper to show vignette effect on the active tab.
+   */
+  public static async showAgentVisuals(window: Window): Promise<void> {
+    const tab = window.activeTab;
+    if (!tab) return;
+    await this.injectVisuals(window);
+    try {
+      await tab.runJs(
+        `if (window.__blueberryAgent && typeof window.__blueberryAgent.showVignette === "function") window.__blueberryAgent.showVignette();`,
+      );
+    } catch (e) {
+      console.error("Failed to show agent vignette:", e);
+    }
+  }
+
+  /**
+   * Helper to hide vignette and cursor on the active tab.
+   */
+  public static async hideAgentVisuals(window: Window): Promise<void> {
+    const tab = window.activeTab;
+    if (!tab) return;
+    try {
+      await tab.runJs(
+        `if (window.__blueberryAgent && typeof window.__blueberryAgent.hideVignette === "function") window.__blueberryAgent.hideVignette();`,
+      );
+    } catch (e) {
+      console.error("Failed to hide agent vignette:", e);
+    }
+  }
+
+  /**
    * Execute an action on the active browser Window.
    */
   public static async executeAction(
@@ -336,13 +542,33 @@ export class BrowserSkills {
             };
           }
 
+          // Ensure visual stylesheet and control API exist
+          await this.injectVisuals(window);
+
           const clickScript = `
-            (() => {
+            (async () => {
               const el = document.querySelector(\`${selector.replace(/`/g, "\\`").replace(/\\/g, "\\\\")}\`);
               if (!el) {
                 throw new Error("Element matching selector \\"${selector}\\" was not found on the page.");
               }
               el.scrollIntoView({ block: "center", inline: "center" });
+              
+              // Wait briefly for scroll to settle
+              await new Promise(resolve => setTimeout(resolve, 150));
+              
+              // Calculate center coordinates relative to viewport
+              const rect = el.getBoundingClientRect();
+              const x = rect.left + rect.width / 2;
+              const y = rect.top + rect.height / 2;
+
+              // Move the virtual cursor with hover animation
+              if (window.__blueberryAgent && typeof window.__blueberryAgent.moveCursorTo === "function") {
+                await window.__blueberryAgent.moveCursorTo(x, y);
+              }
+
+              // Added visual delay to see the cursor clearly at the destination before clicking
+              await new Promise(resolve => setTimeout(resolve, 500));
+
               el.focus();
               const clickEvent = new MouseEvent("click", {
                 bubbles: true,
@@ -384,32 +610,74 @@ export class BrowserSkills {
             };
           }
 
+          // Ensure visual stylesheet and control API exist
+          await this.injectVisuals(window);
+
           const typeScript = `
-            (() => {
+            (async () => {
               const el = document.querySelector(\`${selector.replace(/`/g, "\\`").replace(/\\/g, "\\\\")}\`);
               if (!el) {
                 throw new Error("Element matching selector \\"${selector}\\" was not found on the page.");
               }
               el.scrollIntoView({ block: "center", inline: "center" });
+              
+              // Wait briefly for scroll to settle
+              await new Promise(resolve => setTimeout(resolve, 150));
+              
+              // Calculate center coordinates relative to viewport
+              const rect = el.getBoundingClientRect();
+              const x = rect.left + rect.width / 2;
+              const y = rect.top + rect.height / 2;
+
+              // Move the virtual cursor with hover animation
+              if (window.__blueberryAgent && typeof window.__blueberryAgent.moveCursorTo === "function") {
+                await window.__blueberryAgent.moveCursorTo(x, y);
+              }
+
+              // Added visual delay to see the cursor clearly at the destination before typing
+              await new Promise(resolve => setTimeout(resolve, 500));
+
               el.focus();
-              el.value = \`${text.replace(/`/g, "\\`").replace(/\\/g, "\\\\")}\`;
+              if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+                const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+                  el instanceof HTMLTextAreaElement ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype,
+                  "value"
+                )?.set;
+                if (nativeInputValueSetter) {
+                  nativeInputValueSetter.call(el, \`${text.replace(/`/g, "\\`").replace(/\\/g, "\\\\")}\`);
+                } else {
+                  el.value = \`${text.replace(/`/g, "\\`").replace(/\\/g, "\\\\")}\`;
+                }
+              } else {
+                el.textContent = \`${text.replace(/`/g, "\\`").replace(/\\/g, "\\\\")}\`;
+              }
               el.dispatchEvent(new Event("input", { bubbles: true }));
               el.dispatchEvent(new Event("change", { bubbles: true }));
               
               if (${submit}) {
-                const form = el.form || el.closest("form");
-                if (form) {
-                  form.requestSubmit();
-                } else {
-                  const enterEvent = new KeyboardEvent("keydown", {
+                // Added visual delay to see the typed text in the input field before submitting
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+                const keyEvents = ["keydown", "keypress", "keyup"];
+                for (const type of keyEvents) {
+                  el.dispatchEvent(new KeyboardEvent(type, {
                     key: "Enter",
                     code: "Enter",
                     keyCode: 13,
                     which: 13,
                     bubbles: true,
                     cancelable: true
-                  });
-                  el.dispatchEvent(enterEvent);
+                  }));
+                }
+                const form = el.form || el.closest("form");
+                if (form) {
+                  try {
+                    form.requestSubmit();
+                  } catch (e) {
+                    try {
+                      form.submit();
+                    } catch (err) {}
+                  }
                 }
               }
               return true;

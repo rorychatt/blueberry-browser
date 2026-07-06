@@ -696,23 +696,38 @@ export class E2ETestHandler extends BaseHandler {
             if (!el) throw new Error("Element not found: " + ${JSON.stringify(action.selector)});
             el.focus();
             if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
-              el.value = ${JSON.stringify(action.text)};
+              const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+                el instanceof HTMLTextAreaElement ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype,
+                "value"
+              )?.set;
+              if (nativeInputValueSetter) {
+                nativeInputValueSetter.call(el, ${JSON.stringify(action.text)});
+              } else {
+                el.value = ${JSON.stringify(action.text)};
+              }
               el.dispatchEvent(new Event('input', { bubbles: true }));
               el.dispatchEvent(new Event('change', { bubbles: true }));
               if (${submit}) {
-                const form = el.form || el.closest("form");
-                if (form) {
-                  form.requestSubmit();
-                } else {
-                  const enterEvent = new KeyboardEvent("keydown", {
+                const keyEvents = ["keydown", "keypress", "keyup"];
+                for (const type of keyEvents) {
+                  el.dispatchEvent(new KeyboardEvent(type, {
                     key: "Enter",
                     code: "Enter",
                     keyCode: 13,
                     which: 13,
                     bubbles: true,
                     cancelable: true
-                  });
-                  el.dispatchEvent(enterEvent);
+                  }));
+                }
+                const form = el.form || el.closest("form");
+                if (form) {
+                  try {
+                    form.requestSubmit();
+                  } catch (e) {
+                    try {
+                      form.submit();
+                    } catch (err) {}
+                  }
                 }
               }
             } else {
