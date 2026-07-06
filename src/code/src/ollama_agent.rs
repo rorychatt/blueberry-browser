@@ -25,7 +25,7 @@ impl OllamaAgent {
 
     pub async fn assert(&self, prompt: &str, page_text: &str) -> Result<AgentResponse> {
         let client = reqwest::Client::builder()
-            .timeout(Duration::from_secs(60))
+            .timeout(Duration::from_secs(180))
             .build()?;
 
         let mut values = std::collections::HashMap::new();
@@ -95,7 +95,7 @@ impl OllamaAgent {
 
     pub async fn generate_raw(&self, prompt: &str) -> Result<String> {
         let client = reqwest::Client::builder()
-            .timeout(Duration::from_secs(60))
+            .timeout(Duration::from_secs(180))
             .build()?;
 
         let body = serde_json::json!({
@@ -136,7 +136,7 @@ impl OllamaAgent {
 
     pub async fn generate_with_system(&self, system: &str, prompt: &str) -> Result<String> {
         let client = reqwest::Client::builder()
-            .timeout(Duration::from_secs(60))
+            .timeout(Duration::from_secs(180))
             .build()?;
 
         let body = serde_json::json!({
