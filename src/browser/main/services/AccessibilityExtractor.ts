@@ -29,6 +29,7 @@ interface DOMData {
   headings: HeadingData[];
   landmarks: LandmarkData[];
   interactives: InteractiveData[];
+  totalInteractivesFound?: number;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class
@@ -100,12 +101,21 @@ export class AccessibilityExtractor {
           const visited = new Set();
           const elements = document.querySelectorAll("a, button, input, select, textarea, [role=\\"button\\"], [role=\\"link\\"], [role=\\"checkbox\\"], [role=\\"searchbox\\"], [role=\\"textbox\\"]");
 
+          const MAX_INTERACTIVES = 60;
+          let interactivesCount = 0;
+          let totalInteractivesFound = 0;
+
           elements.forEach(el => {
             if (visited.has(el)) return;
             visited.add(el);
 
             const style = window.getComputedStyle(el);
             if (style.display === "none" || style.visibility === "hidden" || el.offsetWidth === 0 || el.offsetHeight === 0) {
+              return;
+            }
+
+            totalInteractivesFound++;
+            if (interactivesCount >= MAX_INTERACTIVES) {
               return;
             }
 
@@ -130,6 +140,7 @@ export class AccessibilityExtractor {
               required,
               href: el.getAttribute("href") || ""
             });
+            interactivesCount++;
           });
 
           return {
@@ -137,7 +148,8 @@ export class AccessibilityExtractor {
             url: window.location.href,
             headings,
             landmarks,
-            interactives
+            interactives,
+            totalInteractivesFound
           };
         })()
       `;
@@ -198,6 +210,10 @@ export class AccessibilityExtractor {
         const hrefStr = el.href ? ` [Href: ${el.href}]` : "";
 
         md += `- **${elTypeStr}** ${label}${stateStr}${hrefStr}\n  Selector: \`${el.selector}\`\n`;
+      }
+
+      if (data.totalInteractivesFound && data.totalInteractivesFound > data.interactives.length) {
+        md += `\n*(Note: ${data.totalInteractivesFound - data.interactives.length} additional interactive elements were truncated to prevent overloading the model)*\n`;
       }
     } else {
       md += `*(No interactive elements found on the page)*\n`;
