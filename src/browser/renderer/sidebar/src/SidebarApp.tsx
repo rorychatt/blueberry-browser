@@ -18,19 +18,19 @@ const SidebarContent: React.FC = () => {
   return (
     <div className="h-screen flex flex-col bg-background border-l border-border overflow-hidden">
       {/* Tab Navigation Bar */}
-      <div className="flex p-2 gap-1 border-b border-border bg-muted/20 dark:bg-muted/5 backdrop-blur-md">
+      <div className="m-3 mb-2 p-1 flex gap-1 rounded-2xl border border-border/40 bg-muted/60 dark:bg-muted/30 backdrop-blur-md">
         <button
           onClick={() => {
             setActiveTab("chat");
           }}
           className={cn(
-            "flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-semibold transition-all duration-200",
+            "flex-1 flex items-center justify-center gap-2 py-1.5 px-3 rounded-xl text-xs font-semibold cursor-pointer transition-all duration-300 ease-out",
             activeTab === "chat"
-              ? "bg-background text-primary shadow-sm border border-border/50"
-              : "text-muted-foreground hover:bg-muted/40 hover:text-foreground",
+              ? "bg-background text-primary shadow-md border border-border/40 font-bold scale-[1.02]"
+              : "text-muted-foreground hover:bg-background/40 hover:text-foreground hover:scale-[1.01]",
           )}
         >
-          <Sparkles className="size-3.5" />
+          <Sparkles className="size-3.5 transition-transform duration-300 group-hover:rotate-12" />
           AI Copilot
         </button>
         <button
@@ -38,10 +38,10 @@ const SidebarContent: React.FC = () => {
             setActiveTab("tests");
           }}
           className={cn(
-            "flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-semibold transition-all duration-200",
+            "flex-1 flex items-center justify-center gap-2 py-1.5 px-3 rounded-xl text-xs font-semibold cursor-pointer transition-all duration-300 ease-out",
             activeTab === "tests"
-              ? "bg-background text-primary shadow-sm border border-border/50"
-              : "text-muted-foreground hover:bg-muted/40 hover:text-foreground",
+              ? "bg-background text-primary shadow-md border border-border/40 font-bold scale-[1.02]"
+              : "text-muted-foreground hover:bg-background/40 hover:text-foreground hover:scale-[1.01]",
           )}
         >
           <Terminal className="size-3.5" />

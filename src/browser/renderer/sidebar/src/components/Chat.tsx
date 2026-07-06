@@ -31,8 +31,8 @@ const useAutoScroll = (messages: Message[]) => {
 // User Message Component - appears on the right
 const UserMessage: React.FC<{ content: string }> = ({ content }) => (
   <div className="relative max-w-[85%] ml-auto animate-fade-in">
-    <div className="bg-muted dark:bg-muted/50 rounded-3xl px-6 py-4">
-      <div className="text-foreground" style={{ whiteSpace: "pre-wrap" }}>
+    <div className="bg-secondary text-secondary-foreground rounded-2xl rounded-tr-sm px-5 py-3 shadow-sm border border-primary/10">
+      <div className="text-sm font-medium" style={{ whiteSpace: "pre-wrap" }}>
         {content}
       </div>
     </div>
@@ -306,10 +306,29 @@ export const Chat: React.FC = () => {
         <div className="pb-4 relative max-w-3xl mx-auto px-4">
           {messages.length === 0 ? (
             // Empty State
-            <div className="flex items-center justify-center h-full min-h-[400px]">
-              <div className="text-center animate-fade-in max-w-md mx-auto gap-2 flex flex-col">
-                <h3 className="text-2xl font-bold">🫐</h3>
-                <p className="text-muted-foreground text-sm">Press ⌘E to toggle the sidebar</p>
+            <div className="flex items-center justify-center h-full min-h-[350px]">
+              <div className="text-center animate-fade-in max-w-sm mx-auto p-6 rounded-3xl bg-muted/40 dark:bg-muted/10 border border-border/30 backdrop-blur-sm gap-4 flex flex-col shadow-xl">
+                <div className="mx-auto size-14 rounded-full bg-primary/10 flex items-center justify-center animate-bounce duration-1000">
+                  <span className="text-2xl filter drop-shadow-md">🫐</span>
+                </div>
+                <div>
+                  <h3 className="text-base font-bold tracking-tight bg-gradient-to-r from-primary to-indigo-400 bg-clip-text text-transparent">
+                    Blueberry Copilot
+                  </h3>
+                  <p className="text-muted-foreground text-xs mt-1">
+                    Ready to assist you with browsing and E2E automation.
+                  </p>
+                </div>
+                <div className="flex items-center justify-center gap-1 py-1 px-2.5 rounded-xl bg-background border border-border/40 text-[10px] font-semibold text-muted-foreground shadow-sm w-fit mx-auto">
+                  <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border text-[9px] font-mono shadow-sm">
+                    ⌘
+                  </kbd>
+                  <span>+</span>
+                  <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border text-[9px] font-mono shadow-sm">
+                    E
+                  </kbd>
+                  <span className="ml-1 text-muted-foreground/80">to toggle sidebar</span>
+                </div>
               </div>
             </div>
           ) : (

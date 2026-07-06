@@ -260,7 +260,7 @@ steps:
           className={cn(
             "flex-1 flex flex-col min-h-[180px] max-h-[35%] bg-muted/40 dark:bg-muted/10 border rounded-2xl overflow-hidden shadow-inner transition-all duration-200",
             isEditing
-              ? "border-primary/40 shadow-[0_0_12px_rgba(59,130,246,0.15)]"
+              ? "border-primary/40 shadow-[0_0_12px_rgba(67,97,238,0.15)]"
               : "border-border",
           )}
         >

@@ -43,6 +43,9 @@ export class SideBar {
   }
 
   private setupBounds(): void {
+    if (this.webContentsView.webContents.isDestroyed()) {
+      return;
+    }
     const bounds = this.baseWindow.getBounds();
     if (this.isVisible) {
       this.webContentsView.setBounds({
@@ -80,6 +83,9 @@ export class SideBar {
 
   hide(): void {
     this.isVisible = false;
+    if (this.webContentsView.webContents.isDestroyed()) {
+      return;
+    }
     this.webContentsView.setBounds({
       height: 0,
       width: 0,

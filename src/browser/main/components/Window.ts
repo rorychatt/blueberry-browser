@@ -234,6 +234,9 @@ export class Window {
     const sidebarWidth = this._sideBar.getIsVisible() ? 400 : 0;
 
     this.tabsMap.forEach((tab) => {
+      if (tab.view.webContents.isDestroyed()) {
+        return;
+      }
       tab.view.setBounds({
         height: bounds.height - 88, // Subtract topbar height
         width: bounds.width - sidebarWidth,

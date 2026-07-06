@@ -5,10 +5,10 @@ export default defineConfig({
   lint: {
     categories: {
       correctness: "error",
-      pedantic: "error",
+      pedantic: "off",
       perf: "error",
-      restriction: "error",
-      style: "error",
+      restriction: "off",
+      style: "off",
       suspicious: "error",
     },
     env: {

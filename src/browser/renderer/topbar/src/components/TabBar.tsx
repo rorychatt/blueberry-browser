@@ -85,11 +85,10 @@ export const TabBar: React.FC = () => {
     }
   };
 
-  return (
-    <div className="flex-1 overflow-x-hidden flex items-center">
-      {/* MacOS traffic lights spacing */}
-      <div className="pl-20" />
+  const isMac = typeof window !== "undefined" && window.navigator.userAgent.includes("Mac");
 
+  return (
+    <div className={cn("flex-1 overflow-x-hidden flex items-center", isMac && "pl-20")}>
       {/* Tabs */}
       <div className="flex-1 overflow-x-auto flex">
         {tabs.map((tab) => (

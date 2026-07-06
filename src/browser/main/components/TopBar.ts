@@ -37,6 +37,9 @@ export class TopBar {
   }
 
   private setupBounds(): void {
+    if (this.webContentsView.webContents.isDestroyed()) {
+      return;
+    }
     const bounds = this.baseWindow.getBounds();
     this.webContentsView.setBounds({
       height: 88, // Fixed height for topbar (40px tabs + 48px address bar)
