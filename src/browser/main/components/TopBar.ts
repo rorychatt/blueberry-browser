@@ -24,6 +24,9 @@ export class TopBar {
       },
     });
 
+    // Set background color to transparent to prevent solid white overlay when dropdown is open and TopBar is expanded
+    webContentsView.setBackgroundColor("#00000000");
+
     // Load the TopBar React app
     if (is.dev && process.env.ELECTRON_RENDERER_URL) {
       // In development, load through Vite dev server
