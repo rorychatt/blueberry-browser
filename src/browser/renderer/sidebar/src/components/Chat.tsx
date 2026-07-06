@@ -19,6 +19,10 @@ import {
   ChevronUp,
   Brain,
   RefreshCw,
+  Terminal,
+  ExternalLink,
+  Hash,
+  Type,
 } from "lucide-react";
 import { VoiceRecorder, type VoiceStatus } from "./voice-recorder";
 import type { Message } from "../contexts/ChatContext";
@@ -214,7 +218,7 @@ const Markdown: React.FC<{ content: string }> = ({ content }) => (
   </div>
 );
 
-const getActionIcon = (action: string) => {
+const getActionIcon = (action: string): React.ReactNode => {
   switch (action) {
     case "open_tab":
       return <Compass className="size-4 text-sky-500 animate-spin-slow" />;
@@ -237,8 +241,384 @@ const getActionIcon = (action: string) => {
     case "go_forward":
       return <ArrowRight className="size-4 text-purple-500" />;
     default:
-      return <Compass className="size-4 text-primary" />;
+      return <Compass className="size-4 text-sky-500" />;
   }
+};
+
+interface ParsedAction {
+  action: string;
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+  params: Record<string, any>;
+  isIncomplete?: boolean;
+}
+
+const tryParseAction = (text: string): ParsedAction | null => {
+  try {
+    const parsed = JSON.parse(text);
+    if (parsed && typeof parsed === "object" && typeof parsed.action === "string") {
+      return {
+        action: parsed.action,
+        params: parsed.params || {},
+        isIncomplete: false,
+      };
+    }
+  } catch {
+    // Try to extract action name using regex if JSON is incomplete/streaming
+    const actionMatch = text.match(/"action"\s*:\s*"([^"]+)"/);
+    if (actionMatch) {
+      const action = actionMatch[1];
+      // Try to extract some params using regex
+      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+      const params: Record<string, any> = {};
+
+      // Match key-value string pairs like "url": "https://..."
+      const stringParamMatches = text.matchAll(/"([^"]+)"\s*:\s*"([^"]*)"/g);
+      for (const m of stringParamMatches) {
+        if (m[1] !== "action" && m[1] !== "params") {
+          params[m[1]] = m[2];
+        }
+      }
+      // Match number pairs like "ms": 1000
+      const numberParamMatches = text.matchAll(/"([^"]+)"\s*:\s*(\d+)/g);
+      for (const m of numberParamMatches) {
+        params[m[1]] = Number(m[2]);
+      }
+
+      return { action, params, isIncomplete: true };
+    }
+  }
+  return null;
+};
+
+const extractActionFromJson = (content: string): ParsedAction | null => {
+  // Find json blocks
+  const jsonRegex = /```json\s*([\s\S]*?)(?:```|$)/;
+  const match = content.match(jsonRegex);
+  if (match) {
+    const rawJson = match[1].trim();
+    return tryParseAction(rawJson);
+  }
+  // Try to parse the entire content if it doesn't have markdown code block ticks but starts like a JSON
+  const trimmed = content.trim();
+  if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+    return tryParseAction(trimmed);
+  }
+  return null;
+};
+
+const stripJsonBlocks = (text: string): string => {
+  return text.replace(/```json\s*[\s\S]*?(?:```|$)/g, "").trim();
+};
+
+interface ActionCardProps {
+  action: string;
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+  params: Record<string, any>;
+  status: "running" | "success" | "error";
+  message?: string;
+}
+
+const getActionTitle = (act: string) => {
+  switch (act) {
+    case "open_tab":
+      return "Open New Tab";
+    case "close_tab":
+      return "Close Tab";
+    case "switch_tab":
+      return "Switch Browser Tab";
+    case "navigate":
+      return "Navigate Tab";
+    case "click":
+      return "Click Element";
+    case "type":
+      return "Type Keyboard Input";
+    case "scroll_to":
+      return "Scroll Page";
+    case "wait":
+      return "Wait Timer";
+    case "go_back":
+      return "Go Back in History";
+    case "go_forward":
+      return "Go Forward in History";
+    default:
+      return `Execute: ${act}`;
+  }
+};
+
+const getActionColorTheme = (st: "running" | "success" | "error") => {
+  switch (st) {
+    case "running":
+      return {
+        bg: "bg-blue-500/5 dark:bg-blue-500/10",
+        border: "border-blue-500/30 dark:border-blue-500/40",
+        text: "text-blue-500",
+        badge: "bg-blue-500/10 border-blue-500/20 text-blue-500 dark:text-blue-400",
+        accent: "from-blue-500/20 to-sky-500/20",
+      };
+    case "success":
+      return {
+        bg: "bg-emerald-500/5 dark:bg-emerald-500/10",
+        border: "border-emerald-500/30 dark:border-emerald-500/40",
+        text: "text-emerald-500",
+        badge: "bg-emerald-500/10 border-emerald-500/20 text-emerald-500 dark:text-emerald-400",
+        accent: "from-emerald-500/20 to-teal-500/20",
+      };
+    case "error":
+      return {
+        bg: "bg-destructive/5 dark:bg-destructive/10",
+        border: "border-destructive/30 dark:border-destructive/40",
+        text: "text-destructive",
+        badge: "bg-destructive/10 border-destructive/20 text-destructive dark:text-destructive-400",
+        accent: "from-destructive/20 to-rose-500/20",
+      };
+  }
+};
+
+const ActionCard: React.FC<ActionCardProps> = ({ action, params, status, message }) => {
+  const theme = getActionColorTheme(status);
+  const title = getActionTitle(action);
+  const icon = getActionIcon(action);
+
+  // Render action-specific parameter details in a beautiful way
+  const renderParams = () => {
+    if (!params || Object.keys(params).length === 0) return null;
+
+    return (
+      <div className="mt-3 space-y-2 text-xs">
+        {action === "navigate" && params.url && (
+          <div className="flex items-center gap-2 bg-muted/40 dark:bg-muted/10 border border-border/30 rounded-lg p-2.5 transition-all hover:bg-muted/60 dark:hover:bg-muted/20">
+            <Globe className="size-4 text-teal-500 shrink-0" />
+            <div className="flex-1 overflow-hidden">
+              <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">
+                Target URL
+              </span>
+              <a
+                href={params.url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-foreground font-mono font-medium hover:underline break-all block truncate"
+              >
+                {params.url}
+              </a>
+            </div>
+            <ExternalLink className="size-3.5 text-muted-foreground shrink-0" />
+          </div>
+        )}
+
+        {action === "open_tab" && (
+          <div className="grid grid-cols-2 gap-2">
+            {params.url && (
+              <div className="col-span-2 flex items-center gap-2 bg-muted/40 dark:bg-muted/10 border border-border/30 rounded-lg p-2.5">
+                <Globe className="size-4 text-sky-500 shrink-0" />
+                <div className="overflow-hidden">
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">
+                    Initial URL
+                  </span>
+                  <span className="text-foreground font-mono font-medium truncate block">
+                    {params.url}
+                  </span>
+                </div>
+              </div>
+            )}
+            {params.activate !== undefined && (
+              <div className="col-span-1 flex items-center gap-2 bg-muted/40 dark:bg-muted/10 border border-border/30 rounded-lg p-2.5">
+                <div className="overflow-hidden">
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">
+                    Auto-Activate
+                  </span>
+                  <span className="text-foreground font-semibold">
+                    {params.activate ? "Yes" : "No"}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {action === "type" && (
+          <div className="space-y-2">
+            {params.selector && (
+              <div className="flex items-center gap-2 bg-muted/40 dark:bg-muted/10 border border-border/30 rounded-lg p-2.5">
+                <Hash className="size-4 text-indigo-500 shrink-0" />
+                <div className="overflow-hidden">
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">
+                    Element Selector
+                  </span>
+                  <span className="text-foreground font-mono font-medium break-all">
+                    {params.selector}
+                  </span>
+                </div>
+              </div>
+            )}
+            {params.text !== undefined && (
+              <div className="flex items-start gap-2 bg-muted/40 dark:bg-muted/10 border border-border/30 rounded-lg p-2.5">
+                <Type className="size-4 text-indigo-500 mt-1 shrink-0" />
+                <div className="flex-1 overflow-hidden">
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">
+                    Keys Pressed
+                  </span>
+                  <div className="bg-background border border-border/50 rounded px-2 py-1.5 font-mono text-[11px] text-foreground mt-1 break-all max-h-[80px] overflow-y-auto">
+                    {params.text}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {action === "click" && params.selector && (
+          <div className="flex items-center gap-2 bg-muted/40 dark:bg-muted/10 border border-border/30 rounded-lg p-2.5">
+            <MousePointerClick className="size-4 text-amber-500 shrink-0" />
+            <div className="overflow-hidden">
+              <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">
+                Target Element
+              </span>
+              <span className="text-foreground font-mono font-medium break-all">
+                {params.selector}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {action === "wait" && params.ms && (
+          <div className="flex items-center gap-2 bg-muted/40 dark:bg-muted/10 border border-border/30 rounded-lg p-2.5 w-fit">
+            <Clock className="size-4 text-orange-400 shrink-0" />
+            <div>
+              <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">
+                Sleep Duration
+              </span>
+              <span className="text-foreground font-semibold">
+                {(params.ms / 1000).toFixed(1)} seconds
+              </span>
+            </div>
+          </div>
+        )}
+
+        {action === "scroll_to" && params.direction && (
+          <div className="flex items-center gap-2 bg-muted/40 dark:bg-muted/10 border border-border/30 rounded-lg p-2.5 w-fit">
+            <ArrowUpDown className="size-4 text-emerald-500 shrink-0" />
+            <div>
+              <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">
+                Direction
+              </span>
+              <span className="text-foreground font-semibold capitalize">{params.direction}</span>
+            </div>
+          </div>
+        )}
+
+        {(action === "switch_tab" || action === "close_tab") && params.tabId && (
+          <div className="flex items-center gap-2 bg-muted/40 dark:bg-muted/10 border border-border/30 rounded-lg p-2.5 w-fit">
+            <Terminal className="size-4 text-violet-500 shrink-0" />
+            <div>
+              <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">
+                Tab Identifier
+              </span>
+              <span className="text-foreground font-mono font-medium">{params.tabId}</span>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div
+      className={cn(
+        "w-full rounded-xl border p-4 backdrop-blur-md shadow-md transition-all duration-300 animate-fade-in my-3 relative overflow-hidden",
+        theme.bg,
+        theme.border,
+      )}
+    >
+      {/* Dynamic sleek gradient glow */}
+      <div
+        className={cn(
+          "absolute -right-16 -top-16 size-32 rounded-full blur-2xl opacity-40 bg-gradient-to-br",
+          theme.accent,
+        )}
+      />
+
+      <div className="flex items-center justify-between relative z-10">
+        <div className="flex items-center gap-3">
+          <div
+            className={cn(
+              "flex items-center justify-center size-9 rounded-lg border shadow-inner transition-all duration-300",
+              status === "running"
+                ? "bg-blue-500/10 border-blue-500/20 text-blue-500 animate-pulse scale-105"
+                : status === "success"
+                  ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500"
+                  : "bg-destructive/10 border-destructive/20 text-destructive",
+            )}
+          >
+            {icon}
+          </div>
+          <div>
+            <span className="text-xs font-extrabold tracking-tight text-foreground uppercase">
+              {title}
+            </span>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              {status === "running" ? (
+                <>
+                  <span className="size-2 bg-blue-500 rounded-full animate-ping shrink-0" />
+                  <span className="text-[10px] text-blue-500 font-bold uppercase tracking-wider animate-pulse">
+                    In Progress...
+                  </span>
+                </>
+              ) : status === "success" ? (
+                <>
+                  <span className="size-2 bg-emerald-500 rounded-full shrink-0" />
+                  <span className="text-[10px] text-emerald-500 font-bold uppercase tracking-wider">
+                    Completed
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="size-2 bg-destructive rounded-full shrink-0" />
+                  <span className="text-[10px] text-destructive font-bold uppercase tracking-wider">
+                    Failed
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Top-right Status Pill */}
+        <span
+          className={cn(
+            "inline-flex items-center gap-1.5 py-1 px-3 rounded-full border text-[10px] font-extrabold tracking-wider shadow-sm select-none",
+            theme.badge,
+          )}
+        >
+          {status === "running" && <RefreshCw className="size-3 animate-spin shrink-0" />}
+          {status === "success" && <CheckCircle2 className="size-3 shrink-0" />}
+          {status === "error" && <XCircle className="size-3 shrink-0" />}
+          {status.toUpperCase()}
+        </span>
+      </div>
+
+      {/* Render parameters of the action */}
+      {renderParams()}
+
+      {/* Show error/success details if any */}
+      {message && (
+        <div className="mt-3 pt-3 border-t border-border/20 relative z-10">
+          <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block mb-1">
+            Execution Details
+          </span>
+          <div
+            className={cn(
+              "text-[10px] font-mono p-2.5 rounded-lg border leading-relaxed break-all break-words max-h-[120px] overflow-y-auto whitespace-pre-wrap shadow-inner",
+              status === "error"
+                ? "bg-destructive/5 border-destructive/10 text-destructive"
+                : "bg-muted/30 border-border/30 text-muted-foreground",
+            )}
+          >
+            {message}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 // Parsed Step Interface for thinking and action sequences
@@ -404,7 +784,7 @@ const ThinkingProcessCard: React.FC<{
   const detailsNode = (
     <div className="relative pl-5 ml-2.5 border-l border-border/60 dark:border-border/20 flex flex-col gap-2.5 py-1">
       {steps.map((step, idx) => {
-        let stepIcon = <Brain className="size-3.5" />;
+        let stepIcon: React.ReactNode = <Brain className="size-3.5" />;
         let stepTitle: React.ReactNode = "Step";
         let stepSubtitle: string | undefined;
         let stepStatus: "running" | "success" | "error" | "info" = "success";
@@ -929,6 +1309,27 @@ const AssistantMessageGroupComponent: React.FC<{
     }
   }
 
+  // Detect any action payload inside the assistant messages
+  let parsedAction: ParsedAction | null = null;
+  for (const msg of messages) {
+    const action = extractActionFromJson(msg.content);
+    if (action) {
+      parsedAction = action;
+      break;
+    }
+  }
+
+  // Determine current execution status of this action
+  const toolExecStep = steps.find((s) => s.type === "tool_execution");
+  const actionStatus: "running" | "success" | "error" =
+    toolExecStep?.toolStatus || (isLoading ? "running" : "success");
+  const actionMessage = toolExecStep?.toolMessage || "";
+
+  // Strip JSON code blocks from final response step to prevent raw JSON text dump
+  const strippedFinalResponseContent = finalResponseStep
+    ? stripJsonBlocks(finalResponseStep.content)
+    : "";
+
   const isComplete = !isLoading;
 
   return (
@@ -946,15 +1347,27 @@ const AssistantMessageGroupComponent: React.FC<{
       )}
 
       {/* Render the final markdown response outside/below the thinking card */}
-      {finalResponseStep && (
+      {finalResponseStep && strippedFinalResponseContent && (
         <div className="relative animate-fade-in">
           <div className="py-1">
             {finalResponseStep.isStreaming ? (
-              <StreamingText content={finalResponseStep.content} />
+              <StreamingText content={strippedFinalResponseContent} />
             ) : (
-              <Markdown content={finalResponseStep.content} />
+              <Markdown content={strippedFinalResponseContent} />
             )}
           </div>
+        </div>
+      )}
+
+      {/* Render the premium ActionCard if an action is parsed */}
+      {parsedAction && (
+        <div className="relative animate-fade-in">
+          <ActionCard
+            action={parsedAction.action}
+            params={parsedAction.params}
+            status={actionStatus}
+            message={actionMessage}
+          />
         </div>
       )}
 
@@ -973,13 +1386,14 @@ export const Chat: React.FC = () => {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
-  const [isAutoScrollEnabled, setIsAutoScrollEnabled] = useState(true);
+  const [_isAutoScrollEnabled, _setIsAutoScrollEnabled] = useState(true);
   const isAutoScrollEnabledRef = useRef(true);
+  const lastScrollTopRef = useRef(0);
 
-  // Sync ref with state
-  useEffect(() => {
-    isAutoScrollEnabledRef.current = isAutoScrollEnabled;
-  }, [isAutoScrollEnabled]);
+  const setIsAutoScrollEnabled = (enabled: boolean) => {
+    _setIsAutoScrollEnabled(enabled);
+    isAutoScrollEnabledRef.current = enabled;
+  };
 
   // Keep scroll locked to bottom on any inner height changes (streaming, tool log cards, collapsible opens)
   useEffect(() => {
@@ -1023,7 +1437,19 @@ export const Chat: React.FC = () => {
 
     // We are at the bottom if remaining scroll height is less than 15px
     const isAtBottom = scrollHeight - scrollTop - clientHeight < 15;
-    setIsAutoScrollEnabled(isAtBottom);
+
+    if (isAtBottom) {
+      setIsAutoScrollEnabled(true);
+    } else {
+      // If we are not at the bottom, we only disable autoscroll if the user explicitly scrolled UP.
+      // If the scroll position is the same or larger (e.g. content was added and scroll height increased),
+      // we do not treat this as a user scroll up event, avoiding race conditions.
+      if (scrollTop < lastScrollTopRef.current) {
+        setIsAutoScrollEnabled(false);
+      }
+    }
+
+    lastScrollTopRef.current = scrollTop;
   };
 
   // Group messages into consecutive runs by role

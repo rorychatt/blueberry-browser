@@ -1,5 +1,9 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
-import type { MessageContentPart, PreloadChatMessage } from "../../../common/types/preload";
+import type {
+  MessageContentPart,
+  PreloadChatMessage,
+  PreloadChatSession,
+} from "../../../common/types/preload";
 
 export interface Message {
   id: string;
@@ -21,6 +25,13 @@ interface ChatContextType {
   getPageContent: () => Promise<string | null>;
   getPageText: () => Promise<string | null>;
   getCurrentUrl: () => Promise<string | null>;
+
+  // Chat History
+  sessions: PreloadChatSession[];
+  currentSessionId: string | null;
+  loadSession: (id: string) => Promise<void>;
+  deleteSession: (id: string) => Promise<void>;
+  renameSession: (id: string, title: string) => Promise<void>;
 }
 
 const ChatContext = createContext<ChatContextType | null>(null);
@@ -36,14 +47,18 @@ export const useChat = () => {
 export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [sessions, setSessions] = useState<PreloadChatSession[]>([]);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
 
-  // Load initial messages from main process
+  // Load initial messages and session ID from main process
   useEffect(() => {
-    const loadMessages = async () => {
+    const loadInitialState = async () => {
       try {
+        const activeId = await window.sidebarAPI.getCurrentSessionId();
+        setCurrentSessionId(activeId);
+
         const storedMessages = await window.sidebarAPI.getMessages();
         if (storedMessages && storedMessages.length > 0) {
-          // Convert CoreMessage format to our frontend Message format
           const convertedMessages = storedMessages.map(
             (msg: PreloadChatMessage, index: number) => ({
               content:
@@ -59,10 +74,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setMessages(convertedMessages);
         }
       } catch (error) {
-        console.error("Failed to load messages:", error);
+        console.error("Failed to load initial chat state:", error);
       }
     };
-    void loadMessages();
+    void loadInitialState();
   }, []);
 
   const sendMessage = useCallback(async (content: string) => {
@@ -85,10 +100,67 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
+  const loadSessions = useCallback(async () => {
+    try {
+      const chatSessions = await window.sidebarAPI.getChatSessions();
+      setSessions(chatSessions || []);
+    } catch (error) {
+      console.error("Failed to load chat sessions:", error);
+    }
+  }, []);
+
+  const loadSession = useCallback(async (id: string) => {
+    setIsLoading(true);
+    try {
+      setCurrentSessionId(id);
+      const storedMessages = await window.sidebarAPI.loadChatSession(id);
+      const convertedMessages = storedMessages.map((msg: PreloadChatMessage, index: number) => ({
+        content:
+          typeof msg.content === "string"
+            ? msg.content
+            : msg.content.find((p: MessageContentPart) => p.type === "text")?.text || "",
+        id: `msg-${index}`,
+        isStreaming: false,
+        role: msg.role,
+        timestamp: Date.now(),
+      }));
+      setMessages(convertedMessages);
+    } catch (error) {
+      console.error("Failed to load session:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const deleteSession = useCallback(
+    async (id: string) => {
+      try {
+        await window.sidebarAPI.deleteChatSession(id);
+        void loadSessions();
+      } catch (error) {
+        console.error("Failed to delete session:", error);
+      }
+    },
+    [loadSessions],
+  );
+
+  const renameSession = useCallback(
+    async (id: string, title: string) => {
+      try {
+        await window.sidebarAPI.renameChatSession(id, title);
+        void loadSessions();
+      } catch (error) {
+        console.error("Failed to rename session:", error);
+      }
+    },
+    [loadSessions],
+  );
+
   const clearChat = useCallback(async () => {
     try {
       await window.sidebarAPI.clearChat();
       setMessages([]);
+      setCurrentSessionId(null);
     } catch (error) {
       console.error("Failed to clear chat:", error);
     }
@@ -135,7 +207,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     // Listen for message updates from main process
-    const handleMessagesUpdated = (updatedMessages: PreloadChatMessage[]) => {
+    const handleMessagesUpdated = async (updatedMessages: PreloadChatMessage[]) => {
       // Convert CoreMessage format to our frontend Message format
       const convertedMessages = updatedMessages.map((msg: PreloadChatMessage, index: number) => ({
         content:
@@ -148,16 +220,28 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         timestamp: Date.now(),
       }));
       setMessages(convertedMessages);
+
+      try {
+        const activeId = await window.sidebarAPI.getCurrentSessionId();
+        setCurrentSessionId(activeId);
+      } catch (error) {
+        console.error("Failed to sync current session ID:", error);
+      }
     };
 
     window.sidebarAPI.onChatResponse(handleChatResponse);
     window.sidebarAPI.onMessagesUpdated(handleMessagesUpdated);
+    window.sidebarAPI.onChatSessionsUpdated(loadSessions);
+
+    // Initial load of sessions
+    void loadSessions();
 
     return () => {
       window.sidebarAPI.removeChatResponseListener();
       window.sidebarAPI.removeMessagesUpdatedListener();
+      window.sidebarAPI.removeChatSessionsUpdatedListener();
     };
-  }, []);
+  }, [loadSessions]);
 
   const value: ChatContextType = {
     clearChat,
@@ -167,6 +251,11 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isLoading,
     messages,
     sendMessage,
+    sessions,
+    currentSessionId,
+    loadSession,
+    deleteSession,
+    renameSession,
   };
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
