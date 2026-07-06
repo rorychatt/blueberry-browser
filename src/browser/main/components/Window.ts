@@ -1,4 +1,4 @@
-import { BaseWindow, shell, WebContents } from "electron";
+import { BaseWindow, WebContents } from "electron";
 import { Tab } from "./Tab";
 import { TopBar } from "./TopBar";
 import { SideBar } from "./SideBar";
@@ -60,14 +60,6 @@ export class Window {
       }
     });
 
-    // Handle external link opening
-    this.tabsMap.forEach((tab) => {
-      tab.webContents.setWindowOpenHandler((details) => {
-        void shell.openExternal(details.url);
-        return { action: "deny" };
-      });
-    });
-
     this.setupEventListeners();
   }
 
@@ -120,6 +112,13 @@ export class Window {
 
     // Register standard shortcuts on the tab
     this.registerKeyboardShortcuts(tab.webContents);
+
+    // Prevent target="_blank" / window.open links from opening in an external browser,
+    // and instead navigate the same tab to the requested URL.
+    tab.webContents.setWindowOpenHandler((details) => {
+      void tab.loadURL(details.url);
+      return { action: "deny" };
+    });
 
     // Add the tab's WebContentsView to the window
     this._baseWindow.contentView.addChildView(tab.view);
