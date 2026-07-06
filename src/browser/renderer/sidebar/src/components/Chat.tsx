@@ -1004,6 +1004,7 @@ const ChatInput: React.FC<{
   onSend: (message: string) => void;
   disabled: boolean;
 }> = ({ onSend, disabled }) => {
+  const { isLoading, stopExecution } = useChat();
   const [value, setValue] = useState("");
   const [isFocused, setIsFocused] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -1226,19 +1227,36 @@ const ChatInput: React.FC<{
           )}
         </button>
 
-        {/* Send Button */}
-        <button
-          onClick={handleSubmit}
-          disabled={disabled || !value.trim() || voiceStatus !== "idle"}
-          className={cn(
-            "size-9 rounded-md flex items-center justify-center",
-            "transition-all duration-200",
-            "bg-primary text-primary-foreground",
-            "hover:opacity-80 disabled:opacity-50",
-          )}
-        >
-          <ArrowUp className="size-5" />
-        </button>
+        {/* Send / Stop Button */}
+        {isLoading ? (
+          <button
+            onClick={stopExecution}
+            title="Stop agent execution"
+            type="button"
+            className={cn(
+              "size-9 rounded-md flex items-center justify-center",
+              "transition-all duration-300 ease-in-out",
+              "bg-red-600 dark:bg-red-700 text-white shadow-[0_0_8px_rgba(220,38,38,0.4)]",
+              "hover:bg-red-500 hover:shadow-[0_0_15px_rgba(220,38,38,0.8)]",
+              "animate-pulse hover:scale-105 active:scale-95 cursor-pointer",
+            )}
+          >
+            <div className="size-3.5 bg-white rounded-[2px]" />
+          </button>
+        ) : (
+          <button
+            onClick={handleSubmit}
+            disabled={disabled || !value.trim() || voiceStatus !== "idle"}
+            className={cn(
+              "size-9 rounded-md flex items-center justify-center",
+              "transition-all duration-200",
+              "bg-primary text-primary-foreground",
+              "hover:opacity-80 disabled:opacity-50",
+            )}
+          >
+            <ArrowUp className="size-5" />
+          </button>
+        )}
       </div>
     </div>
   );

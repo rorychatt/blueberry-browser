@@ -36,6 +36,8 @@ const sidebarAPI = {
   sendChatMessage: async (request: Partial<ChatRequest>) =>
     electronAPI.ipcRenderer.invoke("sidebar-chat-message", request),
 
+  stopAgentExecution: async () => electronAPI.ipcRenderer.invoke("sidebar-stop-execution"),
+
   clearChat: async () => electronAPI.ipcRenderer.invoke("sidebar-clear-chat"),
 
   getMessages: async () => electronAPI.ipcRenderer.invoke("sidebar-get-messages"),

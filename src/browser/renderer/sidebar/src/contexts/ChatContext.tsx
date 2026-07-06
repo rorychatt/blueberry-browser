@@ -19,6 +19,7 @@ interface ChatContextType {
 
   // Chat actions
   sendMessage: (content: string) => Promise<void>;
+  stopExecution: () => Promise<void>;
   clearChat: () => void;
 
   // Page content access
@@ -100,6 +101,15 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
+  const stopExecution = useCallback(async () => {
+    try {
+      await window.sidebarAPI.stopAgentExecution();
+      setIsLoading(false);
+    } catch (error) {
+      console.error("Failed to stop execution:", error);
+    }
+  }, []);
+
   const loadSessions = useCallback(async () => {
     try {
       const chatSessions = await window.sidebarAPI.getChatSessions();
@@ -112,6 +122,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loadSession = useCallback(async (id: string) => {
     setIsLoading(true);
     try {
+      await window.sidebarAPI.stopAgentExecution();
       setCurrentSessionId(id);
       const storedMessages = await window.sidebarAPI.loadChatSession(id);
       const convertedMessages = storedMessages.map((msg: PreloadChatMessage, index: number) => ({
@@ -158,6 +169,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const clearChat = useCallback(async () => {
     try {
+      await window.sidebarAPI.stopAgentExecution();
       await window.sidebarAPI.clearChat();
       setMessages([]);
       setCurrentSessionId(null);
@@ -251,6 +263,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isLoading,
     messages,
     sendMessage,
+    stopExecution,
     sessions,
     currentSessionId,
     loadSession,

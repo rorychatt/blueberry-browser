@@ -46,6 +46,7 @@ export interface PreloadChatSession {
 export interface SidebarAPI {
   // Chat functionality
   sendChatMessage: (request: Partial<ChatRequest>) => Promise<void>;
+  stopAgentExecution: () => Promise<boolean>;
   clearChat: () => Promise<void>;
   getMessages: () => Promise<PreloadChatMessage[]>;
   getCurrentSessionId: () => Promise<string | null>;

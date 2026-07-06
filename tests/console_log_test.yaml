@@ -1,0 +1,5 @@
+name: "Console Log Message Test"
+steps:
+  - navigate: "data:text/html,%3C!DOCTYPE%20html%3E%3Chtml%3E%3Chead%3E%3Ctitle%3EConsole%20Log%20Test%3C/title%3E%3C/head%3E%3Cbody%3E%3Ch1%3EConsole%20Log%20Test%20Page%3C/h1%3E%3Cscript%3Econsole.log(%22Welcome%20to%20Blueberry%20Browser%20E2E%20Test!%22);console.error(%22This%20is%20an%20expected%20error%20log%20for%20testing.%22);%3C/script%3E%3C/body%3E%3C/html%3E"
+  - wait: 1000
+  - agent: "Verify that the Console Logs section contains a 'log' level message saying 'Welcome to Blueberry Browser E2E Test!' and an 'error' level message saying 'This is an expected error log for testing.'"

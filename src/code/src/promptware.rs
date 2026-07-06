@@ -372,6 +372,8 @@ pub async fn run_e2e_loop(
         values.insert("Prompt".to_string(), test_prompt.to_string());
         values.insert("CurrentUrl".to_string(), current_url.clone());
         values.insert("PageContent".to_string(), page_text_truncated);
+        values.insert("ConsoleLogs".to_string(), "[]".to_string());
+        values.insert("NetworkEvents".to_string(), "[]".to_string());
 
         let (system_prompt, user_prompt) = compile_prompt_system_and_user("E2ETest", &values)?;
 

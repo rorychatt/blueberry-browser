@@ -17,6 +17,12 @@ export class SidebarHandler extends BaseHandler {
       await this.mainWindow.sidebar.client.sendChatMessage(request);
     });
 
+    // Stop execution
+    ipcMain.handle("sidebar-stop-execution", () => {
+      this.mainWindow.sidebar.client.stopExecution();
+      return true;
+    });
+
     // Clear chat
     ipcMain.handle("sidebar-clear-chat", () => {
       this.mainWindow.sidebar.client.clearMessages();

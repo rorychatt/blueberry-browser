@@ -166,7 +166,11 @@ export class BrowserSkills {
     docs += "```json\n";
     docs += "{\n";
     docs += '  "action": "skill_name",\n';
-    docs += '  "params": { ... }\n';
+    docs += '  "params": { ... },\n';
+    docs +=
+      '  "reflection": "Brief reflection on what was learned or observed during this step (used to update persistent memory)",\n';
+    docs +=
+      "  \"reflection_title\": \"A short 2-3 word topic name representing this reflection (e.g. 'google_search_input', 'login_failure', etc.)\"\n";
     docs += "}\n";
     docs += "```\n\n";
     docs += "CRITICAL: You are only allowed to output ONE action per response. ";
@@ -328,12 +332,10 @@ export class BrowserSkills {
           if (!vignette) {
             vignette = document.createElement("div");
             vignette.className = "blueberry-vignette";
-            vignette.innerHTML = \`
-              <div class="blueberry-badge">
-                <span class="blueberry-badge-dot"></span>
-                <span>Blueberry Agent Active</span>
-              </div>
-            \`;
+            vignette.innerHTML = '<div class="blueberry-badge">' +
+              '<span class="blueberry-badge-dot"></span>' +
+              '<span>Blueberry Agent Active</span>' +
+              '</div>';
             safeAppend(vignette);
           } else if (vignette.parentElement !== document.body && document.body) {
             document.body.appendChild(vignette);
@@ -346,12 +348,10 @@ export class BrowserSkills {
           if (!cursor) {
             cursor = document.createElement("div");
             cursor.className = "blueberry-cursor";
-            cursor.innerHTML = \\\`
-              <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M4 2.5L25 15.5L15.5 17.5L21.5 25.5L18.5 27L12.5 19L4 24.5V2.5Z" fill="#3b82f6" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"/>
-                <circle cx="4" cy="2.5" r="3" fill="#6366f1" stroke="#ffffff" stroke-width="1.5"/>
-              </svg>
-            \\\`;
+            cursor.innerHTML = '<svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+              '<path d="M4 2.5L25 15.5L15.5 17.5L21.5 25.5L18.5 27L12.5 19L4 24.5V2.5Z" fill="#3b82f6" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"/>' +
+              '<circle cx="4" cy="2.5" r="3" fill="#6366f1" stroke="#ffffff" stroke-width="1.5"/>' +
+              '</svg>';
             safeAppend(cursor);
           } else if (cursor.parentElement !== document.body && document.body) {
             document.body.appendChild(cursor);
@@ -395,7 +395,7 @@ export class BrowserSkills {
               if (!c) return;
 
               c.classList.add("visible");
-              c.style.transform = \\\`translate3d(\\\${x}px, \\\${y}px, 0)\\\`;
+              c.style.transform = "translate3d(" + x + "px, " + y + "px, 0)";
 
               window.__blueberryLastCursorX = x;
               window.__blueberryLastCursorY = y;
@@ -404,8 +404,8 @@ export class BrowserSkills {
 
               const ripple = document.createElement("div");
               ripple.className = "blueberry-click-ripple";
-              ripple.style.left = \\\`\\\${x}px\\\`;
-              ripple.style.top = \\\`\\\${y}px\\\`;
+              ripple.style.left = x + "px";
+              ripple.style.top = y + "px";
               safeAppend(ripple);
 
               void ripple.offsetWidth;

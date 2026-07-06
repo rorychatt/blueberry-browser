@@ -3,7 +3,7 @@ import { type LanguageModel, type ModelMessage, streamText } from "ai";
 import type { Window } from "../components/Window";
 import { AccessibilityExtractor } from "./AccessibilityExtractor";
 import { BrowserSkills } from "./BrowserSkills";
-import { writeLog } from "../utils/promptware";
+import { writeLog, saveReflectionMemory } from "../utils/promptware";
 
 import { ModelManager, type LLMProvider } from "./llm/ModelManager";
 import { compilePromptware } from "./llm/PromptwareCompiler";
@@ -49,6 +49,8 @@ export class LLMClient {
   private window: Window | null = null;
   private readonly modelManager: ModelManager;
   private readonly sessionManager: SessionManager;
+  private currentAbortController: AbortController | null = null;
+  private isCancelled = false;
 
   constructor(webContents: WebContents) {
     this.webContents = webContents;
@@ -61,6 +63,24 @@ export class LLMClient {
   // Set the window reference after construction to avoid circular dependencies
   setWindow(window: Window): void {
     this.window = window;
+  }
+
+  public stopExecution(): void {
+    this.isCancelled = true;
+    if (this.currentAbortController) {
+      this.currentAbortController.abort();
+      this.currentAbortController = null;
+    }
+    if (this.window) {
+      void BrowserSkills.hideAgentVisuals(this.window);
+    }
+    console.log("[LLMClient] stopExecution() called - execution cancelled.");
+  }
+
+  private checkCancellation(): void {
+    if (this.isCancelled) {
+      throw new Error("ExecutionCancelled");
+    }
   }
 
   // Internal property getters/setters mapped to managers for backward-compatibility
@@ -119,6 +139,8 @@ export class LLMClient {
 
   async sendChatMessage(request: ChatRequest): Promise<void> {
     try {
+      this.isCancelled = false;
+
       // Show agent visual feedback at the beginning of the request
       if (this.window) {
         void BrowserSkills.showAgentVisuals(this.window);
@@ -182,6 +204,8 @@ export class LLMClient {
         return;
       }
 
+      this.checkCancellation();
+
       console.log(`[LLMClient] Preparing message context for prompt: "${request.message}"`);
       const contextStartTime = Date.now();
       const { system, messages } = await this.prepareMessagesWithContext(request);
@@ -192,7 +216,9 @@ export class LLMClient {
           `Message history count: ${messages.length}`,
       );
 
-      await this.streamResponse(messages, system, request.messageId);
+      this.checkCancellation();
+
+      await this.streamResponse(messages, system, request.messageId, request.message);
     } catch (error) {
       console.error("Error in LLM request:", error);
       this.handleStreamError(error, request.messageId);
@@ -244,36 +270,132 @@ export class LLMClient {
     return `${text.substring(0, maxLength)}...`;
   }
 
+  /**
+   * Cleans and formats the messages array for the LLM API.
+   * Ensures roles strictly alternate (user <-> assistant), handles consecutive roles,
+   * removes empty content, and strips verbose internal thoughts (<think>...</think>) from
+   * historical turns to prevent context bloat and repetition loops.
+   */
+  private sanitizeMessagesForLLM(messages: ModelMessage[]): ModelMessage[] {
+    // 1. Map messages, strip `<think>` blocks from previous turns, and convert assistant status updates to user role
+    const mapped = messages.map((msg) => {
+      let contentStr = typeof msg.content === "string" ? msg.content : "";
+
+      if (Array.isArray(msg.content)) {
+        // Keep vision/array content as is
+        return msg;
+      }
+
+      // Strip verbose thinking blocks from all historical assistant messages to avoid context bloat and repetition loops
+      if (msg.role === "assistant" && contentStr) {
+        contentStr = contentStr.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+      }
+
+      // Convert assistant status updates/feedback messages starting with '🔄' to user role
+      if (msg.role === "assistant" && contentStr.startsWith("🔄")) {
+        return {
+          role: "user" as const,
+          content: `${contentStr}\n\n[System Note: Please inspect the updated page context in AccessibilityContext and PageContent to verify if you landed on a valid page or if there's a 404 / Error Page (e.g., 'Page not found'). If the page is invalid or incorrect, adjust your strategy—do not try to click non-existent elements on an error page. Instead, navigate to a corrected URL or use a search box if available.]`,
+        };
+      }
+
+      return {
+        role: msg.role,
+        content: contentStr || msg.content,
+      };
+    });
+
+    // 2. Filter out empty or whitespace-only messages
+    const nonEmpty = mapped.filter((msg) => {
+      if (!msg.content) return false;
+      if (typeof msg.content === "string" && msg.content.trim() === "") return false;
+      if (Array.isArray(msg.content) && msg.content.length === 0) return false;
+      return true;
+    });
+
+    // 3. Merge consecutive messages of the same role to strictly alternate
+    const merged: ModelMessage[] = [];
+    for (const msg of nonEmpty) {
+      const last = merged[merged.length - 1];
+      if (last && last.role === msg.role) {
+        let lastContent = "";
+        if (typeof last.content === "string") {
+          lastContent = last.content;
+        } else if (Array.isArray(last.content)) {
+          lastContent = last.content
+            .map((part) => (part.type === "text" ? part.text : ""))
+            .join("\n");
+        }
+
+        let msgContent = "";
+        if (typeof msg.content === "string") {
+          msgContent = msg.content;
+        } else if (Array.isArray(msg.content)) {
+          msgContent = msg.content
+            .map((part) => (part.type === "text" ? part.text : ""))
+            .join("\n");
+        }
+
+        last.content = `${lastContent}\n\n${msgContent}`;
+      } else {
+        merged.push({
+          role: msg.role,
+          content:
+            typeof msg.content === "string" ? msg.content : JSON.parse(JSON.stringify(msg.content)),
+        });
+      }
+    }
+
+    return merged;
+  }
+
   private async streamResponse(
     messages: ModelMessage[],
     system: string,
     messageId: string,
+    prompt: string,
     repromptCount = 0,
   ): Promise<void> {
     if (!this.model) {
       throw new Error("Model not initialized");
     }
 
+    this.checkCancellation();
+
     console.log(
       `[LLMClient] Initiating text stream with provider: ${this.provider}, model: ${this.modelName}...`,
     );
 
     const controller = new AbortController();
+    this.currentAbortController = controller;
 
     try {
+      const sanitizedMessages = this.sanitizeMessagesForLLM(messages);
+
       const result = streamText({
         abortSignal: controller.signal,
         maxRetries: 3,
         system,
-        messages,
+        messages: sanitizedMessages,
         model: this.model,
         temperature: DEFAULT_TEMPERATURE,
       });
 
-      await this.processStream(result.textStream, messageId, controller, system, repromptCount);
+      await this.processStream(
+        result.textStream,
+        messageId,
+        controller,
+        system,
+        prompt,
+        repromptCount,
+      );
     } catch (error) {
       console.error("[LLMClient] Error during text streaming:", error);
       throw error;
+    } finally {
+      if (this.currentAbortController === controller) {
+        this.currentAbortController = null;
+      }
     }
   }
 
@@ -282,6 +404,7 @@ export class LLMClient {
     messageId: string,
     controller: AbortController,
     system: string,
+    prompt: string,
     repromptCount = 0,
   ): Promise<void> {
     let accumulatedText = "";
@@ -321,6 +444,7 @@ export class LLMClient {
 
     try {
       for await (const chunk of textStream) {
+        this.checkCancellation();
         if (!firstChunkReceived) {
           firstChunkReceived = true;
           const ttft = Date.now() - startTime;
@@ -374,15 +498,40 @@ export class LLMClient {
       clearTimeout(timeoutId);
     }
 
+    this.checkCancellation();
+
     // Detect and parse single JSON browser control skill action blocks from OpenCode's streamed response
     const jsonBlockRegex = /```json\s*([\s\S]*?)\s*```/g;
     const matches = [...accumulatedText.matchAll(jsonBlockRegex)];
     let actionExecuted = false;
 
     for (const match of matches) {
+      this.checkCancellation();
       const jsonContent = match[1].trim();
       try {
         const action = JSON.parse(jsonContent);
+
+        // Check for reflection/learning inside the JSON action block or any valid JSON block
+        if (action && typeof action === "object" && action.reflection && action.reflection.trim()) {
+          const reflectionTitle = action.reflection_title || prompt || "opencode_reflection";
+          const fullRefContent = `# OpenCode Reflection\n\n- **Prompt**: ${prompt}\n- **Action**: ${action.action || "chat"}\n- **Reflection/Learning**:\n${action.reflection}\n`;
+          try {
+            const reflectionFilename = await saveReflectionMemory(
+              "OpenCode",
+              reflectionTitle,
+              fullRefContent,
+              action.reflection,
+            );
+            console.log(`[LLMClient] Saved learning reflection to memory: ${reflectionFilename}`);
+            this.messages.push({
+              role: "assistant",
+              content: `💡 **Saved learning reflection to memory:** \`${reflectionFilename}\``,
+            });
+            this.sendMessagesToRenderer();
+          } catch (saveErr) {
+            console.error("[LLMClient] Failed to save reflection memory:", saveErr);
+          }
+        }
 
         // A valid browser action block must be an object with an "action" string field
         if (action && typeof action === "object" && typeof action.action === "string") {
@@ -396,11 +545,15 @@ export class LLMClient {
           });
           this.sendMessagesToRenderer();
 
+          this.checkCancellation();
+
           if (this.window) {
             // Re-show agent visuals in case of navigation or state changes
             void BrowserSkills.showAgentVisuals(this.window);
 
             const result = await BrowserSkills.executeAction(this.window, action);
+
+            this.checkCancellation();
 
             // Update log with execution result
             if (result.success) {
@@ -416,16 +569,20 @@ export class LLMClient {
             }
             this.sendMessagesToRenderer();
 
-            // If the action successfully changed the page state, rerun the agent loop with new context!
-            if (result.success && result.stateChanged) {
+            // If the action was successful, rerun the agent loop with updated context!
+            if (result.success) {
               // Give page a short moment to settle down
               await new Promise((resolve) => setTimeout(resolve, 1500));
 
+              this.checkCancellation();
+
               this.messages.push({
                 role: "assistant",
-                content: `🔄 *Page state updated. Retrieving new accessibility context and continuing...*`,
+                content: `🔄 *Page state updated. ${result.message || "Retrieving new accessibility context and continuing..."}*`,
               });
               this.sendMessagesToRenderer();
+
+              this.checkCancellation();
 
               // Make sure visuals are shown before starting the stream rerun
               void BrowserSkills.showAgentVisuals(this.window);
@@ -436,8 +593,17 @@ export class LLMClient {
                   message: "Continue executing your plan based on the updated page context.",
                   messageId: `${messageId}-rerun`,
                 });
-              await this.streamResponse(rerunMessages, rerunSystem, `${messageId}-rerun`, 0); // Reset repromptCount on success
-            } else if (!result.success) {
+
+              this.checkCancellation();
+
+              await this.streamResponse(
+                rerunMessages,
+                rerunSystem,
+                `${messageId}-rerun`,
+                prompt,
+                0,
+              ); // Reset repromptCount on success
+            } else {
               // Action failed! Check if we can reprompt the agent
               const MAX_REPROMPTS = 3;
               if (repromptCount < MAX_REPROMPTS) {
@@ -455,6 +621,8 @@ export class LLMClient {
                 // Give the page a brief moment to stabilize
                 await new Promise((resolve) => setTimeout(resolve, 1000));
 
+                this.checkCancellation();
+
                 // Make sure visuals are shown before starting the stream rerun
                 void BrowserSkills.showAgentVisuals(this.window);
 
@@ -464,10 +632,14 @@ export class LLMClient {
                     message: "Action failed. Retrying with updated context...",
                     messageId: `${messageId}-reprompt-${nextReprompt}`,
                   });
+
+                this.checkCancellation();
+
                 await this.streamResponse(
                   rerunMessages,
                   rerunSystem,
                   `${messageId}-reprompt-${nextReprompt}`,
+                  prompt,
                   nextReprompt,
                 );
               } else {
@@ -476,9 +648,6 @@ export class LLMClient {
                 );
                 void BrowserSkills.hideAgentVisuals(this.window);
               }
-            } else {
-              // Action succeeded but did not change state -> hide visuals
-              void BrowserSkills.hideAgentVisuals(this.window);
             }
           }
           // Only execute the first valid action block we successfully find
@@ -513,6 +682,31 @@ export class LLMClient {
 
   private handleStreamError(error: unknown, messageId: string): void {
     console.error("Error streaming from LLM:", error);
+
+    if (error instanceof Error && error.message === "ExecutionCancelled") {
+      const cancellationMessage = "⏹️ *Execution stopped by user.*";
+      const lastMessage = this.messages[this.messages.length - 1];
+      if (lastMessage && lastMessage.role === "assistant") {
+        const existingContent = typeof lastMessage.content === "string" ? lastMessage.content : "";
+        lastMessage.content = `${existingContent ? existingContent + "\n\n" : ""}${cancellationMessage}`;
+      } else {
+        this.messages.push({
+          content: cancellationMessage,
+          role: "assistant",
+        });
+      }
+      this.sendMessagesToRenderer();
+
+      this.sendStreamChunk(messageId, {
+        content: cancellationMessage,
+        isComplete: true,
+      });
+
+      if (this.window) {
+        void BrowserSkills.hideAgentVisuals(this.window);
+      }
+      return;
+    }
 
     const errorMessage = this.getErrorMessage(error);
     this.sendErrorMessage(messageId, errorMessage);

@@ -20,6 +20,21 @@ interface E2EStep {
   prompt?: string;
 }
 
+interface E2EConsoleLog {
+  level: string;
+  message: string;
+  line: number;
+  sourceId: string;
+  timestamp: string;
+}
+
+interface E2ENetworkEvent {
+  method: string;
+  url: string;
+  statusCode: number;
+  timestamp: string;
+}
+
 export class E2ETestHandler extends BaseHandler {
   private currentE2EProcess: ChildProcess | null = null;
   private isE2ETestAborted = false;
@@ -178,6 +193,75 @@ export class E2ETestHandler extends BaseHandler {
         });
       };
 
+      if (!this.mainWindow.activeTab) {
+        throw new Error("No active tab found in the browser to run tests on.");
+      }
+      const { webContents } = this.mainWindow.activeTab;
+
+      const consoleLogs: E2EConsoleLog[] = [];
+      const networkEvents: E2ENetworkEvent[] = [];
+
+      const handleConsoleMessage = (
+        _event: unknown,
+        level: number,
+        message: string,
+        line: number,
+        sourceId: string,
+      ) => {
+        const levels = ["debug", "log", "warning", "error"];
+        const levelStr = levels[level] || "log";
+        consoleLogs.push({
+          level: levelStr,
+          message,
+          line,
+          sourceId,
+          timestamp: new Date().toISOString(),
+        });
+        log(
+          "stdout",
+          `🖥️ [Console ${levelStr.toUpperCase()}] ${message} (at ${sourceId}:${line})\n`,
+        );
+      };
+
+      const handleNetworkResponse = (details: unknown) => {
+        const d = details as {
+          webContentsId?: number;
+          method: string;
+          url: string;
+          statusCode: number;
+        };
+        if (d.webContentsId === webContents.id) {
+          networkEvents.push({
+            method: d.method,
+            url: d.url,
+            statusCode: d.statusCode,
+            timestamp: new Date().toISOString(),
+          });
+          const statusIcon = d.statusCode >= 400 ? "❌" : "📡";
+          log(
+            "stdout",
+            `${statusIcon} [Network Response] ${d.method} ${d.url} -> Status ${d.statusCode}\n`,
+          );
+        }
+      };
+
+      const handleNetworkError = (details: unknown) => {
+        const d = details as { webContentsId?: number; method: string; url: string; error: string };
+        if (d.webContentsId === webContents.id) {
+          networkEvents.push({
+            method: d.method,
+            url: d.url,
+            statusCode: 0,
+            timestamp: new Date().toISOString(),
+          });
+          log("stderr", `❌ [Network Error] ${d.method} ${d.url} -> ${d.error}\n`);
+        }
+      };
+
+      webContents.on("console-message", handleConsoleMessage);
+      webContents.session.webRequest.onCompleted(handleNetworkResponse);
+      webContents.session.webRequest.onErrorOccurred(handleNetworkError);
+
       try {
         this.isE2ETestAborted = false;
         const safeName = path.basename(filename);
@@ -200,7 +284,7 @@ export class E2ETestHandler extends BaseHandler {
 
         if (promptVal && steps.length === 0) {
           log("system", `Starting Agentic Prompt-Only Test: ${safeName}\n`);
-          await this.runE2ETestAgenticLoop(promptVal, log);
+          await this.runE2ETestAgenticLoop(promptVal, log, consoleLogs, networkEvents);
           log("system", `\nIn-Browser Test finished successfully!\n`);
           return { success: true };
         }
@@ -213,12 +297,6 @@ export class E2ETestHandler extends BaseHandler {
           }
           const step = steps[index];
           const stepNum = index + 1;
-
-          if (!this.mainWindow.activeTab) {
-            throw new Error("No active tab found in the browser to run tests on.");
-          }
-
-          const { webContents } = this.mainWindow.activeTab;
 
           if (step.type === "navigate") {
             log("system", `  [${stepNum}] Navigate to '${step.url}'...\n`);
@@ -322,6 +400,8 @@ export class E2ETestHandler extends BaseHandler {
 
             const compiled = await compilePromptwareSystemAndUser("AssertionAgent", {
               Assertion: step.prompt!,
+              ConsoleLogs: JSON.stringify(consoleLogs, null, 2),
+              NetworkEvents: JSON.stringify(networkEvents, null, 2),
               PageContent: pageText,
             });
 
@@ -410,6 +490,14 @@ export class E2ETestHandler extends BaseHandler {
       } catch (error) {
         log("stderr", `✗ Test execution failed: ${(error as Error).message}\n`);
         return { error: (error as Error).message, success: false };
+      } finally {
+        try {
+          webContents.off("console-message", handleConsoleMessage);
+          webContents.session.webRequest.onCompleted(null);
+          webContents.session.webRequest.onErrorOccurred(null);
+        } catch (e) {
+          console.error("Cleanup of E2E listeners failed:", e);
+        }
       }
     });
 
@@ -495,6 +583,8 @@ export class E2ETestHandler extends BaseHandler {
   private async runE2ETestAgenticLoop(
     prompt: string,
     log: (type: "stdout" | "stderr" | "system", text: string) => void,
+    consoleLogs: E2EConsoleLog[],
+    networkEvents: E2ENetworkEvent[],
   ): Promise<void> {
     const startTime = Date.now();
     const jobId = `job_${new Date()
@@ -563,7 +653,9 @@ export class E2ETestHandler extends BaseHandler {
           : pageText;
 
       const compiled = await compilePromptwareSystemAndUser("E2ETest", {
+        ConsoleLogs: JSON.stringify(consoleLogs, null, 2),
         CurrentUrl: currentUrl,
+        NetworkEvents: JSON.stringify(networkEvents, null, 2),
         PageContent: pageTextTruncated,
         Prompt: prompt,
       });
