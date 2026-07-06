@@ -601,62 +601,72 @@ ${programMd}
     const jsonBlockRegex = /```json\s*([\s\S]*?)\s*```/g;
     const matches = [...accumulatedText.matchAll(jsonBlockRegex)];
 
-    if (matches.length > 0) {
-      const jsonContent = matches[0][1].trim();
+    for (const match of matches) {
+      const jsonContent = match[1].trim();
       try {
         const action = JSON.parse(jsonContent);
 
-        // Log beginning of execution
-        const execMessageIndex = this.messages.length;
-        this.messages.push({
-          role: "assistant",
-          content: `⚙️ **Executing Browser Action:** \`${action.action}\`...\n`,
-        });
-        this.sendMessagesToRenderer();
-
-        if (this.window) {
-          const result = await BrowserSkills.executeAction(this.window, action);
-
-          // Update log with execution result
-          if (result.success) {
-            this.messages[execMessageIndex] = {
-              role: "assistant",
-              content: `⚙️ **Executing Browser Action:** \`${action.action}\`...\n✅ *Success:* ${result.message}`,
-            };
-          } else {
-            this.messages[execMessageIndex] = {
-              role: "assistant",
-              content: `⚙️ **Executing Browser Action:** \`${action.action}\`...\n❌ *Error:* ${result.message}`,
-            };
-          }
+        // A valid browser action block must be an object with an "action" string field
+        if (action && typeof action === "object" && typeof action.action === "string") {
+          // Log beginning of execution
+          const execMessageIndex = this.messages.length;
+          this.messages.push({
+            role: "assistant",
+            content: `⚙️ **Executing Browser Action:** \`${action.action}\`...\n`,
+          });
           this.sendMessagesToRenderer();
 
-          // If the action successfully changed the page state, rerun the agent loop with new context!
-          if (result.success && result.stateChanged) {
-            // Give page a short moment to settle down
-            await new Promise((resolve) => setTimeout(resolve, 1500));
+          if (this.window) {
+            const result = await BrowserSkills.executeAction(this.window, action);
 
-            this.messages.push({
-              role: "assistant",
-              content: `🔄 *Page state updated. Retrieving new accessibility context and continuing...*`,
-            });
+            // Update log with execution result
+            if (result.success) {
+              this.messages[execMessageIndex] = {
+                role: "assistant",
+                content: `⚙️ **Executing Browser Action:** \`${action.action}\`...\n✅ *Success:* ${result.message}`,
+              };
+            } else {
+              this.messages[execMessageIndex] = {
+                role: "assistant",
+                content: `⚙️ **Executing Browser Action:** \`${action.action}\`...\n❌ *Error:* ${result.message}`,
+              };
+            }
             this.sendMessagesToRenderer();
 
-            // Prepare messages with fresh context and trigger stream
-            const { system, messages } = await this.prepareMessagesWithContext({
-              message: "Continue executing your plan based on the updated page context.",
-              messageId: `${messageId}-rerun`,
-            });
-            await this.streamResponse(messages, system, `${messageId}-rerun`);
+            // If the action successfully changed the page state, rerun the agent loop with new context!
+            if (result.success && result.stateChanged) {
+              // Give page a short moment to settle down
+              await new Promise((resolve) => setTimeout(resolve, 1500));
+
+              this.messages.push({
+                role: "assistant",
+                content: `🔄 *Page state updated. Retrieving new accessibility context and continuing...*`,
+              });
+              this.sendMessagesToRenderer();
+
+              // Prepare messages with fresh context and trigger stream
+              const { system, messages } = await this.prepareMessagesWithContext({
+                message: "Continue executing your plan based on the updated page context.",
+                messageId: `${messageId}-rerun`,
+              });
+              await this.streamResponse(messages, system, `${messageId}-rerun`);
+            }
           }
+          // Only execute the first valid action block we successfully find
+          break;
         }
       } catch (err) {
-        console.error("Failed to parse or execute JSON action block:", err);
-        this.messages.push({
-          role: "assistant",
-          content: `❌ **Failed to parse/execute action block:** ${(err as Error).message}`,
-        });
-        this.sendMessagesToRenderer();
+        console.error("Failed to parse JSON block in stream response:", err);
+        // Only report a parsing error if this block was highly likely meant to be an action
+        // (i.e. contains the key "action") or if it's the only code block in the message.
+        if (jsonContent.includes('"action"') || matches.length === 1) {
+          this.messages.push({
+            role: "assistant",
+            content: `❌ **Failed to parse/execute action block:** ${(err as Error).message}`,
+          });
+          this.sendMessagesToRenderer();
+          break;
+        }
       }
     }
   }
