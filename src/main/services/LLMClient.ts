@@ -19,9 +19,7 @@ interface StreamChunk {
   isComplete: boolean;
 }
 
-export type MessageContentPart =
-  | { type: "text"; text: string }
-  | { type: "image"; image: string };
+export type MessageContentPart = { type: "text"; text: string } | { type: "image"; image: string };
 
 type LLMProvider = "openai" | "anthropic" | "ollama";
 

@@ -77,11 +77,13 @@ It can also be a good way for us to give feedback if things are heading in the r
 ### 1. Install Dependencies
 
 Using `vp` (Vite+):
+
 ```bash
 vp install
 ```
 
 Or using standard `pnpm`:
+
 ```bash
 pnpm install
 ```
@@ -89,6 +91,7 @@ pnpm install
 ### 2. Configure Environment
 
 Create a `.env` file in the root directory (you can copy `.env.example` as a template):
+
 ```bash
 cp .env.example .env
 ```
@@ -96,7 +99,9 @@ cp .env.example .env
 Configure your LLM provider by editing the `.env` file:
 
 #### Option A: Local LLM with Ollama (Recommended)
+
 Make sure you have [Ollama](https://ollama.com) installed and running on your machine.
+
 1. Download and start your model of choice (e.g. `qwen3.6` or another preferred model):
    ```bash
    ollama run qwen3.6
@@ -110,6 +115,7 @@ Make sure you have [Ollama](https://ollama.com) installed and running on your ma
    ```
 
 #### Option B: Cloud APIs (OpenAI or Anthropic)
+
 1. Set up the `.env` file with your API keys:
    ```env
    LLM_PROVIDER=openai  # or anthropic
@@ -120,8 +126,8 @@ Make sure you have [Ollama](https://ollama.com) installed and running on your ma
 ### 3. Development
 
 Start the local development server:
+
 ```bash
 vp dev
 # or pnpm dev
 ```
-

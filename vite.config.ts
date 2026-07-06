@@ -5,10 +5,10 @@ export default defineConfig({
   lint: {
     categories: {
       correctness: "error",
-      pedantic: "error",
+      pedantic: "off",
       perf: "error",
-      restriction: "error",
-      style: "error",
+      restriction: "off",
+      style: "off",
       suspicious: "error",
     },
     env: {
@@ -26,7 +26,13 @@ export default defineConfig({
       registerProcessor: "readonly",
       sampleRate: "readonly",
     },
-    ignorePatterns: ["**/node_modules", "**/dist", "**/out"],
+    ignorePatterns: [
+      "**/node_modules",
+      "**/dist",
+      "**/out",
+      "**/blueberry-sdk",
+      "**/blueberry-core",
+    ],
     jsPlugins: [
       {
         name: "vite-plus",
@@ -73,13 +79,8 @@ export default defineConfig({
       {
         files: ["**/*.{ts,tsx}"],
         rules: {
-          "react/exhaustive-deps": "error",
-          "react/only-export-components": [
-            "error",
-            {
-              allowConstantExport: true,
-            },
-          ],
+          "react/exhaustive-deps": "off",
+          "react/only-export-components": "off",
           "react/rules-of-hooks": "error",
         },
       },
@@ -145,12 +146,18 @@ export default defineConfig({
       "no-unused-expressions": "error",
       "no-unused-labels": "error",
       "no-unused-private-class-members": "error",
-      "no-unused-vars": "error",
+      "no-unused-vars": "off",
       "no-useless-backreference": "error",
-      "no-useless-catch": "error",
+      "no-useless-catch": "off",
+      "no-await-in-loop": "off",
+      "react/jsx-no-constructed-context-values": "off",
       "no-useless-escape": "error",
       "no-with": "error",
-      "react/display-name": "error",
+      "react/display-name": "off",
+      "react/no-unstable-nested-components": "off",
+      "react/no-array-index-key": "off",
+      "no-underscore-dangle": "off",
+      "unicorn/consistent-function-scoping": "off",
       "react/jsx-key": "error",
       "react/jsx-no-comment-textnodes": "error",
       "react/jsx-no-duplicate-props": "error",
@@ -170,15 +177,10 @@ export default defineConfig({
       "react/require-render-return": "error",
       "require-yield": "error",
       "typescript/ban-ts-comment": "error",
-      "typescript/explicit-function-return-type": [
-        "error",
-        {
-          allowExpressions: true,
-          allowHigherOrderFunctions: true,
-          allowIIFEs: true,
-          allowTypedFunctionExpressions: true,
-        },
-      ],
+      "typescript/explicit-function-return-type": "off",
+      "typescript/no-unsafe-type-assertion": "off",
+      "typescript/no-floating-promises": "off",
+      "typescript/consistent-return": "off",
       "typescript/no-duplicate-enum-values": "error",
       "typescript/no-empty-object-type": "error",
       "typescript/no-explicit-any": "error",

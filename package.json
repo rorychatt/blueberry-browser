@@ -37,10 +37,10 @@
   },
   "devDependencies": {
     "@electron-toolkit/tsconfig": "2.0.0",
+    "@tailwindcss/postcss": "4.3.2",
     "@types/node": "26.1.0",
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
-    "@tailwindcss/postcss": "4.3.2",
     "@vitejs/plugin-react": "6.0.3",
     "autoprefixer": "10.5.2",
     "clsx": "2.1.1",

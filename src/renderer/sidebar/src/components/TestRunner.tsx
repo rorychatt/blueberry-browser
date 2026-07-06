@@ -174,6 +174,25 @@ steps:
     setIsRunning(false);
   };
 
+  const handleRunTestInBrowser = async () => {
+    if (!selectedFilename || isRunning) {
+      return;
+    }
+    setIsRunning(true);
+    setLogs([
+      {
+        id: "start",
+        text: `Starting In-Tab test execution for '${selectedFilename}'...\n`,
+        type: "system",
+      },
+    ]);
+    setScreenshots([]);
+    setActiveTab("logs");
+
+    await window.sidebarAPI.runE2ETestInBrowser(selectedFilename);
+    setIsRunning(false);
+  };
+
   const currentTest = tests.find((t) => t.filename === selectedFilename);
 
   return (
@@ -316,30 +335,54 @@ steps:
               </button>
             </div>
 
-            {/* Run Test Button */}
+            {/* Run Test Buttons */}
             {selectedFilename && (
-              <button
-                onClick={handleRunTest}
-                disabled={isRunning}
-                className={cn(
-                  "flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-bold shadow-sm transition-all",
-                  isRunning
-                    ? "bg-muted text-muted-foreground cursor-not-allowed"
-                    : "bg-emerald-500 hover:bg-emerald-600 text-white active:scale-95",
-                )}
-              >
-                {isRunning ? (
-                  <>
-                    <Loader className="size-3.5 animate-spin" />
-                    Running...
-                  </>
-                ) : (
-                  <>
-                    <Play className="size-3.5 fill-current" />
-                    Run Test
-                  </>
-                )}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleRunTest}
+                  disabled={isRunning}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm transition-all",
+                    isRunning
+                      ? "bg-muted text-muted-foreground cursor-not-allowed"
+                      : "bg-emerald-500 hover:bg-emerald-600 text-white active:scale-95",
+                  )}
+                >
+                  {isRunning ? (
+                    <>
+                      <Loader className="size-3.5 animate-spin" />
+                      Running...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="size-3.5 fill-current" />
+                      Run External
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={handleRunTestInBrowser}
+                  disabled={isRunning}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm transition-all",
+                    isRunning
+                      ? "bg-muted text-muted-foreground cursor-not-allowed"
+                      : "bg-primary hover:bg-primary/95 text-primary-foreground active:scale-95",
+                  )}
+                >
+                  {isRunning ? (
+                    <>
+                      <Loader className="size-3.5 animate-spin" />
+                      Running...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="size-3.5 fill-current" />
+                      Run in Tab
+                    </>
+                  )}
+                </button>
+              </div>
             )}
           </div>
 

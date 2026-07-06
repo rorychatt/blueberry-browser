@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { MessageContentPart, PreloadChatMessage } from "../../../common/types/preload";
+import type { MessageContentPart, PreloadChatMessage } from "../../../common/types/preload";
 
 export interface Message {
   id: string;
@@ -44,16 +44,18 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const storedMessages = await window.sidebarAPI.getMessages();
         if (storedMessages && storedMessages.length > 0) {
           // Convert CoreMessage format to our frontend Message format
-          const convertedMessages = storedMessages.map((msg: PreloadChatMessage, index: number) => ({
-            content:
-              typeof msg.content === "string"
-                ? msg.content
-                : msg.content.find((p: MessageContentPart) => p.type === "text")?.text || "",
-            id: `msg-${index}`,
-            isStreaming: false,
-            role: msg.role,
-            timestamp: Date.now(),
-          }));
+          const convertedMessages = storedMessages.map(
+            (msg: PreloadChatMessage, index: number) => ({
+              content:
+                typeof msg.content === "string"
+                  ? msg.content
+                  : msg.content.find((p: MessageContentPart) => p.type === "text")?.text || "",
+              id: `msg-${index}`,
+              isStreaming: false,
+              role: msg.role,
+              timestamp: Date.now(),
+            }),
+          );
           setMessages(convertedMessages);
         }
       } catch (error) {

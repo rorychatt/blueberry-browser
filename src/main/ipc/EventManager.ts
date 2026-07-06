@@ -307,7 +307,7 @@ export class EventManager {
             const data = await fs.readFile(p);
             return `data:image/png;base64,${data.toString("base64")}`;
           } catch {
-            // ignore
+            // Ignore
           }
         }
         return null;
@@ -381,6 +381,210 @@ export class EventManager {
         return { error: (error as Error).message, success: false };
       }
     });
+
+    ipcMain.handle("run-e2e-test-in-browser", async (_, filename: string) => {
+      const log = (type: "stdout" | "stderr" | "system", text: string) => {
+        this.mainWindow.sidebar.view.webContents.send("e2e-test-log", { type, text });
+      };
+
+      try {
+        const safeName = path.basename(filename);
+        const testPath = path.join(testsDir, safeName);
+        const content = await fs.readFile(testPath, "utf-8");
+        const steps = this.parseYamlSteps(content);
+
+        log("system", `Starting In-Browser Test: ${safeName}\n`);
+
+        for (let index = 0; index < steps.length; index++) {
+          const step = steps[index];
+          const stepNum = index + 1;
+          
+          if (!this.mainWindow.activeTab) {
+            throw new Error("No active tab found in the browser to run tests on.");
+          }
+
+          const webContents = this.mainWindow.activeTab.webContents;
+
+          if (step.type === "navigate") {
+            log("system", `  [${stepNum}] Navigate to '${step.url}'...\n`);
+            await webContents.loadURL(step.url);
+            await new Promise<void>((resolve) => {
+              if (!webContents.isLoading()) {
+                resolve();
+                return;
+              }
+              webContents.once("did-stop-loading", () => resolve());
+            });
+            log("stdout", `✓ Navigated to ${step.url}\n`);
+          } else if (step.type === "wait") {
+            log("system", `  [${stepNum}] Wait ${step.ms}ms...\n`);
+            await new Promise((resolve) => setTimeout(resolve, step.ms));
+            log("stdout", `✓ Wait complete\n`);
+          } else if (step.type === "click") {
+            log("system", `  [${stepNum}] Click element '${step.selector}'...\n`);
+            const js = `
+              (() => {
+                const el = document.querySelector(${JSON.stringify(step.selector)});
+                if (!el) throw new Error("Element not found: " + ${JSON.stringify(step.selector)});
+                el.click();
+                return true;
+              })()
+            `;
+            await webContents.executeJavaScript(js);
+            log("stdout", `✓ Clicked ${step.selector}\n`);
+          } else if (step.type === "type") {
+            log("system", `  [${stepNum}] Type '${step.text}' into '${step.selector}'...\n`);
+            const js = `
+              (() => {
+                const el = document.querySelector(${JSON.stringify(step.selector)});
+                if (!el) throw new Error("Element not found: " + ${JSON.stringify(step.selector)});
+                el.focus();
+                if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+                  el.value = ${JSON.stringify(step.text)};
+                  el.dispatchEvent(new Event('input', { bubbles: true }));
+                  el.dispatchEvent(new Event('change', { bubbles: true }));
+                } else {
+                  el.textContent = ${JSON.stringify(step.text)};
+                }
+                return true;
+              })()
+            `;
+            await webContents.executeJavaScript(js);
+            log("stdout", `✓ Typed text into ${step.selector}\n`);
+          } else if (step.type === "wait_for") {
+            log("system", `  [${stepNum}] Wait for element '${step.selector}'...\n`);
+            const checkJs = `!!document.querySelector(${JSON.stringify(step.selector)})`;
+            let found = false;
+            for (let attempt = 0; attempt < 20; attempt++) {
+              try {
+                found = await webContents.executeJavaScript(checkJs);
+                if (found) break;
+              } catch {}
+              await new Promise((resolve) => setTimeout(resolve, 500));
+            }
+            if (found) {
+              log("stdout", `✓ Element ${step.selector} is visible\n`);
+            } else {
+              throw new Error(`Timeout waiting for element: ${step.selector}`);
+            }
+          } else if (step.type === "screenshot") {
+            log("system", `  [${stepNum}] Take screenshot saved to '${step.path}'...\n`);
+            const image = await webContents.capturePage();
+            const buffer = image.toPNG();
+            const screenshotPath = path.join(process.cwd(), "tests", step.path);
+            await fs.writeFile(screenshotPath, buffer);
+            log("stdout", `✓ Saved screenshot to '${step.path}'\n`);
+          } else if (step.type === "agent") {
+            log("system", `  [${stepNum}] Local Ollama Agent evaluation: '${step.prompt}'...\n`);
+            const pageText = await webContents.executeJavaScript("document.body.innerText");
+            
+            const endpoint = process.env.OLLAMA_ENDPOINT || "http://localhost:11434";
+            const model = process.env.OLLAMA_MODEL || "qwen3.6";
+
+            const systemPrompt = `You are Blueberry-Agent, an advanced visual/textual E2E testing agent.
+Your job is to analyze the current text content of a webpage and determine if the user's assertion/goal has been met.
+You MUST output your response as a valid JSON object with the following schema:
+{
+  "success": true or false,
+  "reason": "A concise explanation based on the evidence found in the webpage content."
+}
+Only output the JSON object. Do not include markdown code blocks or conversational text outside of the JSON.`;
+
+            const payload = {
+              model,
+              prompt: `Goal/Assertion: ${step.prompt}\n\nWebpage Text Content:\n---\n${pageText}\n---\n\nRespond with the JSON object:`,
+              system: systemPrompt,
+              options: {
+                temperature: 0.1
+              },
+              stream: false
+            };
+
+            const response = await fetch(`${endpoint}/api/generate`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+              throw new Error(`Ollama returned status ${response.status}`);
+            }
+
+            const json: any = await response.json();
+            let responseText = json.response || "";
+            responseText = responseText.replace(/^```json/, "").replace(/```$/, "").trim();
+            
+            const parsedRes = JSON.parse(responseText);
+            if (parsedRes.success) {
+              log("stdout", `✓ Agent Assertion Passed!\n     AI Reason: ${parsedRes.reason}\n`);
+            } else {
+              log("stderr", `✗ Agent Assertion Failed!\n     AI Reason: ${parsedRes.reason}\n`);
+              throw new Error(`Agent Assertion Failed: ${parsedRes.reason}`);
+            }
+          }
+        }
+
+        log("system", `\nIn-Browser Test finished successfully!\n`);
+        return { success: true };
+      } catch (error) {
+        log("stderr", `✗ Test execution failed: ${(error as Error).message}\n`);
+        return { error: (error as Error).message, success: false };
+      }
+    });
+  }
+
+  private parseYamlSteps(yamlStr: string): any[] {
+    const steps: any[] = [];
+    const lines = yamlStr.split("\n");
+    let currentStep: any = null;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line || line.startsWith("#")) continue;
+
+      if (line.startsWith("steps:")) continue;
+      if (line.startsWith("name:")) continue;
+
+      if (line.startsWith("-")) {
+        const stepContent = line.substring(1).trim();
+        const firstColon = stepContent.indexOf(":");
+        if (firstColon !== -1) {
+          const key = stepContent.substring(0, firstColon).trim();
+          let val = stepContent.substring(firstColon + 1).trim();
+          val = val.replace(/^['"]|['"]$/g, "");
+
+          if (key === "navigate") {
+            steps.push({ type: "navigate", url: val });
+          } else if (key === "wait") {
+            steps.push({ type: "wait", ms: parseInt(val, 10) });
+          } else if (key === "click") {
+            steps.push({ type: "click", selector: val });
+          } else if (key === "wait_for") {
+            steps.push({ type: "wait_for", selector: val });
+          } else if (key === "screenshot") {
+            steps.push({ type: "screenshot", path: val });
+          } else if (key === "agent") {
+            steps.push({ type: "agent", prompt: val });
+          } else if (key === "type") {
+            currentStep = { type: "type", selector: "", text: "" };
+            steps.push(currentStep);
+          }
+        }
+      } else if (currentStep && currentStep.type === "type") {
+        const colon = line.indexOf(":");
+        if (colon !== -1) {
+          const key = line.substring(0, colon).trim();
+          let val = line.substring(colon + 1).trim();
+          val = val.replace(/^['"]|['"]$/g, "");
+          if (key === "selector") {
+            currentStep.selector = val;
+          } else if (key === "text") {
+            currentStep.text = val;
+          }
+        }
+      }
+    }
+    return steps;
   }
 
   // Clean up event listeners
