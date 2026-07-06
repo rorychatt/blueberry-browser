@@ -1,7 +1,6 @@
 import { ipcMain } from "electron";
 import { BaseHandler } from "./BaseHandler";
 import { SettingsManager } from "../../services/SettingsManager";
-
 export class SettingsHandler extends BaseHandler {
   public register(): void {
     // Get custom shortcuts

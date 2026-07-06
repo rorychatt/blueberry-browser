@@ -1,7 +1,6 @@
 import type { WebContents } from "electron";
 import { ipcMain } from "electron";
 import { BaseHandler } from "./BaseHandler";
-
 export class ThemeHandler extends BaseHandler {
   public register(): void {
     // Dark mode broadcasting

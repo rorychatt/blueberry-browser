@@ -2,7 +2,6 @@ import { ipcMain } from "electron";
 import { BaseHandler } from "./BaseHandler";
 import { HistoryManager, type HistoryEntry } from "../../services/HistoryManager";
 import { compilePromptwareSystemAndUser, saveReflectionMemory } from "../../utils/promptware";
-
 export class HistoryHandler extends BaseHandler {
   public register(): void {
     // Get complete browsing history

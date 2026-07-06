@@ -1,6 +1,5 @@
 import { ipcMain } from "electron";
 import { BaseHandler } from "./BaseHandler";
-
 export class TabHandler extends BaseHandler {
   public register(): void {
     // Handle topbar dynamic height adjustments

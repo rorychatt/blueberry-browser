@@ -1,6 +1,5 @@
 import { ipcMain } from "electron";
 import { BaseHandler } from "./BaseHandler";
-
 export class PageContentHandler extends BaseHandler {
   public register(): void {
     // Get page content

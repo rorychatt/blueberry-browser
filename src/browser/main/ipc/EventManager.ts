@@ -1,5 +1,5 @@
 import { ipcMain } from "electron";
-import type { Window } from "../components/Window";
+import { Window } from "../components/Window";
 import type { IpcHandler } from "./handlers/BaseHandler";
 import { TabHandler } from "./handlers/TabHandler";
 import { SidebarHandler } from "./handlers/SidebarHandler";
