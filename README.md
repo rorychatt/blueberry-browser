@@ -74,18 +74,54 @@ It can also be a good way for us to give feedback if things are heading in the r
 
 ## 🚀 Project Setup
 
-### Install
+### 1. Install Dependencies
 
+Using `vp` (Vite+):
 ```bash
-$ pnpm install
+vp install
 ```
 
-### Development
-
+Or using standard `pnpm`:
 ```bash
-$ pnpm dev
+pnpm install
 ```
 
-**Add an OpenAI API key to `.env`** in the root folder.
+### 2. Configure Environment
 
-Strawberry will reimburse LLM costs, so go crazy! _(Please not more than a few hundred dollars though!)_
+Create a `.env` file in the root directory (you can copy `.env.example` as a template):
+```bash
+cp .env.example .env
+```
+
+Configure your LLM provider by editing the `.env` file:
+
+#### Option A: Local LLM with Ollama (Recommended)
+Make sure you have [Ollama](https://ollama.com) installed and running on your machine.
+1. Download and start your model of choice (e.g. `qwen3.6` or another preferred model):
+   ```bash
+   ollama run qwen3.6
+   ```
+2. Set up the `.env` file:
+   ```env
+   LLM_PROVIDER=ollama
+   LLM_MODEL=qwen3.6
+   OLLAMA_ENDPOINT=http://localhost:11434
+   OLLAMA_MODEL=qwen3.6
+   ```
+
+#### Option B: Cloud APIs (OpenAI or Anthropic)
+1. Set up the `.env` file with your API keys:
+   ```env
+   LLM_PROVIDER=openai  # or anthropic
+   OPENAI_API_KEY=your-openai-api-key
+   # ANTHROPIC_API_KEY=your-anthropic-api-key
+   ```
+
+### 3. Development
+
+Start the local development server:
+```bash
+vp dev
+# or pnpm dev
+```
+

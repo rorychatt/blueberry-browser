@@ -17,6 +17,17 @@ interface ChatResponse {
   isComplete: boolean;
 }
 
+interface MessageContentPart {
+  type: "text" | "image";
+  text?: string;
+  image?: string;
+}
+
+interface PreloadChatMessage {
+  role: "user" | "assistant" | "system";
+  content: string | MessageContentPart[];
+}
+
 // Sidebar specific APIs
 const sidebarAPI = {
   // Chat functionality
@@ -33,7 +44,7 @@ const sidebarAPI = {
     });
   },
 
-  onMessagesUpdated: (callback: (messages: any[]) => void) => {
+  onMessagesUpdated: (callback: (messages: PreloadChatMessage[]) => void) => {
     electronAPI.ipcRenderer.on("chat-messages-updated", (_, messages) => {
       callback(messages);
     });
@@ -54,6 +65,24 @@ const sidebarAPI = {
 
   // Tab information
   getActiveTabInfo: async () => electronAPI.ipcRenderer.invoke("get-active-tab-info"),
+
+  // E2E Playwright-alternative testing APIs
+  getE2ETests: async () => electronAPI.ipcRenderer.invoke("get-e2e-tests"),
+  saveE2ETest: async (filename: string, content: string) =>
+    electronAPI.ipcRenderer.invoke("save-e2e-test", filename, content),
+  getE2EScreenshot: async (filename: string) =>
+    electronAPI.ipcRenderer.invoke("get-e2e-screenshot", filename),
+  runE2ETest: async (filename: string) => electronAPI.ipcRenderer.invoke("run-e2e-test", filename),
+  onE2ETestLog: (
+    callback: (data: { type: "stdout" | "stderr" | "system"; text: string }) => void,
+  ) => {
+    electronAPI.ipcRenderer.on("e2e-test-log", (_, data) => {
+      callback(data);
+    });
+  },
+  removeE2ETestLogListener: () => {
+    electronAPI.ipcRenderer.removeAllListeners("e2e-test-log");
+  },
 };
 
 // Use `contextBridge` APIs to expose Electron APIs to

@@ -1,6 +1,9 @@
 import type { WebContents } from "electron";
 import { ipcMain } from "electron";
 import type { Window } from "../components/Window";
+import * as fs from "node:fs/promises";
+import * as path from "node:path";
+import { spawn } from "node:child_process";
 
 export class EventManager {
   private readonly mainWindow: Window;
@@ -25,6 +28,9 @@ export class EventManager {
 
     // Debug events
     this.handleDebugEvents();
+
+    // E2E Test events
+    this.handleE2ETestEvents();
   }
 
   private handleTabEvents(): void {
@@ -239,6 +245,140 @@ export class EventManager {
     this.mainWindow.allTabs.forEach((tab) => {
       if (tab.webContents !== sender) {
         tab.webContents.send("dark-mode-updated", isDarkMode);
+      }
+    });
+  }
+
+  private handleE2ETestEvents(): void {
+    const testsDir = path.join(process.cwd(), "tests");
+
+    ipcMain.handle("get-e2e-tests", async () => {
+      try {
+        await fs.mkdir(testsDir, { recursive: true });
+        const files = await fs.readdir(testsDir);
+        const yamlFiles = files.filter((f) => f.endsWith(".yaml") || f.endsWith(".yml"));
+
+        const tests: { filename: string; name: string; content: string }[] = [];
+        for (const file of yamlFiles) {
+          const content = await fs.readFile(path.join(testsDir, file), "utf8");
+          // Extract name from yaml content if possible (simple parser)
+          let name = file;
+          const nameMatch = /^name:\s*(.+)$/m.exec(content);
+          if (nameMatch) {
+            name = nameMatch[1].trim().replaceAll(/['"]/g, "");
+          }
+          tests.push({ content, filename: file, name });
+        }
+        return tests;
+      } catch (error) {
+        console.error("Failed to read E2E tests:", error);
+        return [];
+      }
+    });
+
+    ipcMain.handle("save-e2e-test", async (_, filename: string, content: string) => {
+      try {
+        await fs.mkdir(testsDir, { recursive: true });
+        // Sanitize filename to prevent directory traversal
+        const safeName = path.basename(filename);
+        if (!safeName.endsWith(".yaml") && !safeName.endsWith(".yml")) {
+          return { error: "Filename must end with .yaml or .yml", success: false };
+        }
+        await fs.writeFile(path.join(testsDir, safeName), content, "utf8");
+        return { success: true };
+      } catch (error) {
+        console.error("Failed to save E2E test:", error);
+        return { error: (error as Error).message, success: false };
+      }
+    });
+
+    ipcMain.handle("get-e2e-screenshot", async (_, filename: string) => {
+      try {
+        const safeName = path.basename(filename);
+        const pathsToTry = [
+          path.join(process.cwd(), safeName),
+          path.join(testsDir, safeName),
+          filename,
+        ];
+
+        for (const p of pathsToTry) {
+          try {
+            await fs.access(p);
+            const data = await fs.readFile(p);
+            return `data:image/png;base64,${data.toString("base64")}`;
+          } catch {
+            // ignore
+          }
+        }
+        return null;
+      } catch (error) {
+        console.error("Failed to read screenshot:", error);
+        return null;
+      }
+    });
+
+    ipcMain.handle("run-e2e-test", async (_, filename: string) => {
+      try {
+        const safeName = path.basename(filename);
+        const testPath = path.join(testsDir, safeName);
+
+        // Notify sidebar that test started
+        this.mainWindow.sidebar.view.webContents.send("e2e-test-log", {
+          text: `Starting test: ${safeName}\n`,
+          type: "system",
+        });
+
+        // Run blueberry-core binary to execute the yaml test case
+        const binaryPath = path.join(
+          process.cwd(),
+          "blueberry-core",
+          "target",
+          "debug",
+          "blueberry-core",
+        );
+
+        // Check if debug binary exists, fallback to cargo run
+        let childProcess;
+        try {
+          await fs.access(binaryPath);
+          childProcess = spawn(binaryPath, [testPath]);
+        } catch {
+          // Fallback to cargo run
+          childProcess = spawn("cargo", [
+            "run",
+            "--manifest-path",
+            "blueberry-core/Cargo.toml",
+            "--",
+            testPath,
+          ]);
+        }
+
+        childProcess.stdout.on("data", (data) => {
+          this.mainWindow.sidebar.view.webContents.send("e2e-test-log", {
+            text: data.toString(),
+            type: "stdout",
+          });
+        });
+
+        childProcess.stderr.on("data", (data) => {
+          this.mainWindow.sidebar.view.webContents.send("e2e-test-log", {
+            text: data.toString(),
+            type: "stderr",
+          });
+        });
+
+        return new Promise((resolve) => {
+          childProcess.on("close", (code) => {
+            this.mainWindow.sidebar.view.webContents.send("e2e-test-log", {
+              text: `\nTest finished with exit code ${code}\n`,
+              type: "system",
+            });
+            resolve({ code, success: code === 0 });
+          });
+        });
+      } catch (error) {
+        console.error("Failed to run E2E test:", error);
+        return { error: (error as Error).message, success: false };
       }
     });
   }

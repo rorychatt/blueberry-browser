@@ -2,14 +2,14 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
-import { ArrowUp, Plus, Sparkles, Square } from "lucide-react";
+import { ArrowUp, Plus } from "lucide-react";
 import { useChat } from "../contexts/ChatContext";
 import { cn } from "@common/lib/utils";
 import { Button } from "@common/components/Button";
 
 interface Message {
   id: string;
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "system";
   content: string;
   timestamp: number;
   isStreaming?: boolean;
@@ -52,15 +52,16 @@ const StreamingText: React.FC<{ content: string }> = ({ content }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
-    if (currentIndex < content.length) {
-      const timer = setTimeout(() => {
-        setDisplayedContent(content.slice(0, currentIndex + 1));
-        setCurrentIndex(currentIndex + 1);
-      }, 10);
-      return () => {
-        clearTimeout(timer);
-      };
+    if (currentIndex >= content.length) {
+      return;
     }
+    const timer = setTimeout(() => {
+      setDisplayedContent(content.slice(0, currentIndex + 1));
+      setCurrentIndex(currentIndex + 1);
+    }, 10);
+    return () => {
+      clearTimeout(timer);
+    };
   }, [content, currentIndex]);
 
   return (

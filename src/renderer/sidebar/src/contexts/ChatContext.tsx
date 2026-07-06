@@ -1,8 +1,9 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { MessageContentPart, PreloadChatMessage } from "../../../common/types/preload";
 
 interface Message {
   id: string;
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "system";
   content: string;
   timestamp: number;
   isStreaming?: boolean;
@@ -43,11 +44,11 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const storedMessages = await window.sidebarAPI.getMessages();
         if (storedMessages && storedMessages.length > 0) {
           // Convert CoreMessage format to our frontend Message format
-          const convertedMessages = storedMessages.map((msg: any, index: number) => ({
+          const convertedMessages = storedMessages.map((msg: PreloadChatMessage, index: number) => ({
             content:
               typeof msg.content === "string"
                 ? msg.content
-                : msg.content.find((p: any) => p.type === "text")?.text || "",
+                : msg.content.find((p: MessageContentPart) => p.type === "text")?.text || "",
             id: `msg-${index}`,
             isStreaming: false,
             role: msg.role,
@@ -132,13 +133,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     // Listen for message updates from main process
-    const handleMessagesUpdated = (updatedMessages: any[]) => {
+    const handleMessagesUpdated = (updatedMessages: PreloadChatMessage[]) => {
       // Convert CoreMessage format to our frontend Message format
-      const convertedMessages = updatedMessages.map((msg: any, index: number) => ({
+      const convertedMessages = updatedMessages.map((msg: PreloadChatMessage, index: number) => ({
         content:
           typeof msg.content === "string"
             ? msg.content
-            : msg.content.find((p: any) => p.type === "text")?.text || "",
+            : msg.content.find((p: MessageContentPart) => p.type === "text")?.text || "",
         id: `msg-${index}`,
         isStreaming: false,
         role: msg.role,

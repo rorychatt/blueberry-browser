@@ -26,7 +26,7 @@ export const useDarkMode = () => {
 
   // Listen for dark mode changes from other windows
   useEffect(() => {
-    const handleDarkModeUpdate = (_event: any, newDarkMode: boolean) => {
+    const handleDarkModeUpdate = (_event: unknown, newDarkMode: boolean) => {
       setIsDarkMode(newDarkMode);
     };
 

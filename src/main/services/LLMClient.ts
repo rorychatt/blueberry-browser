@@ -19,6 +19,10 @@ interface StreamChunk {
   isComplete: boolean;
 }
 
+export type MessageContentPart =
+  | { type: "text"; text: string }
+  | { type: "image"; image: string };
+
 type LLMProvider = "openai" | "anthropic" | "ollama";
 
 const DEFAULT_MODELS: Record<LLMProvider, string> = {
@@ -141,7 +145,7 @@ export class LLMClient {
       }
 
       // Build user message content with screenshot first, then text
-      const userContent: any[] = [];
+      const userContent: MessageContentPart[] = [];
 
       // Add screenshot as the first part if available
       if (screenshot) {
