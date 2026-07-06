@@ -124,6 +124,9 @@ export class Window {
     // Add the tab's WebContentsView to the window
     this._baseWindow.contentView.addChildView(tab.view);
 
+    // Ensure TopBar and SideBar are always on top of any tabs
+    this.bringViewsToFront();
+
     // Set the bounds to fill the window below the topbar and to the left of sidebar
     const bounds = this._baseWindow.getContentBounds();
     tab.view.setBounds(calculateTabBounds(bounds, this._sideBar.getIsVisible()));
@@ -203,6 +206,9 @@ export class Window {
 
     // Focus the tab's WebContents
     tab.webContents.focus();
+
+    // Ensure TopBar and SideBar are always on top
+    this.bringViewsToFront();
 
     // Update the window title to match the tab title
     this._baseWindow.setTitle(tab.title || "Blueberry Browser");
@@ -318,5 +324,25 @@ export class Window {
   // Register standard keyboard shortcuts on a WebContents
   registerKeyboardShortcuts(webContents: WebContents): void {
     registerKeyboardShortcuts(this, webContents);
+  }
+
+  // Bring TopBar and SideBar to the front of the stacking layer
+  bringViewsToFront(): void {
+    if (this._sideBar && !this._sideBar.view.webContents.isDestroyed()) {
+      try {
+        this._baseWindow.contentView.removeChildView(this._sideBar.view);
+        this._baseWindow.contentView.addChildView(this._sideBar.view);
+      } catch (e) {
+        console.error("Failed to bring SideBar to front:", e);
+      }
+    }
+    if (this._topBar && !this._topBar.view.webContents.isDestroyed()) {
+      try {
+        this._baseWindow.contentView.removeChildView(this._topBar.view);
+        this._baseWindow.contentView.addChildView(this._topBar.view);
+      } catch (e) {
+        console.error("Failed to bring TopBar to front:", e);
+      }
+    }
   }
 }

@@ -36,17 +36,27 @@ export class TopBar {
     return webContentsView;
   }
 
+  private currentHeight: number = 88;
+
   private setupBounds(): void {
     if (this.webContentsView.webContents.isDestroyed()) {
       return;
     }
     const bounds = this.baseWindow.getContentBounds();
     this.webContentsView.setBounds({
-      height: 88, // Fixed height for topbar (40px tabs + 48px address bar)
+      height: this.currentHeight,
       width: bounds.width,
       x: 0,
       y: 0,
     });
+  }
+
+  setHeight(height: number): void {
+    if (this.currentHeight === height) {
+      return;
+    }
+    this.currentHeight = height;
+    this.setupBounds();
   }
 
   updateBounds(): void {

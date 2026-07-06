@@ -53,6 +53,22 @@ export class EventManager {
 
     // History events
     this.handleHistoryEvents();
+
+    // TopBar dynamic events
+    this.handleTopBarEvents();
+  }
+
+  private handleTopBarEvents(): void {
+    // Handle topbar dynamic height adjustments
+    ipcMain.handle("set-topbar-height", (_, height: number) => {
+      if (this.mainWindow.topBar) {
+        this.mainWindow.topBar.setHeight(height);
+        // Bring views to front when expanded so they stack above the active tab
+        if (height > 88) {
+          this.mainWindow.bringViewsToFront();
+        }
+      }
+    });
   }
 
   private handleSettingsEvents(): void {

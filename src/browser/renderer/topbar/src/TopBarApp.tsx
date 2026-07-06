@@ -13,7 +13,7 @@ export const TopBarApp: React.FC = () => {
 
   return (
     <BrowserProvider>
-      <div className="flex flex-col bg-background select-none">
+      <div className="flex flex-col bg-transparent select-none">
         {/* Tab Bar */}
         <div
           className="w-full h-10 flex items-center app-region-drag bg-muted/60 dark:bg-muted/40 border-b border-border/20"

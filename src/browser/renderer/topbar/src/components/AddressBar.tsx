@@ -9,6 +9,7 @@ import {
   Settings,
   History,
   Search,
+  X,
 } from "lucide-react";
 import { useBrowser } from "../contexts/BrowserContext";
 import { ToolBarButton } from "../components/ToolBarButton";
@@ -151,6 +152,36 @@ export const AddressBar: React.FC = () => {
 
     return unique.slice(0, 5); // Show top 5 matches
   }, [url, historyList]);
+
+  // Dynamic topbar height management based on dropdown open states
+  const isAutocompleteOpen = isFocused && (autocompleteSuggestions.length > 0 || !!url.trim());
+  const isDropdownOpen = isHistoryDropdownOpen || isAutocompleteOpen;
+
+  useEffect(() => {
+    if (window.topBarAPI && window.topBarAPI.setHeight) {
+      void window.topBarAPI.setHeight(isDropdownOpen ? 600 : 88);
+    }
+    return () => {
+      if (window.topBarAPI && window.topBarAPI.setHeight) {
+        void window.topBarAPI.setHeight(88);
+      }
+    };
+  }, [isDropdownOpen]);
+
+  const handleDeleteHistoryEntry = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (window.historyAPI && window.historyAPI.deleteHistoryEntry) {
+      try {
+        const success = await window.historyAPI.deleteHistoryEntry(id);
+        if (success) {
+          setHistoryList((prev) => prev.filter((entry) => entry.id !== id));
+        }
+      } catch (error) {
+        console.error("Error deleting history entry from autocomplete:", error);
+      }
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -320,9 +351,25 @@ export const AddressBar: React.FC = () => {
                       </span>
                     </div>
                   </div>
-                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-muted dark:bg-muted/50 text-muted-foreground font-semibold tracking-wide ml-2 flex-shrink-0">
-                    History
-                  </span>
+                  <div className="flex items-center ml-2 flex-shrink-0 relative w-12 h-5 justify-end">
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-muted dark:bg-muted/50 text-muted-foreground font-semibold tracking-wide group-hover:opacity-0 transition-opacity duration-150">
+                      History
+                    </span>
+                    <button
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      onClick={(e) => handleDeleteHistoryEntry(e, suggestion.id)}
+                      className={cn(
+                        "absolute right-0 p-0.5 rounded-md text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10",
+                        "opacity-0 group-hover:opacity-100 transition-all duration-150 cursor-pointer",
+                      )}
+                      title="Remove from history"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </div>
                 </div>
               ))}
 

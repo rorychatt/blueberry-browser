@@ -86,6 +86,9 @@ export interface TopBarAPI {
 
   // Sidebar
   toggleSidebar: () => Promise<void>;
+
+  // Dynamic height
+  setHeight: (height: number) => Promise<void>;
 }
 
 export interface SettingsAPI {

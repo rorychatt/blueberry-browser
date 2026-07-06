@@ -24,6 +24,9 @@ const topBarAPI = {
 
   // Sidebar
   toggleSidebar: async () => electronAPI.ipcRenderer.invoke("toggle-sidebar"),
+
+  // Dynamic height
+  setHeight: async (height: number) => electronAPI.ipcRenderer.invoke("set-topbar-height", height),
 };
 
 const historyAPI = {

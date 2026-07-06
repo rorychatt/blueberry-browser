@@ -1,15 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import {
-  Clock,
-  Search,
-  Sparkles,
-  Trash2,
-  X,
-  ArrowRight,
-  Loader2,
-  ExternalLink,
-  Globe,
-} from "lucide-react";
+import { Clock, Search, Sparkles, X, ArrowRight, Loader2, ExternalLink, Globe } from "lucide-react";
 import { useBrowser } from "../contexts/BrowserContext";
 import { Favicon } from "./Favicon";
 import { cn } from "@common/lib/utils";
@@ -276,7 +266,7 @@ export const HistoryDropdown: React.FC<HistoryDropdownProps> = ({ onClose }) => 
                 )}
                 title="Delete entry"
               >
-                <Trash2 className="size-3.5" />
+                <X className="size-3.5" />
               </button>
             </div>
           ))
