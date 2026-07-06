@@ -186,7 +186,16 @@ export class LLMClient {
         return;
       }
 
+      console.log(`[LLMClient] Preparing message context for prompt: "${request.message}"`);
+      const contextStartTime = Date.now();
       const { system, messages } = await this.prepareMessagesWithContext(request);
+      const prepDuration = Date.now() - contextStartTime;
+      console.log(
+        `[LLMClient] Context prepared in ${prepDuration}ms. ` +
+          `System prompt size: ${system.length} characters. ` +
+          `Message history count: ${messages.length}`,
+      );
+
       await this.streamResponse(messages, system, request.messageId);
     } catch (error) {
       console.error("Error in LLM request:", error);
@@ -381,19 +390,34 @@ ${programMd}
       throw new Error("Model not initialized");
     }
 
-    const result = streamText({
-      abortSignal: undefined, // Could add abort controller for cancellation
-      maxRetries: 3,
-      system,
-      messages,
-      model: this.model,
-      temperature: DEFAULT_TEMPERATURE,
-    });
+    console.log(
+      `[LLMClient] Initiating text stream with provider: ${this.provider}, model: ${this.modelName}...`,
+    );
 
-    await this.processStream(result.textStream, messageId);
+    const controller = new AbortController();
+
+    try {
+      const result = streamText({
+        abortSignal: controller.signal,
+        maxRetries: 3,
+        system,
+        messages,
+        model: this.model,
+        temperature: DEFAULT_TEMPERATURE,
+      });
+
+      await this.processStream(result.textStream, messageId, controller);
+    } catch (error) {
+      console.error("[LLMClient] Error during text streaming:", error);
+      throw error;
+    }
   }
 
-  private async processStream(textStream: AsyncIterable<string>, messageId: string): Promise<void> {
+  private async processStream(
+    textStream: AsyncIterable<string>,
+    messageId: string,
+    controller: AbortController,
+  ): Promise<void> {
     let accumulatedText = "";
 
     // Create a placeholder assistant message
@@ -406,34 +430,70 @@ ${programMd}
     const messageIndex = this.messages.length;
     this.messages.push(assistantMessage);
 
-    for await (const chunk of textStream) {
-      accumulatedText += chunk;
+    // Track stream metrics
+    const startTime = Date.now();
+    let chunkCount = 0;
+    let firstChunkReceived = false;
 
-      // Update assistant message content
-      this.messages[messageIndex] = {
-        content: accumulatedText,
-        role: "assistant",
-      };
-      this.sendMessagesToRenderer();
+    // Timeout management:
+    // - 30 seconds to receive the very first chunk
+    // - 15 seconds max inactivity gap between subsequent chunks
+    let timeoutId = setTimeout(() => {
+      console.warn(`[LLMClient] Stream inactivity timeout (30s) reached. Aborting connection...`);
+      controller.abort();
+    }, 30000);
 
-      this.sendStreamChunk(messageId, {
-        content: chunk,
-        isComplete: false,
-      });
-    }
-
-    // Final update with complete content
-    this.messages[messageIndex] = {
-      content: accumulatedText,
-      role: "assistant",
+    const refreshTimeout = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        console.warn(
+          `[LLMClient] Chunk streaming timed out (15s inactivity). Aborting connection...`,
+        );
+        controller.abort();
+      }, 15000);
     };
-    this.sendMessagesToRenderer();
 
-    // Send the final complete signal
-    this.sendStreamChunk(messageId, {
-      content: accumulatedText,
-      isComplete: true,
-    });
+    try {
+      for await (const chunk of textStream) {
+        if (!firstChunkReceived) {
+          firstChunkReceived = true;
+          const ttft = Date.now() - startTime;
+          console.log(`[LLMClient] First chunk received in ${ttft}ms`);
+        }
+        chunkCount++;
+        refreshTimeout();
+
+        accumulatedText += chunk;
+
+        // Update assistant message content
+        this.messages[messageIndex] = {
+          content: accumulatedText,
+          role: "assistant",
+        };
+        this.sendMessagesToRenderer();
+
+        this.sendStreamChunk(messageId, {
+          content: chunk,
+          isComplete: false,
+        });
+      }
+
+      const duration = Date.now() - startTime;
+      console.log(
+        `[LLMClient] Stream completed successfully in ${duration}ms ` +
+          `(${chunkCount} chunks, length: ${accumulatedText.length} characters)`,
+      );
+    } catch (err) {
+      if (controller.signal.aborted) {
+        throw new Error(
+          "LLM request timed out. The local Ollama server took too long to respond.",
+          { cause: err },
+        );
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     // Detect and parse single JSON browser control skill action blocks from OpenCode's streamed response
     const jsonBlockRegex = /```json\s*([\s\S]*?)\s*```/g;
