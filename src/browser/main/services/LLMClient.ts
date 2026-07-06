@@ -19,7 +19,10 @@ interface StreamChunk {
   isComplete: boolean;
 }
 
-export type MessageContentPart = { type: "text"; text: string } | { type: "image"; image: string };
+export type MessageContentPart =
+  | { type: "text"; text: string }
+  | { type: "image"; image: string }
+  | { type: "file"; data: string; mediaType: string };
 
 type LLMProvider = "openai" | "anthropic" | "ollama";
 
@@ -148,8 +151,9 @@ export class LLMClient {
       // Add screenshot as the first part if available
       if (screenshot) {
         userContent.push({
-          image: screenshot,
-          type: "image",
+          data: screenshot,
+          mediaType: "image/png",
+          type: "file",
         });
       }
 

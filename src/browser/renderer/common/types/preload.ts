@@ -1,7 +1,9 @@
 export interface MessageContentPart {
-  type: "text" | "image";
+  type: "text" | "image" | "file";
   text?: string;
   image?: string;
+  data?: string;
+  mediaType?: string;
 }
 
 export interface PreloadChatMessage {

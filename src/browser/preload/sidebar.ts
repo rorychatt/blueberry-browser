@@ -18,9 +18,11 @@ interface ChatResponse {
 }
 
 interface MessageContentPart {
-  type: "text" | "image";
+  type: "text" | "image" | "file";
   text?: string;
   image?: string;
+  data?: string;
+  mediaType?: string;
 }
 
 interface PreloadChatMessage {
