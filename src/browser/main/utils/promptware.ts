@@ -144,6 +144,16 @@ ${systemInstructions}
   return { system: systemPrompt, user: userPrompt };
 }
 
+// Helper to extract the core reflection text from an entry
+const getCoreText = (entryText: string): string => {
+  const match = /Reflection\/(?:Pattern Identified|Learning)[*\s:]+([\s\S]*)/i.exec(entryText);
+  const content = match ? match[1] : entryText;
+  return content
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "")
+    .trim();
+};
+
 export async function saveReflectionMemory(
   promptwareName: string,
   titleOrPrompt: string,
@@ -171,10 +181,31 @@ export async function saveReflectionMemory(
   }
 
   if (existingContent) {
-    if (existingContent.includes(coreReflection.trim())) {
+    // Split the existing file by '---' to get individual entries
+    const entries = existingContent
+      .split(/\n\s*---\s*\n/)
+      .map((e) => e.trim())
+      .filter((e) => e.length > 0);
+
+    const newCoreNormalized = coreReflection
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "")
+      .trim();
+
+    // Check if any existing entry has the same normalized core reflection
+    const isDuplicate = entries.some((entry) => getCoreText(entry) === newCoreNormalized);
+    if (isDuplicate) {
       return filename;
     }
-    const updatedContent = `${existingContent.trim()}\n\n---\n\n${fullRefContent.trim()}\n`;
+
+    // Add the new entry
+    entries.push(fullRefContent.trim());
+
+    // Keep only the most recent 5 entries (sliding window)
+    const maxEntries = 5;
+    const prunedEntries = entries.slice(-maxEntries);
+
+    const updatedContent = `${prunedEntries.join("\n\n---\n\n")}\n`;
     await fs.writeFile(filePath, updatedContent, "utf8");
   } else {
     await fs.writeFile(filePath, `${fullRefContent.trim()}\n`, "utf8");
