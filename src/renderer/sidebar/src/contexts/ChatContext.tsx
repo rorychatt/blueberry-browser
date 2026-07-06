@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { MessageContentPart, PreloadChatMessage } from "../../../common/types/preload";
 
-interface Message {
+export interface Message {
   id: string;
   role: "user" | "assistant" | "system";
   content: string;
