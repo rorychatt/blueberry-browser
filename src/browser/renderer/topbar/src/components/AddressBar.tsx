@@ -183,7 +183,7 @@ export const AddressBar: React.FC = () => {
             </div>
 
             {/* URL Display */}
-            <div className="text-xs leading-none truncate flex-1 flex items-center">
+            <div className="text-xs leading-normal truncate flex-1 flex items-center">
               {activeTab ? (
                 <>
                   <span className="text-foreground dark:text-foreground font-medium">
