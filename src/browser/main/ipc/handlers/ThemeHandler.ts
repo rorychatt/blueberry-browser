@@ -15,6 +15,11 @@ export class ThemeHandler extends BaseHandler {
   }
 
   private broadcastDarkMode(sender: WebContents, isDarkMode: boolean): void {
+    // Update native TopBar background color to match the theme
+    if (this.mainWindow.topBar) {
+      this.mainWindow.topBar.updateThemeBackground(isDarkMode);
+    }
+
     // Send to topbar
     if (this.mainWindow.topBar.view.webContents !== sender) {
       this.mainWindow.topBar.view.webContents.send("dark-mode-updated", isDarkMode);

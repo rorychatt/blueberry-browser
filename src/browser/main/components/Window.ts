@@ -157,6 +157,9 @@ export class Window {
       this.createTab();
     }
 
+    // Hide the tab's view first to ensure the layer compositor is cleared before detachment
+    tab.hide();
+
     // Remove the WebContentsView from the window
     this._baseWindow.contentView.removeChildView(tab.view);
 
