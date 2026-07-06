@@ -2,6 +2,7 @@ import type { WebContents } from "electron";
 import { ipcMain } from "electron";
 import type { Window } from "../components/Window";
 import * as fs from "node:fs/promises";
+import { existsSync } from "node:fs";
 import * as path from "node:path";
 import { spawn } from "node:child_process";
 import { SettingsManager } from "../services/SettingsManager";
@@ -444,6 +445,26 @@ export class EventManager {
         const content = await fs.readFile(testPath, "utf8");
         const steps = this.parseYamlSteps(content);
 
+        // Detect if prompt-only YAML test
+        let promptVal: string | null = null;
+        const lines = content.split("\n");
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (trimmed.startsWith("prompt:")) {
+            let val = trimmed.substring("prompt:".length).trim();
+            val = val.replaceAll(/^['"]|['"]$/g, "");
+            promptVal = val;
+            break;
+          }
+        }
+
+        if (promptVal && steps.length === 0) {
+          log("system", `Starting Agentic Prompt-Only Test: ${safeName}\n`);
+          await this.runE2ETestAgenticLoop(promptVal, log);
+          log("system", `\nIn-Browser Test finished successfully!\n`);
+          return { success: true };
+        }
+
         log("system", `Starting In-Browser Test: ${safeName}\n`);
 
         for (let index = 0; index < steps.length; index++) {
@@ -532,29 +553,28 @@ export class EventManager {
             await fs.writeFile(screenshotPath, buffer);
             log("stdout", `✓ Saved screenshot to '${step.path}'\n`);
           } else if (step.type === "agent") {
-            log("system", `  [${stepNum}] Local Ollama Agent evaluation: '${step.prompt}'...\n`);
+            log(
+              "system",
+              `  [${stepNum}] Local Ollama Agent evaluation (AssertionAgent): '${step.prompt}'...\n`,
+            );
             const pageText = await webContents.executeJavaScript("document.body.innerText");
+
+            const compiled = await this.compilePromptwareSystemAndUser("AssertionAgent", {
+              Assertion: step.prompt!,
+              PageContent: pageText,
+            });
 
             const endpoint = process.env.OLLAMA_ENDPOINT || "http://localhost:11434";
             const model = process.env.OLLAMA_MODEL || "qwen3.6";
-
-            const systemPrompt = `You are Blueberry-Agent, an advanced visual/textual E2E testing agent.
-Your job is to analyze the current text content of a webpage and determine if the user's assertion/goal has been met.
-You MUST output your response as a valid JSON object with the following schema:
-{
-  "success": true or false,
-  "reason": "A concise explanation based on the evidence found in the webpage content."
-}
-Only output the JSON object. Do not include markdown code blocks or conversational text outside of the JSON.`;
 
             const payload = {
               model,
               options: {
                 temperature: 0.1,
               },
-              prompt: `Goal/Assertion: ${step.prompt}\n\nWebpage Text Content:\n---\n${pageText}\n---\n\nRespond with the JSON object:`,
+              prompt: compiled.user,
               stream: false,
-              system: systemPrompt,
+              system: compiled.system,
             };
 
             const response = await fetch(`${endpoint}/api/generate`, {
@@ -569,12 +589,38 @@ Only output the JSON object. Do not include markdown code blocks or conversation
 
             const json = (await response.json()) as { response?: string };
             let responseText = json.response || "";
-            responseText = responseText
-              .replace(/^```json/, "")
-              .replace(/```$/, "")
-              .trim();
+            responseText = responseText.trim();
+            if (responseText.startsWith("```json")) {
+              responseText = responseText.substring(7);
+              if (responseText.endsWith("```")) {
+                responseText = responseText.substring(0, responseText.length - 3);
+              }
+            } else if (responseText.startsWith("```")) {
+              responseText = responseText.substring(3);
+              if (responseText.endsWith("```")) {
+                responseText = responseText.substring(0, responseText.length - 3);
+              }
+            }
+            responseText = responseText.trim();
 
-            const parsedRes = JSON.parse(responseText);
+            const parsedRes = JSON.parse(responseText) as {
+              success: boolean;
+              reason: string;
+              reflection?: string;
+            };
+
+            // Save learning/reflection if present!
+            if (parsedRes.reflection && parsedRes.reflection.trim()) {
+              const dateStr = new Date()
+                .toISOString()
+                .replace(/[-:T.]/g, "")
+                .slice(0, 15);
+              const refFilename = `reflection_${dateStr}_assertion.md`;
+              const fullRefContent = `# Reflection - Assertion evaluation\n\n- **Assertion**: ${step.prompt}\n- **Success**: ${parsedRes.success}\n- **Reason**: ${parsedRes.reason}\n- **Reflection/Learning**:\n${parsedRes.reflection}\n`;
+              await this.writeMemory("AssertionAgent", refFilename, fullRefContent);
+              log("stdout", `     💡 Saved learning reflection to memory: ${refFilename}\n`);
+            }
+
             if (parsedRes.success) {
               log("stdout", `✓ Agent Assertion Passed!\n     AI Reason: ${parsedRes.reason}\n`);
             } else {
@@ -651,6 +697,425 @@ Only output the JSON object. Do not include markdown code blocks or conversation
       }
     }
     return steps;
+  }
+
+  private getPromptwaresDir(): string {
+    const workspaceDir = process.cwd();
+    const possiblePaths = [
+      path.join(workspaceDir, "src", "promptwares"),
+      path.join(workspaceDir, "promptwares"),
+    ];
+    for (const p of possiblePaths) {
+      try {
+        if (existsSync(p)) {
+          return p;
+        }
+      } catch {
+        // Path does not exist or is not readable
+      }
+    }
+    return "/Users/rorychatt/git/rorychatt/blueberry-browser/src/promptwares";
+  }
+
+  private async compilePromptwareSystemAndUser(
+    name: string,
+    values: Record<string, string>,
+  ): Promise<{ system: string; user: string }> {
+    const promptwaresDir = this.getPromptwaresDir();
+    const folder = path.join(promptwaresDir, name);
+
+    let systemInstructions = "";
+
+    const primaryPath = path.join(folder, "system_prompt.md");
+    const fallbackPath = path.join(folder, "Program.md");
+
+    if (existsSync(primaryPath)) {
+      try {
+        systemInstructions = await fs.readFile(primaryPath, "utf8");
+      } catch (error) {
+        console.error(`Failed to read system_prompt.md for promptware ${name}:`, error);
+      }
+    }
+
+    if (!systemInstructions && existsSync(fallbackPath)) {
+      try {
+        systemInstructions = await fs.readFile(fallbackPath, "utf8");
+      } catch (error) {
+        console.error(`Failed to read Program.md fallback for promptware ${name}:`, error);
+      }
+    }
+
+    if (!systemInstructions) {
+      systemInstructions = `# ${name} Program\nNo instructions found.`;
+    }
+
+    // Load Memory files
+    const memoryDir = path.join(folder, "memory");
+    const memoryFiles: string[] = [];
+    let memoryContents = "";
+    try {
+      if (existsSync(memoryDir)) {
+        const files = await fs.readdir(memoryDir);
+        const mdFiles = files.filter((f) => f.endsWith(".md") && f !== ".gitkeep");
+
+        for (const file of mdFiles) {
+          memoryFiles.push(file);
+          try {
+            const content = await fs.readFile(path.join(memoryDir, file), "utf8");
+            memoryContents += `### File: ${file}\n\n${content}\n\n---\n\n`;
+          } catch {
+            // Ignore files that cannot be read
+          }
+        }
+      }
+    } catch (err) {
+      console.error(`Failed to read memories for ${name}:`, err);
+    }
+
+    const memoryFilesListing =
+      memoryFiles.length === 0 ? "(no memory files yet)" : memoryFiles.join(", ");
+    const memoryContentsSection =
+      memoryContents === "" ? "(no accumulated memories yet)" : memoryContents;
+
+    const systemPrompt = `You are an agentic application that evolves over time.
+
+This prompt is your Firmware and is never allowed to change.
+
+Your program folder is: ${folder}
+
+## Goal
+
+Your goal is to complete the instructions in the **System Instructions** section below with the following priority:
+
+1. Completeness
+2. Speed
+3. Token efficiency
+4. Improvement over time
+
+**Memory Files:**
+${memoryFilesListing}
+
+**Accumulated Memories / Reflections:**
+${memoryContentsSection}
+
+To read a memory file offline:
+Use the CLI command: \`blueberry-core promptware-read-memory ${name} <filename>.md\`
+
+Complete your task and return the appropriate output.
+
+## Reflection
+
+Every execution needs to end with a reflection step. This is your opportunity to improve over time. What did we learn during this session?
+When you return your final JSON response, provide a \`reflection\` field containing your key takeaways, lessons, or rules learned. This will be automatically written to a memory file for you.
+
+## System Instructions
+
+${systemInstructions}
+`;
+
+    // Load user prompt
+    const userMdPath = path.join(folder, "user_prompt.md");
+    let userPrompt = "";
+    if (existsSync(userMdPath)) {
+      try {
+        const userTemplate = await fs.readFile(userMdPath, "utf8");
+        let compiledUser = userTemplate;
+        for (const [key, val] of Object.entries(values)) {
+          compiledUser = compiledUser.replaceAll(`{{${key}}}`, val);
+        }
+        userPrompt = compiledUser;
+      } catch (err) {
+        console.error(`Failed to read user_prompt.md for ${name}:`, err);
+      }
+    }
+
+    if (!userPrompt) {
+      // Fallback to default user prompt format
+      const headerStr = Object.keys(values)
+        .toSorted()
+        .map((key) => `${key}: ${values[key]}`)
+        .join("\n");
+      userPrompt = `---\n${headerStr}\n---`;
+    }
+
+    return { system: systemPrompt, user: userPrompt };
+  }
+
+  private async writeMemory(
+    promptwareName: string,
+    filename: string,
+    content: string,
+  ): Promise<void> {
+    const promptwaresDir = this.getPromptwaresDir();
+    const memoryDir = path.join(promptwaresDir, promptwareName, "memory");
+    await fs.mkdir(memoryDir, { recursive: true });
+    await fs.writeFile(path.join(memoryDir, filename), content, "utf8");
+  }
+
+  private async writeLog(promptwareName: string, jobId: string, content: string): Promise<void> {
+    const promptwaresDir = this.getPromptwaresDir();
+    const logsDir = path.join(promptwaresDir, promptwareName, "logs");
+    await fs.mkdir(logsDir, { recursive: true });
+    await fs.writeFile(path.join(logsDir, `${jobId}.md`), content, "utf8");
+  }
+
+  private async runE2ETestAgenticLoop(
+    prompt: string,
+    log: (type: "stdout" | "stderr" | "system", text: string) => void,
+  ): Promise<void> {
+    const startTime = Date.now();
+    const jobId = `job_${new Date()
+      .toISOString()
+      .replace(/[-:T.]/g, "")
+      .slice(0, 15)}`;
+    log("system", `🤖 Promptware Agent running E2ETest (Job ID: ${jobId})\n`);
+    log("system", `🎯 Target Goal: '${prompt}'\n`);
+    log("system", `--------------------------------------------------\n`);
+
+    let stepNum = 1;
+    let accumulatedLog = `# E2ETest Promptware Job Log (${jobId})\n\n- **Target Goal**: ${prompt}\n- **Started At**: ${new Date().toISOString()}\n\n## Steps\n\n`;
+
+    const endpoint = process.env.OLLAMA_ENDPOINT || "http://localhost:11434";
+    const model = process.env.OLLAMA_MODEL || "qwen3.6";
+
+    while (true) {
+      if (stepNum > 20) {
+        const errMsg =
+          "Execution stopped: exceeded maximum steps limit of 20 to prevent infinite loop.";
+        accumulatedLog += `\n### ❌ Execution Stopped\n\nError: ${errMsg}\n`;
+        await this.writeLog("E2ETest", jobId, accumulatedLog);
+        throw new Error(errMsg);
+      }
+
+      const stepStart = Date.now();
+      log("system", `  [Step ${stepNum}] Reading page context...\n`);
+
+      if (!this.mainWindow.activeTab) {
+        throw new Error("No active tab found in the browser to run tests on.");
+      }
+
+      const { webContents } = this.mainWindow.activeTab;
+
+      const currentUrl: string = await webContents.executeJavaScript("window.location.href");
+      const pageText: string = await webContents.executeJavaScript("document.body.innerText");
+
+      // Truncate page text context to 5000 characters to keep it extremely fast and lightweight
+      const pageTextTruncated =
+        pageText.length > 5000
+          ? `${pageText.substring(0, 5000)}... (truncated, total length: ${pageText.length} characters)`
+          : pageText;
+
+      const compiled = await this.compilePromptwareSystemAndUser("E2ETest", {
+        CurrentUrl: currentUrl,
+        PageContent: pageTextTruncated,
+        Prompt: prompt,
+      });
+
+      log("system", `  [Step ${stepNum}] Evaluating next action using local Ollama model...\n`);
+
+      const payload = {
+        model,
+        options: {
+          temperature: 0.1,
+        },
+        prompt: compiled.user,
+        stream: false,
+        system: compiled.system,
+      };
+
+      const response = await fetch(`${endpoint}/api/generate`, {
+        body: JSON.stringify(payload),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        throw new Error(`Ollama returned status ${response.status}`);
+      }
+
+      const json = (await response.json()) as { response?: string };
+      let responseText = json.response || "";
+
+      // Clean JSON block if wrapped in markdown code blocks
+      responseText = responseText.trim();
+      if (responseText.startsWith("```json")) {
+        responseText = responseText.substring(7);
+        if (responseText.endsWith("```")) {
+          responseText = responseText.substring(0, responseText.length - 3);
+        }
+      } else if (responseText.startsWith("```")) {
+        responseText = responseText.substring(3);
+        if (responseText.endsWith("```")) {
+          responseText = responseText.substring(0, responseText.length - 3);
+        }
+      }
+      responseText = responseText.trim();
+
+      interface Action {
+        action: string;
+        url?: string;
+        selector?: string;
+        text?: string;
+        ms?: number;
+        reason?: string;
+        reflection?: string;
+      }
+
+      let action: Action;
+      try {
+        action = JSON.parse(responseText) as Action;
+      } catch (err) {
+        log("stderr", `  [Step ${stepNum}] ❌ Failed to parse JSON response from LLM!\n`);
+        log("stderr", `     Raw Output:\n---\n${json.response || ""}\n---\n`);
+        accumulatedLog += `### Step ${stepNum}\n- **Current URL**: ${currentUrl}\n- **Error**: Failed to parse JSON response: ${(err as Error).message}\n- **Raw Model Response**:\n\`\`\`\n${json.response || ""}\n\`\`\`\n\n`;
+        await this.writeLog("E2ETest", jobId, accumulatedLog);
+        throw new Error(
+          `Failed to parse action JSON: ${(err as Error).message}. Model output: '${responseText}'`,
+          { cause: err },
+        );
+      }
+
+      const actionName = (action.action || "").toLowerCase();
+      const reason = action.reason || "No reason provided.";
+      log("stdout", `  [Step ${stepNum}] Action decided: '${actionName}' (reason: '${reason}')\n`);
+
+      const elapsedMs = Date.now() - stepStart;
+      accumulatedLog += `### Step ${stepNum}\n- **Current URL**: ${currentUrl}\n- **Action**: \`${actionName}\`\n- **Reason**: ${reason}\n- **Elapsed**: ${elapsedMs}ms\n\n`;
+
+      // If reflection/learning is generated, let's write it to memory!
+      if (action.reflection && action.reflection.trim()) {
+        const dateStr = new Date()
+          .toISOString()
+          .replace(/[-:T.]/g, "")
+          .slice(0, 15);
+        const refFilename = `reflection_${dateStr}_${stepNum}.md`;
+        const fullRefContent = `# Reflection - Step ${stepNum}\n\n- **Prompt**: ${prompt}\n- **Action**: ${actionName}\n- **Reason**: ${reason}\n- **Reflection/Learning**:\n${action.reflection}\n`;
+        await this.writeMemory("E2ETest", refFilename, fullRefContent);
+        log(
+          "stdout",
+          `  [Step ${stepNum}] 💡 Saved learning reflection to memory: ${refFilename}\n`,
+        );
+        accumulatedLog += `- **💡 Learning Saved**: ${refFilename}\n\n`;
+      }
+
+      if (actionName === "navigate") {
+        if (!action.url) {
+          throw new Error("Action 'navigate' requires a 'url' field");
+        }
+        log("system", `  [Step ${stepNum}] 🌐 Navigating to '${action.url}'...\n`);
+        await webContents.loadURL(action.url);
+        await new Promise<void>((resolve) => {
+          if (!webContents.isLoading()) {
+            resolve();
+            return;
+          }
+          webContents.once("did-stop-loading", () => {
+            resolve();
+          });
+        });
+      } else if (actionName === "click") {
+        if (!action.selector) {
+          throw new Error("Action 'click' requires a 'selector' field");
+        }
+        log("system", `  [Step ${stepNum}] 🖱️ Clicking element '${action.selector}'...\n`);
+        const js = `
+          (() => {
+            const el = document.querySelector(${JSON.stringify(action.selector)});
+            if (!el) throw new Error("Element not found: " + ${JSON.stringify(action.selector)});
+            el.click();
+            return true;
+          })()
+        `;
+        await webContents.executeJavaScript(js);
+      } else if (actionName === "type") {
+        if (!action.selector) {
+          throw new Error("Action 'type' requires a 'selector' field");
+        }
+        if (action.text === undefined) {
+          throw new Error("Action 'type' requires a 'text' field");
+        }
+        log(
+          "system",
+          `  [Step ${stepNum}] ⌨️ Typing '${action.text}' into '${action.selector}'...\n`,
+        );
+        const js = `
+          (() => {
+            const el = document.querySelector(${JSON.stringify(action.selector)});
+            if (!el) throw new Error("Element not found: " + ${JSON.stringify(action.selector)});
+            el.focus();
+            if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+              el.value = ${JSON.stringify(action.text)};
+              el.dispatchEvent(new Event('input', { bubbles: true }));
+              el.dispatchEvent(new Event('change', { bubbles: true }));
+            } else {
+              el.textContent = ${JSON.stringify(action.text)};
+              el.dispatchEvent(new Event('input', { bubbles: true }));
+              el.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            return true;
+          })()
+        `;
+        await webContents.executeJavaScript(js);
+      } else if (actionName === "wait") {
+        const ms = action.ms || 1000;
+        log("system", `  [Step ${stepNum}] ⏱️ Waiting ${ms}ms...\n`);
+        await new Promise((resolve) => setTimeout(resolve, ms));
+      } else if (actionName === "wait_for") {
+        if (!action.selector) {
+          throw new Error("Action 'wait_for' requires a 'selector' field");
+        }
+        log("system", `  [Step ${stepNum}] 🔍 Waiting for element '${action.selector}'...\n`);
+        const checkJs = `!!document.querySelector(${JSON.stringify(action.selector)})`;
+        let found = false;
+        for (let attempt = 0; attempt < 20; attempt++) {
+          try {
+            found = await webContents.executeJavaScript(checkJs);
+            if (found) {
+              break;
+            }
+          } catch {
+            // Ignore error
+          }
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+        if (!found) {
+          throw new Error(`Timeout waiting for element: ${action.selector}`);
+        }
+      } else if (actionName === "screenshot") {
+        const pathSuffix = action.selector || action.text || "tests/screenshot.png";
+        log("system", `  [Step ${stepNum}] 📸 Taking screenshot saved to '${pathSuffix}'...\n`);
+        const image = await webContents.capturePage();
+        const buffer = image.toPNG();
+        const screenshotPath = path.join(
+          process.cwd(),
+          pathSuffix.startsWith("tests/") ? pathSuffix : path.join("tests", pathSuffix),
+        );
+        await fs.mkdir(path.dirname(screenshotPath), { recursive: true });
+        await fs.writeFile(screenshotPath, buffer);
+      } else if (actionName === "complete") {
+        log("system", `--------------------------------------------------\n`);
+        log(
+          "stdout",
+          `🎉 Promptware E2ETest Goal ACHIEVED in ${Math.round((Date.now() - startTime) / 1000)}s\n`,
+        );
+        accumulatedLog += `\n## 🎉 Goal Achieved Successfully\n\nPassed in ${Date.now() - startTime}ms\n`;
+        await this.writeLog("E2ETest", jobId, accumulatedLog);
+        return;
+      } else if (actionName === "fail") {
+        log("system", `--------------------------------------------------\n`);
+        log("stderr", `❌ Promptware E2ETest Goal FAILED: ${reason}\n`);
+        accumulatedLog += `\n## ❌ Goal Failed\n\nReason: ${reason}\n`;
+        await this.writeLog("E2ETest", jobId, accumulatedLog);
+        throw new Error(`Goal declared as failed by agent. Reason: ${reason}`);
+      } else {
+        const unknownMsg = `Unknown action: '${actionName}'`;
+        accumulatedLog += `- **Error**: ${unknownMsg}\n\n`;
+        await this.writeLog("E2ETest", jobId, accumulatedLog);
+        throw new Error(unknownMsg);
+      }
+
+      stepNum++;
+    }
   }
 
   // Clean up event listeners
