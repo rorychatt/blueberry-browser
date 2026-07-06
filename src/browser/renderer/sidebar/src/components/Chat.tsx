@@ -2,7 +2,24 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
-import { ArrowUp, Plus } from "lucide-react";
+import {
+  ArrowUp,
+  Plus,
+  Compass,
+  Globe,
+  MousePointerClick,
+  Keyboard,
+  ArrowUpDown,
+  Clock,
+  ArrowLeft,
+  ArrowRight,
+  XCircle,
+  CheckCircle2,
+  Loader2,
+  ChevronDown,
+  ChevronUp,
+  Brain,
+} from "lucide-react";
 import { VoiceRecorder, type VoiceStatus } from "./voice-recorder";
 import type { Message } from "../contexts/ChatContext";
 import { useChat } from "../contexts/ChatContext";
@@ -114,17 +131,268 @@ const Markdown: React.FC<{ content: string }> = ({ content }) => (
   </div>
 );
 
+const getActionIcon = (action: string) => {
+  switch (action) {
+    case "open_tab":
+      return <Compass className="size-4 text-sky-500 animate-spin-slow" />;
+    case "close_tab":
+      return <XCircle className="size-4 text-rose-500" />;
+    case "switch_tab":
+      return <Compass className="size-4 text-violet-500" />;
+    case "navigate":
+      return <Globe className="size-4 text-teal-500 animate-pulse" />;
+    case "click":
+      return <MousePointerClick className="size-4 text-amber-500" />;
+    case "type":
+      return <Keyboard className="size-4 text-indigo-500" />;
+    case "scroll_to":
+      return <ArrowUpDown className="size-4 text-emerald-500" />;
+    case "wait":
+      return <Clock className="size-4 text-orange-400" />;
+    case "go_back":
+      return <ArrowLeft className="size-4 text-purple-500" />;
+    case "go_forward":
+      return <ArrowRight className="size-4 text-purple-500" />;
+    default:
+      return <Compass className="size-4 text-primary" />;
+  }
+};
+
+const ToolExecutionCard: React.FC<{
+  action: string;
+  status: "running" | "success" | "error";
+  message?: string;
+}> = ({ action, status, message }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const hasDetails = !!message;
+
+  return (
+    <div
+      className={cn(
+        "relative w-full rounded-xl border p-3.5 backdrop-blur-sm shadow-sm transition-all duration-300 animate-fade-in my-2.5",
+        status === "running" &&
+          "bg-blue-500/5 dark:bg-blue-500/10 border-blue-500/20 dark:border-blue-500/30 ring-1 ring-blue-500/10",
+        status === "success" &&
+          "bg-emerald-500/5 dark:bg-emerald-500/10 border-emerald-500/20 dark:border-emerald-500/30 shadow-emerald-500/5",
+        status === "error" &&
+          "bg-destructive/5 dark:bg-destructive/10 border-destructive/20 dark:border-destructive/30 shadow-destructive/5",
+      )}
+    >
+      <div className="flex items-center justify-between gap-3">
+        {/* Left Side: Icon & Title */}
+        <div className="flex items-center gap-2.5">
+          <div
+            className={cn(
+              "flex items-center justify-center size-8 rounded-lg border",
+              status === "running" && "bg-blue-500/10 border-blue-500/20 animate-pulse",
+              status === "success" && "bg-emerald-500/10 border-emerald-500/20",
+              status === "error" && "bg-destructive/10 border-destructive/20",
+            )}
+          >
+            {status === "running" ? (
+              <Loader2 className="size-4 text-blue-500 animate-spin" />
+            ) : (
+              getActionIcon(action)
+            )}
+          </div>
+          <div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-mono font-bold tracking-tight text-foreground bg-muted px-1.5 py-0.5 rounded border border-border/40 animate-fade-in">
+                {action}
+              </span>
+              {status === "success" && (
+                <span className="size-1.5 bg-emerald-500 rounded-full animate-pulse" />
+              )}
+              {status === "error" && <span className="size-1.5 bg-destructive rounded-full" />}
+            </div>
+            <p className="text-[10px] text-muted-foreground font-semibold mt-0.5">
+              {status === "running" && "Executing browser skill..."}
+              {status === "success" && "Executed successfully"}
+              {status === "error" && "Execution failed"}
+            </p>
+          </div>
+        </div>
+
+        {/* Right Side: Action Controls & Badges */}
+        <div className="flex items-center gap-2">
+          {status === "success" && (
+            <span className="inline-flex items-center gap-1 py-0.5 px-2 rounded-full bg-emerald-500/15 border border-emerald-500/20 text-[10px] font-bold text-emerald-500">
+              <CheckCircle2 className="size-3" />
+              SUCCESS
+            </span>
+          )}
+          {status === "error" && (
+            <span className="inline-flex items-center gap-1 py-0.5 px-2 rounded-full bg-destructive/15 border border-destructive/20 text-[10px] font-bold text-destructive">
+              <XCircle className="size-3" />
+              FAILED
+            </span>
+          )}
+
+          {hasDetails && (
+            <button
+              onClick={() => setIsOpen(!isOpen)}
+              className="size-7 rounded-md flex items-center justify-center border border-border/40 hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+              title={isOpen ? "Hide details" : "Show details"}
+            >
+              {isOpen ? (
+                <ChevronUp className="size-3.5 transition-transform" />
+              ) : (
+                <ChevronDown className="size-3.5 transition-transform" />
+              )}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Expandable Details Block */}
+      {hasDetails && isOpen && (
+        <div className="mt-2.5 pt-2.5 border-t border-border/40 animate-fade-in">
+          <div className="text-[11px] font-mono bg-muted/50 dark:bg-muted/10 border border-border/20 rounded-lg p-2.5 text-muted-foreground break-words leading-relaxed animate-fade-in">
+            {message}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Thinking Process Component - expandable, glassmorphic card for AI reasoning
+const ThinkingProcessCard: React.FC<{
+  content: string;
+  isComplete: boolean;
+}> = ({ content, isComplete }) => {
+  const [isOpen, setIsOpen] = useState(!isComplete);
+
+  useEffect(() => {
+    setIsOpen(!isComplete);
+  }, [isComplete]);
+
+  return (
+    <div
+      className={cn(
+        "w-full rounded-xl border p-3.5 backdrop-blur-sm shadow-sm transition-all duration-300 animate-fade-in my-2.5",
+        isComplete
+          ? "bg-muted/30 dark:bg-muted/5 border-border/40"
+          : "bg-indigo-500/5 dark:bg-indigo-500/10 border-indigo-500/20 dark:border-indigo-500/30 ring-1 ring-indigo-500/10",
+      )}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <div
+            className={cn(
+              "flex items-center justify-center size-8 rounded-lg border",
+              isComplete
+                ? "bg-muted border-border/50 text-muted-foreground"
+                : "bg-indigo-500/10 border-indigo-500/20 text-indigo-500 animate-pulse",
+            )}
+          >
+            <Brain className="size-4" />
+          </div>
+          <div>
+            <span className="text-xs font-bold tracking-tight text-foreground">
+              {isComplete ? "Thought Process" : "Thinking Process..."}
+            </span>
+          </div>
+        </div>
+
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className="size-7 rounded-md flex items-center justify-center border border-border/40 hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+          title={isOpen ? "Hide thinking process" : "Show thinking process"}
+        >
+          {isOpen ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
+        </button>
+      </div>
+
+      {isOpen && (
+        <div className="mt-2.5 pt-2.5 border-t border-border/40 animate-fade-in">
+          <div className="text-[11px] font-mono text-muted-foreground leading-relaxed whitespace-pre-wrap select-text selection:bg-primary/20 max-h-[180px] overflow-y-auto pr-1">
+            {content.trim() || "(silent reasoning...)"}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Assistant Message Component - appears on the left
 const AssistantMessage: React.FC<{
   content: string;
   isStreaming?: boolean;
-}> = ({ content, isStreaming }) => (
-  <div className="relative w-full animate-fade-in">
-    <div className="py-1">
-      {isStreaming ? <StreamingText content={content} /> : <Markdown content={content} />}
+}> = ({ content, isStreaming }) => {
+  // Check if content is a tool log
+  const toolRegex =
+    /^⚙️ \*\*Executing Browser Action:\*\* `([^`]+)`\.\.\.(?:\n(✅ \*Success:\*|❌ \*Error:\*)([\s\S]*))?$/;
+  const match = content.trim().match(toolRegex);
+
+  if (match) {
+    const actionName = match[1];
+    const statusIndicator = match[2]; // "✅ *Success:*" or "❌ *Error:*" or undefined
+    const detailMessage = match[3] ? match[3].trim() : "";
+
+    let status: "running" | "success" | "error" = "running";
+    if (statusIndicator === "✅ *Success:*") status = "success";
+    if (statusIndicator === "❌ *Error:*") status = "error";
+
+    return <ToolExecutionCard action={actionName} status={status} message={detailMessage} />;
+  }
+
+  // Parse `<think>` tags
+  const thinkStartTag = "<think>";
+  const thinkEndTag = "</think>";
+  const trimmed = content.trim();
+
+  // Handle prefix of <think> while it's still streaming the tag itself
+  if (trimmed.length > 0 && thinkStartTag.startsWith(trimmed)) {
+    return (
+      <div className="relative w-full animate-fade-in flex flex-col gap-2">
+        <ThinkingProcessCard content="" isComplete={false} />
+      </div>
+    );
+  }
+
+  const startIndex = content.indexOf(thinkStartTag);
+  if (startIndex !== -1) {
+    const contentAfterStart = content.slice(startIndex + thinkStartTag.length);
+    const endIndex = contentAfterStart.indexOf(thinkEndTag);
+
+    if (endIndex === -1) {
+      // Still thinking, contentAfterStart is the current thinking stream
+      return (
+        <div className="relative w-full animate-fade-in flex flex-col gap-2">
+          <ThinkingProcessCard content={contentAfterStart} isComplete={false} />
+        </div>
+      );
+    } else {
+      // Completed thinking
+      const thinkingContent = contentAfterStart.slice(0, endIndex);
+      const mainContent = contentAfterStart.slice(endIndex + thinkEndTag.length).trim();
+
+      return (
+        <div className="relative w-full animate-fade-in flex flex-col gap-2">
+          <ThinkingProcessCard content={thinkingContent} isComplete={true} />
+          {mainContent && (
+            <div className="py-1">
+              {isStreaming ? (
+                <StreamingText content={mainContent} />
+              ) : (
+                <Markdown content={mainContent} />
+              )}
+            </div>
+          )}
+        </div>
+      );
+    }
+  }
+
+  return (
+    <div className="relative w-full animate-fade-in">
+      <div className="py-1">
+        {isStreaming ? <StreamingText content={content} /> : <Markdown content={content} />}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const LOADING_PHASES = ["Thinking...", "Reading context...", "Tinkering..."];
 
