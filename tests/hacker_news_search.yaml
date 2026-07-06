@@ -1,0 +1,2 @@
+name: "Hacker News Search for Vite"
+prompt: "Navigate to https://news.ycombinator.com, locate the search box at the bottom of the page, type 'Vite' and submit the search, wait for the search results page to load, and verify that results are listed."

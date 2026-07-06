@@ -1,0 +1,6 @@
+name: "Validate Example Domain Heading"
+steps:
+  - navigate: "https://example.com"
+  - wait: 1000
+  - screenshot: "example_domain.png"
+  - agent: "Verify that the page shows the text 'Example Domain' as a main heading."

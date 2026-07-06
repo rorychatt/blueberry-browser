@@ -1,0 +1,2 @@
+name: "Python Developer Docs search for Asyncio"
+prompt: "Navigate to https://www.python.org, locate the search bar, search for 'asyncio', wait for results, and verify that the first result points to the official asyncio documentation."

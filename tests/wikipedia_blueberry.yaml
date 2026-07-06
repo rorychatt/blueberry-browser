@@ -1,0 +1,2 @@
+name: "Wikipedia Blueberry Article Validation"
+prompt: "Navigate to https://www.wikipedia.org, select the English language, search for 'Blueberry', verify that the Blueberry article page loaded successfully, and ensure the text 'Vaccinium' is present on the page."

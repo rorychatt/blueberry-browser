@@ -1,0 +1,2 @@
+name: "DuckDuckGo Search for Playwright"
+prompt: "Navigate to https://duckduckgo.com, type 'Playwright Rust' in the main search input box and submit the search, wait for the search results page to load, and verify that the results contain a link or text relating to Playwright or Microsoft."
