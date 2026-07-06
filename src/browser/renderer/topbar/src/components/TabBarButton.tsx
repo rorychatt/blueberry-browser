@@ -6,9 +6,17 @@ interface TabBarButtonProps {
   Icon: LucideIcon;
   onClick?: () => void;
   className?: string;
+  iconClassName?: string;
+  strokeWidth?: number;
 }
 
-export const TabBarButton: React.FC<TabBarButtonProps> = ({ Icon, onClick, className }) => (
+export const TabBarButton: React.FC<TabBarButtonProps> = ({
+  Icon,
+  onClick,
+  className,
+  iconClassName,
+  strokeWidth = 1.5,
+}) => (
   <div
     className={cn(
       "size-8 flex items-center justify-center rounded-md",
@@ -19,6 +27,6 @@ export const TabBarButton: React.FC<TabBarButtonProps> = ({ Icon, onClick, class
     onClick={onClick}
     tabIndex={-1}
   >
-    <Icon className="size-4.5" />
+    <Icon className={cn("size-4", iconClassName)} strokeWidth={strokeWidth} />
   </div>
 );

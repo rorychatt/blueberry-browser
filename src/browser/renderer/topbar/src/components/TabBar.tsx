@@ -100,11 +100,9 @@ export const TabBar: React.FC = () => {
             onActivate={async () => switchTab(tab.id)}
           />
         ))}
-      </div>
 
-      {/* Add Tab Button */}
-      <div className="pl-1.5 pr-4">
-        <TabBarButton Icon={Plus} onClick={handleCreateTab} />
+        {/* Add Tab Button */}
+        <TabBarButton Icon={Plus} onClick={handleCreateTab} className="flex-shrink-0" />
       </div>
     </div>
   );
