@@ -24,7 +24,7 @@ const TabItem: React.FC<TabItemProps> = ({
   onActivate,
 }) => {
   const baseClassName = cn(
-    "relative flex items-center h-8 pl-2 pr-1.5 select-none rounded-md",
+    "relative flex items-center h-8 pl-2 pr-1.5 select-none rounded-lg",
     "text-primary group/tab transition-all duration-200 cursor-pointer",
     "app-region-no-drag", // Make tabs clickable
     isActive

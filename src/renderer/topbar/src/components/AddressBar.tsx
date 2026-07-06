@@ -121,7 +121,7 @@ export const AddressBar: React.FC = () => {
   return (
     <>
       {/* Navigation Controls */}
-      <div className="flex gap-1.5 app-region-no-drag">
+      <div className="flex gap-2 app-region-no-drag">
         <ToolBarButton Icon={ArrowLeft} onClick={goBack} active={canGoBack && !isLoading} />
         <ToolBarButton Icon={ArrowRight} onClick={goForward} active={canGoForward && !isLoading} />
         <ToolBarButton onClick={reload} active={activeTab !== null && !isLoading}>
@@ -137,7 +137,7 @@ export const AddressBar: React.FC = () => {
       {isFocused ? (
         // Expanded State
         <form onSubmit={handleSubmit} className="flex-1 min-w-0 max-w-full">
-          <div className="bg-background rounded-lg shadow-md p-1 dark:bg-secondary">
+          <div className="bg-background rounded-lg border border-primary/25 dark:border-primary/45 shadow-expanded ring-2 ring-primary/5 dark:ring-primary/15 h-8 px-2 flex items-center dark:bg-secondary">
             <input
               type="text"
               value={url}
@@ -147,7 +147,7 @@ export const AddressBar: React.FC = () => {
               onFocus={handleFocus}
               onBlur={handleBlur}
               onKeyDown={handleKeyDown}
-              className="w-full px-1 py-0.5 text-xs outline-none bg-transparent text-foreground truncate"
+              className="w-full px-1 py-0 text-xs outline-none bg-transparent text-foreground truncate"
               placeholder={activeTab ? "Enter URL or search term" : "No active tab"}
               disabled={!activeTab}
               spellCheck={false}
@@ -160,27 +160,30 @@ export const AddressBar: React.FC = () => {
         <div
           onClick={handleFocus}
           className={cn(
-            "flex-1 px-3 h-8 rounded-md cursor-text group/address-bar",
-            "hover:bg-muted text-muted-foreground app-region-no-drag",
-            "transition-colors duration-200",
-            "dark:hover:bg-muted/50",
+            "flex-1 px-3 h-8 rounded-lg cursor-text group/address-bar",
+            "bg-muted/35 dark:bg-muted/20 hover:bg-muted/65 dark:hover:bg-muted/40",
+            "border border-border/30 dark:border-border/10",
+            "app-region-no-drag transition-all duration-200",
+            "flex items-center",
           )}
         >
-          <div className="flex h-full items-center">
+          <div className="flex items-center w-full">
             {/* Favicon */}
-            <div className="size-4 mr-2">
+            <div className="size-4 mr-2 flex-shrink-0 flex items-center justify-center">
               <Favicon src={getFavicon()} />
             </div>
 
             {/* URL Display */}
-            <div className="text-[0.8rem] leading-normal truncate flex-1">
+            <div className="text-xs leading-none truncate flex-1 flex items-center">
               {activeTab ? (
                 <>
-                  <span className="text-foreground dark:text-foreground">{getDomain()}</span>
-                  <span className="group-hover/address-bar:hidden text-muted-foreground/60">
+                  <span className="text-foreground dark:text-foreground font-medium">
+                    {getDomain()}
+                  </span>
+                  <span className="group-hover/address-bar:hidden text-muted-foreground/60 ml-1">
                     {activeTab.title && ` / ${activeTab.title}`}
                   </span>
-                  <span className="group-hover/address-bar:inline hidden text-muted-foreground/60">
+                  <span className="group-hover/address-bar:inline hidden text-muted-foreground/60 ml-1">
                     {getPath()}
                   </span>
                 </>
@@ -193,7 +196,7 @@ export const AddressBar: React.FC = () => {
       )}
 
       {/* Actions Menu */}
-      <div className="flex items-center gap-1 app-region-no-drag">
+      <div className="flex items-center gap-2 app-region-no-drag">
         <DarkModeToggle />
         <ToolBarButton
           Icon={isSidebarOpen ? PanelLeftClose : PanelLeft}

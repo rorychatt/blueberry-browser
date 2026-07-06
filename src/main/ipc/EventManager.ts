@@ -394,13 +394,13 @@ export class EventManager {
 
     ipcMain.handle("run-e2e-test-in-browser", async (_, filename: string) => {
       const log = (type: "stdout" | "stderr" | "system", text: string) => {
-        this.mainWindow.sidebar.view.webContents.send("e2e-test-log", { type, text });
+        this.mainWindow.sidebar.view.webContents.send("e2e-test-log", { text, type });
       };
 
       try {
         const safeName = path.basename(filename);
         const testPath = path.join(testsDir, safeName);
-        const content = await fs.readFile(testPath, "utf-8");
+        const content = await fs.readFile(testPath, "utf8");
         const steps = this.parseYamlSteps(content);
 
         log("system", `Starting In-Browser Test: ${safeName}\n`);
@@ -413,7 +413,7 @@ export class EventManager {
             throw new Error("No active tab found in the browser to run tests on.");
           }
 
-          const webContents = this.mainWindow.activeTab.webContents;
+          const { webContents } = this.mainWindow.activeTab;
 
           if (step.type === "navigate") {
             log("system", `  [${stepNum}] Navigate to '${step.url}'...\n`);
@@ -468,7 +468,9 @@ export class EventManager {
             for (let attempt = 0; attempt < 20; attempt++) {
               try {
                 found = await webContents.executeJavaScript(checkJs);
-                if (found) break;
+                if (found) {
+                  break;
+                }
               } catch {
                 // Ignore error, retry on next attempt
               }
@@ -504,18 +506,18 @@ Only output the JSON object. Do not include markdown code blocks or conversation
 
             const payload = {
               model,
-              prompt: `Goal/Assertion: ${step.prompt}\n\nWebpage Text Content:\n---\n${pageText}\n---\n\nRespond with the JSON object:`,
-              system: systemPrompt,
               options: {
                 temperature: 0.1,
               },
+              prompt: `Goal/Assertion: ${step.prompt}\n\nWebpage Text Content:\n---\n${pageText}\n---\n\nRespond with the JSON object:`,
               stream: false,
+              system: systemPrompt,
             };
 
             const response = await fetch(`${endpoint}/api/generate`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
               body: JSON.stringify(payload),
+              headers: { "Content-Type": "application/json" },
+              method: "POST",
             });
 
             if (!response.ok) {
@@ -555,33 +557,39 @@ Only output the JSON object. Do not include markdown code blocks or conversation
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
-      if (!line || line.startsWith("#")) continue;
+      if (!line || line.startsWith("#")) {
+        continue;
+      }
 
-      if (line.startsWith("steps:")) continue;
-      if (line.startsWith("name:")) continue;
+      if (line.startsWith("steps:")) {
+        continue;
+      }
+      if (line.startsWith("name:")) {
+        continue;
+      }
 
       if (line.startsWith("-")) {
-        const stepContent = line.substring(1).trim();
+        const stepContent = line.slice(1).trim();
         const firstColon = stepContent.indexOf(":");
         if (firstColon !== -1) {
           const key = stepContent.substring(0, firstColon).trim();
           let val = stepContent.substring(firstColon + 1).trim();
-          val = val.replace(/^['"]|['"]$/g, "");
+          val = val.replaceAll(/^['"]|['"]$/g, "");
 
           if (key === "navigate") {
             steps.push({ type: "navigate", url: val });
           } else if (key === "wait") {
-            steps.push({ type: "wait", ms: parseInt(val, 10) });
+            steps.push({ ms: parseInt(val, 10), type: "wait" });
           } else if (key === "click") {
-            steps.push({ type: "click", selector: val });
+            steps.push({ selector: val, type: "click" });
           } else if (key === "wait_for") {
-            steps.push({ type: "wait_for", selector: val });
+            steps.push({ selector: val, type: "wait_for" });
           } else if (key === "screenshot") {
-            steps.push({ type: "screenshot", path: val });
+            steps.push({ path: val, type: "screenshot" });
           } else if (key === "agent") {
-            steps.push({ type: "agent", prompt: val });
+            steps.push({ prompt: val, type: "agent" });
           } else if (key === "type") {
-            currentStep = { type: "type", selector: "", text: "" };
+            currentStep = { selector: "", text: "", type: "type" };
             steps.push(currentStep);
           }
         }
@@ -590,7 +598,7 @@ Only output the JSON object. Do not include markdown code blocks or conversation
         if (colon !== -1) {
           const key = line.substring(0, colon).trim();
           let val = line.substring(colon + 1).trim();
-          val = val.replace(/^['"]|['"]$/g, "");
+          val = val.replaceAll(/^['"]|['"]$/g, "");
           if (key === "selector") {
             currentStep.selector = val;
           } else if (key === "text") {

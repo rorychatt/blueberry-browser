@@ -63,11 +63,5 @@
       "version": "11.10.0",
       "onFail": "download"
     }
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "electron",
-      "esbuild"
-    ]
   }
 }
