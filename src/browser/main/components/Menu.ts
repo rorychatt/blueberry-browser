@@ -28,6 +28,13 @@ export class AppMenu {
             },
             label: "Close Tab",
           },
+          {
+            accelerator: "CmdOrCtrl+,",
+            click: () => {
+              this.handleOpenSettings();
+            },
+            label: "Settings...",
+          },
           { type: "separator" },
           {
             accelerator: process.platform === "darwin" ? "Cmd+Q" : "Ctrl+Q",
@@ -170,5 +177,9 @@ export class AppMenu {
     if (this.mainWindow.activeTab) {
       this.mainWindow.activeTab.goForward();
     }
+  }
+
+  private handleOpenSettings(): void {
+    this.mainWindow.createTab("blueberry://settings");
   }
 }
