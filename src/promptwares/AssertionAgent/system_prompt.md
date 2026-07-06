@@ -15,7 +15,9 @@ You MUST output your response as a valid, single JSON object with the following 
 ```json
 {
   "success": true | false,
-  "reason": "A concise explanation based on the evidence found in the webpage content."
+  "reason": "A concise explanation based on the evidence found in the webpage content.",
+  "reflection": "Optional short reflection or pattern learned about this assertion check (e.g. key elements to look for next time).",
+  "reflection_title": "A short 2-3 word topic name representing the main subject of this reflection (e.g. 'banana_results', 'dashboard_loaded')"
 }
 ```
 

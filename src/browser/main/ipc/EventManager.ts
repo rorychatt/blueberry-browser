@@ -642,18 +642,21 @@ export class EventManager {
               success: boolean;
               reason: string;
               reflection?: string;
+              reflection_title?: string;
             };
 
             // Save learning/reflection if present!
             if (parsedRes.reflection && parsedRes.reflection.trim()) {
-              const dateStr = new Date()
-                .toISOString()
-                .replace(/[-:T.]/g, "")
-                .slice(0, 15);
-              const refFilename = `reflection_${dateStr}_assertion.md`;
+              const reflectionTitle =
+                parsedRes.reflection_title || step.prompt || "assertion_evaluation";
               const fullRefContent = `# Reflection - Assertion evaluation\n\n- **Assertion**: ${step.prompt}\n- **Success**: ${parsedRes.success}\n- **Reason**: ${parsedRes.reason}\n- **Reflection/Learning**:\n${parsedRes.reflection}\n`;
-              await this.writeMemory("AssertionAgent", refFilename, fullRefContent);
-              log("stdout", `     💡 Saved learning reflection to memory: ${refFilename}\n`);
+              const reflectionFilename = await this.saveReflectionMemory(
+                "AssertionAgent",
+                reflectionTitle,
+                fullRefContent,
+                parsedRes.reflection,
+              );
+              log("stdout", `     💡 Saved learning reflection to memory: ${reflectionFilename}\n`);
             }
 
             if (parsedRes.success) {
@@ -876,15 +879,43 @@ ${systemInstructions}
     return { system: systemPrompt, user: userPrompt };
   }
 
-  private async writeMemory(
+  private async saveReflectionMemory(
     promptwareName: string,
-    filename: string,
-    content: string,
-  ): Promise<void> {
+    titleOrPrompt: string,
+    fullRefContent: string,
+    coreReflection: string,
+  ): Promise<string> {
+    const slug =
+      titleOrPrompt
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "")
+        .slice(0, 50) || "reflection";
+    const filename = `${slug}.md`;
+
     const promptwaresDir = this.getPromptwaresDir();
     const memoryDir = path.join(promptwaresDir, promptwareName, "memory");
     await fs.mkdir(memoryDir, { recursive: true });
-    await fs.writeFile(path.join(memoryDir, filename), content, "utf8");
+    const filePath = path.join(memoryDir, filename);
+
+    let existingContent = "";
+    try {
+      existingContent = await fs.readFile(filePath, "utf8");
+    } catch {
+      // File does not exist
+    }
+
+    if (existingContent) {
+      if (existingContent.includes(coreReflection.trim())) {
+        return filename;
+      }
+      const updatedContent = `${existingContent.trim()}\n\n---\n\n${fullRefContent.trim()}\n`;
+      await fs.writeFile(filePath, updatedContent, "utf8");
+    } else {
+      await fs.writeFile(filePath, `${fullRefContent.trim()}\n`, "utf8");
+    }
+
+    return filename;
   }
 
   private async writeLog(promptwareName: string, jobId: string, content: string): Promise<void> {
@@ -994,6 +1025,7 @@ ${systemInstructions}
         ms?: number;
         reason?: string;
         reflection?: string;
+        reflection_title?: string;
       }
 
       let action: Action;
@@ -1019,18 +1051,19 @@ ${systemInstructions}
 
       // If reflection/learning is generated, let's write it to memory!
       if (action.reflection && action.reflection.trim()) {
-        const dateStr = new Date()
-          .toISOString()
-          .replace(/[-:T.]/g, "")
-          .slice(0, 15);
-        const refFilename = `reflection_${dateStr}_${stepNum}.md`;
+        const reflectionTitle = action.reflection_title || prompt || "e2e_test";
         const fullRefContent = `# Reflection - Step ${stepNum}\n\n- **Prompt**: ${prompt}\n- **Action**: ${actionName}\n- **Reason**: ${reason}\n- **Reflection/Learning**:\n${action.reflection}\n`;
-        await this.writeMemory("E2ETest", refFilename, fullRefContent);
+        const reflectionFilename = await this.saveReflectionMemory(
+          "E2ETest",
+          reflectionTitle,
+          fullRefContent,
+          action.reflection,
+        );
         log(
           "stdout",
-          `  [Step ${stepNum}] 💡 Saved learning reflection to memory: ${refFilename}\n`,
+          `  [Step ${stepNum}] 💡 Saved learning reflection to memory: ${reflectionFilename}\n`,
         );
-        accumulatedLog += `- **💡 Learning Saved**: ${refFilename}\n\n`;
+        accumulatedLog += `- **💡 Learning Saved**: ${reflectionFilename}\n\n`;
       }
 
       if (actionName === "navigate") {
@@ -1263,17 +1296,19 @@ ${systemInstructions}
               type: "search" | "history" | "tool";
             }[];
             reflection?: string;
+            reflection_title?: string;
           };
 
           // Write reflection memory offline for agent self-learning
           if (parsedRes.reflection && parsedRes.reflection.trim()) {
-            const dateStr = new Date()
-              .toISOString()
-              .replace(/[-:T.]/g, "")
-              .slice(0, 15);
-            const refFilename = `reflection_${dateStr}.md`;
+            const reflectionTitle = parsedRes.reflection_title || "history_patterns";
             const fullRefContent = `# HistoryAgent Reflection\n\n- **Date**: ${new Date().toISOString()}\n- **Current Page**: ${currentTitle} (${currentUrl})\n- **Reflection/Pattern Identified**:\n${parsedRes.reflection}\n`;
-            await this.writeMemory("HistoryAgent", refFilename, fullRefContent);
+            await this.saveReflectionMemory(
+              "HistoryAgent",
+              reflectionTitle,
+              fullRefContent,
+              parsedRes.reflection,
+            );
           }
 
           return { suggestions: parsedRes.suggestions || [] };

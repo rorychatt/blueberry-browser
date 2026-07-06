@@ -26,7 +26,8 @@ The JSON object MUST follow this exact schema:
       "type": "search" or "history" or "tool"
     }
   ],
-  "reflection": "Brief reflection on what pattern was identified in the user's history and why this will help them."
+  "reflection": "Brief reflection on what pattern was identified in the user's history and why this will help them.",
+  "reflection_title": "A short 2-3 word topic name representing the main subject of this reflection (e.g. 'banana_search', 'sports_news', or 'tech_blogs')"
 }
 ```
 

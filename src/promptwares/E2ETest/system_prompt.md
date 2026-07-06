@@ -21,7 +21,8 @@ Your response must strictly conform to this JSON schema:
   "text": "text to type", // Required for "type"
   "ms": 1000, // Required for "wait" (milliseconds)
   "reason": "Concise reasoning for selecting this action.",
-  "reflection": "Lessons learned in this step (used to update memory)."
+  "reflection": "Lessons learned in this step (used to update memory).",
+  "reflection_title": "A short 2-3 word topic name representing the main subject of this reflection (e.g. 'banana_search', 'wikipedia_navigation', or 'login_form')"
 }
 ```
 

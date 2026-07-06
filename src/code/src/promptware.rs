@@ -17,6 +17,7 @@ pub struct PromptwareAction {
     pub ms: Option<u64>,
     pub reason: Option<String>,
     pub reflection: Option<String>,
+    pub reflection_title: Option<String>,
 }
 
 pub fn find_promptwares_dir() -> PathBuf {
@@ -78,6 +79,65 @@ pub fn write_memory(promptware_name: &str, filename: &str, content: &str) -> Res
     fs::write(&file_path, content).map_err(|e| anyhow!("Failed to write memory file: {}", e))?;
 
     Ok(())
+}
+
+pub fn save_reflection_memory(
+    promptware_name: &str,
+    title_or_prompt: &str,
+    full_ref_content: &str,
+    core_reflection: &str,
+) -> Result<String> {
+    let mut slug = String::new();
+    for c in title_or_prompt.to_lowercase().chars() {
+        if c.is_ascii_alphanumeric() {
+            slug.push(c);
+        } else if !slug.ends_with('_') && !slug.is_empty() {
+            slug.push('_');
+        }
+    }
+    if slug.ends_with('_') {
+        slug.pop();
+    }
+    slug.truncate(50);
+    if slug.ends_with('_') {
+        slug.pop();
+    }
+    if slug.is_empty() {
+        slug.push_str("reflection");
+    }
+
+    let filename = format!("{}.md", slug);
+
+    let promptwares_dir = find_promptwares_dir();
+    let memory_dir = promptwares_dir.join(promptware_name).join("memory");
+    fs::create_dir_all(&memory_dir)
+        .map_err(|e| anyhow!("Failed to create memory directory: {}", e))?;
+
+    let file_path = memory_dir.join(&filename);
+
+    let mut existing_content = String::new();
+    if file_path.exists() {
+        existing_content = fs::read_to_string(&file_path)
+            .map_err(|e| anyhow!("Failed to read memory file: {}", e))?;
+    }
+
+    if !existing_content.is_empty() {
+        if existing_content.contains(core_reflection.trim()) {
+            return Ok(filename);
+        }
+        let updated_content = format!(
+            "{}\n\n---\n\n{}\n",
+            existing_content.trim(),
+            full_ref_content.trim()
+        );
+        fs::write(&file_path, updated_content)
+            .map_err(|e| anyhow!("Failed to write memory file: {}", e))?;
+    } else {
+        fs::write(&file_path, format!("{}\n", full_ref_content.trim()))
+            .map_err(|e| anyhow!("Failed to write memory file: {}", e))?;
+    }
+
+    Ok(filename)
 }
 
 pub fn write_log(promptware_name: &str, job_id: &str, content: &str) -> Result<()> {
@@ -362,21 +422,26 @@ pub async fn run_e2e_loop(
         // If a reflection/learning was generated, let's write it to memory!
         if let Some(ref_content) = &action.reflection {
             if !ref_content.trim().is_empty() {
-                let ref_filename = format!(
-                    "reflection_{}_{}.md",
-                    Utc::now().format("%Y%m%d_%H%M%S"),
-                    step_num
-                );
+                let reflection_title = action
+                    .reflection_title
+                    .as_deref()
+                    .unwrap_or(test_prompt);
                 let full_ref_content = format!(
                     "# Reflection - Step {}\n\n- **Prompt**: {}\n- **Action**: {}\n- **Reason**: {}\n- **Reflection/Learning**:\n{}\n",
                     step_num, test_prompt, action_name, reason, ref_content
                 );
-                let _ = write_memory("E2ETest", &ref_filename, &full_ref_content);
-                println!(
-                    "  [Step {}] 💡 Saved learning reflection to memory: {}",
-                    step_num, ref_filename
-                );
-                accumulated_log.push_str(&format!("- **💡 Learning Saved**: {}\n\n", ref_filename));
+                match save_reflection_memory("E2ETest", reflection_title, &full_ref_content, ref_content) {
+                    Ok(filename) => {
+                        println!(
+                            "  [Step {}] 💡 Saved learning reflection to memory: {}",
+                            step_num, filename
+                        );
+                        accumulated_log.push_str(&format!("- **💡 Learning Saved**: {}\n\n", filename));
+                    }
+                    Err(e) => {
+                        eprintln!("  [Step {}] ⚠️ Failed to save reflection: {}", step_num, e);
+                    }
+                }
             }
         }
 
@@ -579,6 +644,52 @@ mod tests {
             user_compiled,
             "Please perform: Click Submit at https://example.com"
         );
+
+        cleanup(test_name);
+    }
+
+    #[test]
+    fn test_save_reflection_memory() {
+        let test_name = "__test_promptware_save_ref_cli__";
+        cleanup(test_name);
+
+        let title = "Search Results evaluation";
+        let ref_content = "# Reflection\n- Action: Click\n- Detail: Succesful";
+        let core = "- Detail: Succesful";
+
+        // 1. Save new reflection
+        let res = save_reflection_memory(test_name, title, ref_content, core);
+        assert!(res.is_ok());
+        let filename = res.unwrap();
+        assert_eq!(filename, "search_results_evaluation.md");
+
+        // Verify content on disk
+        let promptwares_dir = find_promptwares_dir();
+        let expected_path = promptwares_dir
+            .join(test_name)
+            .join("memory")
+            .join(&filename);
+        assert!(expected_path.exists());
+        let content_on_disk = fs::read_to_string(&expected_path).unwrap();
+        assert!(content_on_disk.contains("- Detail: Succesful"));
+
+        // 2. Try saving identical core reflection (should not duplicate)
+        let res2 = save_reflection_memory(test_name, title, ref_content, core);
+        assert!(res2.is_ok());
+        let content_on_disk2 = fs::read_to_string(&expected_path).unwrap();
+        // Count matches of "- Detail: Succesful" should be 1
+        let matches = content_on_disk2.matches("- Detail: Succesful").count();
+        assert_eq!(matches, 1);
+
+        // 3. Save a different reflection to same file (should append)
+        let new_ref_content = "# Reflection 2\n- Action: Type\n- Detail: Typed successfully";
+        let new_core = "- Detail: Typed successfully";
+        let res3 = save_reflection_memory(test_name, title, new_ref_content, new_core);
+        assert!(res3.is_ok());
+        let content_on_disk3 = fs::read_to_string(&expected_path).unwrap();
+        assert!(content_on_disk3.contains("- Detail: Succesful"));
+        assert!(content_on_disk3.contains("- Detail: Typed successfully"));
+        assert!(content_on_disk3.contains("---"));
 
         cleanup(test_name);
     }
