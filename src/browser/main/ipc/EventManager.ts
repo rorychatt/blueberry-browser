@@ -4,6 +4,7 @@ import type { Window } from "../components/Window";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { spawn } from "node:child_process";
+import { SettingsManager } from "../services/SettingsManager";
 
 interface E2EStep {
   type: string;
@@ -41,6 +42,25 @@ export class EventManager {
 
     // E2E Test events
     this.handleE2ETestEvents();
+
+    // Settings events
+    this.handleSettingsEvents();
+  }
+
+  private handleSettingsEvents(): void {
+    // Get custom shortcuts
+    ipcMain.handle("get-shortcuts", async () => {
+      const shortcuts = await SettingsManager.getInstance().getShortcuts();
+      return shortcuts;
+    });
+
+    // Save custom shortcuts
+    ipcMain.handle("save-shortcuts", async (_, shortcuts) => {
+      await SettingsManager.getInstance().saveShortcuts(shortcuts);
+      // Reload shortcuts dynamically on the main window!
+      await this.mainWindow.loadShortcuts();
+      return true;
+    });
   }
 
   private handleTabEvents(): void {

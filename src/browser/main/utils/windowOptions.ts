@@ -8,6 +8,7 @@ export function getBaseWindowOptions(): BaseWindowConstructorOptions {
     width: 1000,
     height: 800,
     show: true,
+    backgroundColor: "#18181b",
     autoHideMenuBar: false,
     titleBarStyle: "hidden",
     ...(process.platform === "darwin" ? {} : { titleBarOverlay: true }),

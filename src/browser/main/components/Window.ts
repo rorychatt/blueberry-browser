@@ -5,6 +5,11 @@ import { SideBar } from "./SideBar";
 import { getBaseWindowOptions } from "../utils/windowOptions";
 import { calculateTabBounds } from "../utils/bounds";
 import { registerKeyboardShortcuts } from "../utils/shortcuts";
+import {
+  type ShortcutConfig,
+  SettingsManager,
+  DEFAULT_SHORTCUTS,
+} from "../services/SettingsManager";
 
 export class Window {
   private readonly _baseWindow: BaseWindow;
@@ -13,8 +18,12 @@ export class Window {
   private tabCounter: number = 0;
   private readonly _topBar: TopBar;
   private readonly _sideBar: SideBar;
+  public shortcuts: ShortcutConfig = { ...DEFAULT_SHORTCUTS };
 
   constructor() {
+    // Load persisted shortcuts asynchronously
+    void this.loadShortcuts();
+
     // Create the browser window.
     this._baseWindow = new BaseWindow(getBaseWindowOptions());
 
@@ -101,7 +110,7 @@ export class Window {
     this._baseWindow.contentView.addChildView(tab.view);
 
     // Set the bounds to fill the window below the topbar and to the left of sidebar
-    const bounds = this._baseWindow.getBounds();
+    const bounds = this._baseWindow.getContentBounds();
     tab.view.setBounds(calculateTabBounds(bounds, this._sideBar.getIsVisible()));
 
     // Store the tab
@@ -235,7 +244,7 @@ export class Window {
 
   // Handle window resize to update tab bounds
   private updateTabBounds(): void {
-    const bounds = this._baseWindow.getBounds();
+    const bounds = this._baseWindow.getContentBounds();
     const isSidebarVisible = this._sideBar.getIsVisible();
 
     this.tabsMap.forEach((tab) => {
@@ -277,6 +286,10 @@ export class Window {
     if (this._topBar && !this._topBar.view.webContents.isDestroyed()) {
       this._topBar.view.webContents.send("tabs-updated");
     }
+  }
+
+  async loadShortcuts(): Promise<void> {
+    this.shortcuts = await SettingsManager.getInstance().getShortcuts();
   }
 
   // Register standard keyboard shortcuts on a WebContents
