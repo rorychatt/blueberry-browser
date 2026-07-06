@@ -294,7 +294,7 @@ const tryParseAction = (text: string): ParsedAction | null => {
   return null;
 };
 
-const extractActionFromJson = (content: string): ParsedAction | null => {
+export const extractActionFromJson = (content: string): ParsedAction | null => {
   // Find json blocks
   const jsonRegex = /```json\s*([\s\S]*?)(?:```|$)/;
   const match = content.match(jsonRegex);
@@ -377,7 +377,7 @@ const getActionColorTheme = (st: "running" | "success" | "error") => {
   }
 };
 
-const ActionCard: React.FC<ActionCardProps> = ({ action, params, status, message }) => {
+export const ActionCard: React.FC<ActionCardProps> = ({ action, params, status, message }) => {
   const theme = getActionColorTheme(status);
   const title = getActionTitle(action);
   const icon = getActionIcon(action);
@@ -1310,22 +1310,6 @@ const AssistantMessageGroupComponent: React.FC<{
     }
   }
 
-  // Detect any action payload inside the assistant messages
-  let parsedAction: ParsedAction | null = null;
-  for (const msg of messages) {
-    const action = extractActionFromJson(msg.content);
-    if (action) {
-      parsedAction = action;
-      break;
-    }
-  }
-
-  // Determine current execution status of this action
-  const toolExecStep = steps.find((s) => s.type === "tool_execution");
-  const actionStatus: "running" | "success" | "error" =
-    toolExecStep?.toolStatus || (isLoading ? "running" : "success");
-  const actionMessage = toolExecStep?.toolMessage || "";
-
   // Strip JSON code blocks from final response step to prevent raw JSON text dump
   const strippedFinalResponseContent = finalResponseStep
     ? stripJsonBlocks(finalResponseStep.content)
@@ -1357,18 +1341,6 @@ const AssistantMessageGroupComponent: React.FC<{
               <Markdown content={strippedFinalResponseContent} />
             )}
           </div>
-        </div>
-      )}
-
-      {/* Render the premium ActionCard if an action is parsed */}
-      {parsedAction && (
-        <div className="relative animate-fade-in">
-          <ActionCard
-            action={parsedAction.action}
-            params={parsedAction.params}
-            status={actionStatus}
-            message={actionMessage}
-          />
         </div>
       )}
 
@@ -1606,7 +1578,7 @@ export const Chat: React.FC = () => {
                     <AssistantMessageGroupComponent
                       key={groupKey}
                       messages={group.messages}
-                      isLoading={showLoadingAfterLastGroup && isLastGroup}
+                      isLoading={isLoading && isLastGroup}
                     />
                   );
                 }
