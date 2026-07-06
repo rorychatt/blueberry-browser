@@ -36,15 +36,16 @@ export const HistoryDropdown: React.FC<HistoryDropdownProps> = ({ onClose }) => 
   const [suggestions, setSuggestions] = useState<HistorySuggestion[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(true);
 
+  const activeUrl = activeTab?.url;
+  const activeTitle = activeTab?.title;
+
   // Load history from API on mount
   useEffect(() => {
     const loadSuggestionsData = async (historyList: HistoryEntry[]) => {
       if (window.historyAPI && window.historyAPI.getHistorySuggestions) {
         setLoadingSuggestions(true);
         try {
-          const currentContext = activeTab
-            ? { url: activeTab.url || "", title: activeTab.title || "" }
-            : null;
+          const currentContext = activeUrl ? { url: activeUrl, title: activeTitle || "" } : null;
           const res = await window.historyAPI.getHistorySuggestions(historyList, currentContext);
           setSuggestions(res.suggestions || []);
         } catch (error) {
@@ -77,7 +78,7 @@ export const HistoryDropdown: React.FC<HistoryDropdownProps> = ({ onClose }) => 
     };
 
     void loadHistoryData();
-  }, [activeTab]);
+  }, [activeUrl, activeTitle]);
 
   // Close dropdown on click outside
   useEffect(() => {

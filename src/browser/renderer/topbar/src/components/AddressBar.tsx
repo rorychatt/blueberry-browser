@@ -458,6 +458,7 @@ export const AddressBar: React.FC = () => {
             Icon={History}
             onMouseDown={(e) => {
               e.stopPropagation();
+              e.nativeEvent.stopImmediatePropagation();
               setIsEditing(false);
               setIsFocused(false);
               if (activeTab) {
