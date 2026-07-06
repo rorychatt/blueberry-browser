@@ -15,7 +15,6 @@ import {
   ArrowRight,
   XCircle,
   CheckCircle2,
-  Loader2,
   ChevronDown,
   ChevronUp,
   Brain,
@@ -33,7 +32,7 @@ const TimelineCard: React.FC<{
   subtitle?: string;
   status: "running" | "success" | "error" | "info";
   icon: React.ReactNode;
-  message?: string;
+  message?: React.ReactNode;
   isCollapsible?: boolean;
 }> = ({ title, subtitle, status, icon, message, isCollapsible = true }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -117,9 +116,13 @@ const TimelineCard: React.FC<{
       {/* Expandable Details Block */}
       {hasDetails && (!isCollapsible || isOpen) && (
         <div className="mt-2.5 pt-2.5 border-t border-border/40 animate-fade-in">
-          <div className="text-[11px] font-mono bg-muted/50 dark:bg-muted/10 border border-border/20 rounded-lg p-2.5 text-muted-foreground break-words leading-relaxed max-h-[180px] overflow-y-auto">
-            {message}
-          </div>
+          {typeof message === "string" ? (
+            <div className="text-[11px] font-mono bg-muted/50 dark:bg-muted/10 border border-border/20 rounded-lg p-2.5 text-muted-foreground break-words leading-relaxed max-h-[180px] overflow-y-auto">
+              {message}
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">{message}</div>
+          )}
         </div>
       )}
     </div>
@@ -238,61 +241,20 @@ const getActionIcon = (action: string) => {
   }
 };
 
-const ToolExecutionCard: React.FC<{
-  action: string;
-  status: "running" | "success" | "error";
-  message?: string;
-}> = ({ action, status, message }) => {
-  const icon =
-    status === "running" ? (
-      <Loader2 className="size-4 text-blue-500 animate-spin" />
-    ) : (
-      getActionIcon(action)
-    );
-
-  return (
-    <TimelineCard
-      title={
-        <span className="font-mono bg-muted px-1.5 py-0.5 rounded border border-border/40 text-[11px]">
-          {action}
-        </span>
-      }
-      subtitle={
-        status === "running"
-          ? "Executing browser skill..."
-          : status === "success"
-            ? "Executed successfully"
-            : "Execution failed"
-      }
-      status={status}
-      icon={icon}
-      message={message}
-    />
-  );
-};
-
-// Thinking Process Component - expandable, glassmorphic card for AI reasoning
-const ThinkingProcessCard: React.FC<{
+// Parsed Step Interface for thinking and action sequences
+interface ParsedStep {
+  id: string;
+  type: "thinking" | "tool_execution" | "page_state" | "error" | "text_response";
   content: string;
-  isComplete: boolean;
-}> = ({ content, isComplete }) => {
-  return (
-    <TimelineCard
-      title={isComplete ? "Thought Process" : "Thinking Process..."}
-      status={isComplete ? "info" : "running"}
-      icon={<Brain className="size-4" />}
-      message={content.trim() || "(silent reasoning...)"}
-      isCollapsible={true}
-    />
-  );
-};
-
-// Assistant Message Component - appears on the left
-const AssistantMessage: React.FC<{
-  content: string;
+  toolAction?: string;
+  toolStatus?: "running" | "success" | "error";
+  toolMessage?: string;
   isStreaming?: boolean;
-}> = ({ content, isStreaming }) => {
-  const trimmed = content.trim();
+}
+
+// Parse assistant message into structural steps
+const parseAssistantMessage = (msg: Message): ParsedStep[] => {
+  const trimmed = msg.content.trim();
 
   // Check if content is a tool log
   const toolRegex =
@@ -308,37 +270,41 @@ const AssistantMessage: React.FC<{
     if (statusIndicator === "✅ *Success:*") status = "success";
     if (statusIndicator === "❌ *Error:*") status = "error";
 
-    return <ToolExecutionCard action={actionName} status={status} message={detailMessage} />;
+    return [
+      {
+        id: msg.id || `tool-${Date.now()}-${Math.random()}`,
+        type: "tool_execution",
+        content: msg.content,
+        toolAction: actionName,
+        toolStatus: status,
+        toolMessage: detailMessage,
+        isStreaming: msg.isStreaming,
+      },
+    ];
   }
 
   // Check if content is a page state update
   if (trimmed.startsWith("🔄")) {
-    const text = trimmed.replace(/^🔄\s*/, "").replace(/^\*|\*$/g, ""); // strip 🔄 and italics markdown
-    return (
-      <TimelineCard
-        title="Page State Updated"
-        subtitle="Rerunning agent loop..."
-        status="success"
-        icon={<RefreshCw className="size-4 text-emerald-500 animate-spin" />}
-        message={text}
-        isCollapsible={false}
-      />
-    );
+    return [
+      {
+        id: msg.id || `state-${Date.now()}-${Math.random()}`,
+        type: "page_state",
+        content: trimmed.replace(/^🔄\s*/, "").replace(/^\*|\*$/g, ""),
+        isStreaming: msg.isStreaming,
+      },
+    ];
   }
 
   // Check if content is an action block parsing/execution failure
   if (trimmed.startsWith("❌ **Failed to parse/execute action block:**")) {
-    const text = trimmed.replace(/^❌\s*\*\*Failed to parse\/execute action block:\*\*\s*/, "");
-    return (
-      <TimelineCard
-        title="Execution Failed"
-        subtitle="Action Block Parsing Error"
-        status="error"
-        icon={<XCircle className="size-4" />}
-        message={text}
-        isCollapsible={false}
-      />
-    );
+    return [
+      {
+        id: msg.id || `err-${Date.now()}-${Math.random()}`,
+        type: "error",
+        content: trimmed.replace(/^❌\s*\*\*Failed to parse\/execute action block:\*\*\s*/, ""),
+        isStreaming: msg.isStreaming,
+      },
+    ];
   }
 
   // Parse `<think>` tags
@@ -347,53 +313,215 @@ const AssistantMessage: React.FC<{
 
   // Handle prefix of <think> while it's still streaming the tag itself
   if (trimmed.length > 0 && thinkStartTag.startsWith(trimmed)) {
-    return (
-      <div className="relative w-full animate-fade-in flex flex-col gap-2">
-        <ThinkingProcessCard content="" isComplete={false} />
-      </div>
-    );
+    return [
+      {
+        id: (msg.id || "") + "-think-init",
+        type: "thinking",
+        content: "",
+        isStreaming: true,
+      },
+    ];
   }
 
+  const content = msg.content;
   const startIndex = content.indexOf(thinkStartTag);
   if (startIndex !== -1) {
+    const steps: ParsedStep[] = [];
+    const preThinkText = content.slice(0, startIndex).trim();
+    if (preThinkText) {
+      steps.push({
+        id: (msg.id || "") + "-pre",
+        type: "text_response",
+        content: preThinkText,
+      });
+    }
+
     const contentAfterStart = content.slice(startIndex + thinkStartTag.length);
     const endIndex = contentAfterStart.indexOf(thinkEndTag);
 
     if (endIndex === -1) {
-      // Still thinking, contentAfterStart is the current thinking stream
-      return (
-        <div className="relative w-full animate-fade-in flex flex-col gap-2">
-          <ThinkingProcessCard content={contentAfterStart} isComplete={false} />
-        </div>
-      );
+      // Still thinking
+      steps.push({
+        id: (msg.id || "") + "-think",
+        type: "thinking",
+        content: contentAfterStart,
+        isStreaming: true,
+      });
     } else {
       // Completed thinking
       const thinkingContent = contentAfterStart.slice(0, endIndex);
-      const mainContent = contentAfterStart.slice(endIndex + thinkEndTag.length).trim();
+      steps.push({
+        id: (msg.id || "") + "-think",
+        type: "thinking",
+        content: thinkingContent,
+        isStreaming: false,
+      });
 
-      return (
-        <div className="relative w-full animate-fade-in flex flex-col gap-2">
-          <ThinkingProcessCard content={thinkingContent} isComplete={true} />
-          {mainContent && (
-            <div className="py-1">
-              {isStreaming ? (
-                <StreamingText content={mainContent} />
-              ) : (
-                <Markdown content={mainContent} />
-              )}
-            </div>
-          )}
-        </div>
-      );
+      const mainContent = contentAfterStart.slice(endIndex + thinkEndTag.length).trim();
+      if (mainContent) {
+        steps.push({
+          id: (msg.id || "") + "-response",
+          type: "text_response",
+          content: mainContent,
+          isStreaming: msg.isStreaming,
+        });
+      }
+    }
+    return steps;
+  }
+
+  return [
+    {
+      id: msg.id || `text-${Date.now()}-${Math.random()}`,
+      type: "text_response",
+      content: msg.content,
+      isStreaming: msg.isStreaming,
+    },
+  ];
+};
+
+// Thinking Process Component - expandable, glassmorphic card for AI reasoning
+const ThinkingProcessCard: React.FC<{
+  steps: ParsedStep[];
+  isComplete: boolean;
+}> = ({ steps, isComplete }) => {
+  const activeStep = steps.find((s) => s.isStreaming);
+  let subtitle = `${steps.length} step${steps.length === 1 ? "" : "s"} completed`;
+  if (!isComplete) {
+    if (activeStep) {
+      if (activeStep.type === "tool_execution") {
+        subtitle = `Executing browser action: ${activeStep.toolAction}...`;
+      } else if (activeStep.type === "thinking") {
+        subtitle = "Formulating next browser interaction...";
+      } else {
+        subtitle = "Analyzing page context...";
+      }
+    } else {
+      subtitle = "Processing agent loop...";
     }
   }
 
-  return (
-    <div className="relative w-full animate-fade-in">
-      <div className="py-1">
-        {isStreaming ? <StreamingText content={content} /> : <Markdown content={content} />}
-      </div>
+  const detailsNode = (
+    <div className="relative pl-5 ml-2.5 border-l border-border/60 dark:border-border/20 flex flex-col gap-2.5 py-1">
+      {steps.map((step, idx) => {
+        let stepIcon = <Brain className="size-3.5" />;
+        let stepTitle: React.ReactNode = "Step";
+        let stepSubtitle: string | undefined;
+        let stepStatus: "running" | "success" | "error" | "info" = "success";
+        let stepMessage: React.ReactNode | undefined;
+
+        if (step.type === "thinking") {
+          stepIcon = <Brain className="size-3.5" />;
+          stepTitle = "Reasoning";
+          stepStatus = step.isStreaming ? "running" : "info";
+          stepMessage = <Markdown content={step.content} />;
+        } else if (step.type === "tool_execution") {
+          stepIcon = getActionIcon(step.toolAction || "");
+          stepTitle = (
+            <span className="font-mono bg-muted px-1 py-0.5 rounded border border-border/40 text-[10px]">
+              {step.toolAction}
+            </span>
+          );
+          stepSubtitle =
+            step.toolStatus === "running"
+              ? "Executing browser action..."
+              : step.toolStatus === "success"
+                ? "Executed successfully"
+                : "Execution failed";
+          stepStatus = step.toolStatus || "running";
+          if (step.toolMessage) {
+            stepMessage = step.toolMessage;
+          }
+        } else if (step.type === "page_state") {
+          stepIcon = <RefreshCw className="size-3.5 text-emerald-500 animate-spin-slow" />;
+          stepTitle = "Page State Updated";
+          stepSubtitle = "Rerunning agent loop...";
+          stepStatus = "success";
+          stepMessage = step.content;
+        } else if (step.type === "error") {
+          stepIcon = <XCircle className="size-3.5" />;
+          stepTitle = "Execution Failed";
+          stepSubtitle = "Action Block Parsing Error";
+          stepStatus = "error";
+          stepMessage = step.content;
+        } else if (step.type === "text_response") {
+          stepIcon = (
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              className="size-3.5 text-indigo-500"
+            >
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+          );
+          stepTitle = "Explanation";
+          stepStatus = "info";
+          stepMessage = <Markdown content={step.content} />;
+        }
+
+        return (
+          <div key={step.id || idx} className="relative animate-fade-in group">
+            {/* Timeline node dot */}
+            <div
+              className={cn(
+                "absolute -left-[25px] size-2 rounded-full border border-background z-10 transition-all duration-300",
+                stepStatus === "running" && "bg-blue-500 ring-2 ring-blue-500/20 animate-pulse",
+                stepStatus === "success" && "bg-emerald-500",
+                stepStatus === "error" && "bg-destructive",
+                stepStatus === "info" && "bg-indigo-500",
+                "top-[5px]",
+              )}
+            />
+            {/* Content block */}
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-1.5">
+                <div
+                  className={cn(
+                    "flex items-center justify-center size-5 rounded border",
+                    stepStatus === "running" &&
+                      "bg-blue-500/10 border-blue-500/20 text-blue-500 animate-pulse",
+                    stepStatus === "success" &&
+                      "bg-emerald-500/10 border-emerald-500/20 text-emerald-500",
+                    stepStatus === "error" &&
+                      "bg-destructive/10 border-destructive/20 text-destructive",
+                    stepStatus === "info" &&
+                      "bg-indigo-500/10 border-indigo-500/20 text-indigo-500",
+                  )}
+                >
+                  {stepIcon}
+                </div>
+                <span className="text-[11px] font-bold tracking-tight text-foreground/90">
+                  {stepTitle}
+                </span>
+                {stepSubtitle && (
+                  <span className="text-[9px] text-muted-foreground font-semibold">
+                    {stepSubtitle}
+                  </span>
+                )}
+              </div>
+              {stepMessage && (
+                <div className="text-[10px] text-muted-foreground/90 leading-relaxed max-w-full overflow-x-auto whitespace-pre-wrap font-sans pl-6">
+                  {stepMessage}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
     </div>
+  );
+
+  return (
+    <TimelineCard
+      title={isComplete ? "Thought Process" : "Thinking Process..."}
+      subtitle={subtitle}
+      status={isComplete ? "info" : "running"}
+      icon={<Brain className="size-4" />}
+      message={detailsNode}
+      isCollapsible={true}
+    />
   );
 };
 
@@ -745,33 +873,93 @@ const AssistantMessageGroupComponent: React.FC<{
   messages: Message[];
   isLoading?: boolean;
 }> = ({ messages, isLoading }) => {
+  // Parse each message in the group into a sequence of steps, then flatten them
+  const steps: ParsedStep[] = [];
+  messages.forEach((msg) => {
+    steps.push(...parseAssistantMessage(msg));
+  });
+
+  // Separate into thinking steps and final text response
+  const thinkingSteps: ParsedStep[] = [];
+  let finalResponseStep: ParsedStep | null = null;
+
+  steps.forEach((step) => {
+    if (step.type === "text_response") {
+      finalResponseStep = step;
+    } else {
+      thinkingSteps.push(step);
+    }
+  });
+
+  // If there are multiple text responses, treat all but the last one as intermediate explanations
+  // (which go inside the thinking timeline) to preserve correct chronological sequence
+  const textResponseSteps = steps.filter((s) => s.type === "text_response");
+  if (textResponseSteps.length > 1) {
+    const lastTextResponse = textResponseSteps[textResponseSteps.length - 1];
+    finalResponseStep = lastTextResponse;
+    steps.forEach((step) => {
+      if (step.type === "text_response" && step !== lastTextResponse) {
+        thinkingSteps.push(step);
+      }
+    });
+    // Ensure thinkingSteps are ordered correctly (same as original sequence)
+    thinkingSteps.sort((a, b) => {
+      const idxA = steps.indexOf(a);
+      const idxB = steps.indexOf(b);
+      return idxA - idxB;
+    });
+  }
+
+  // Fallback: If agent is not loading and there's no final text response,
+  // treat the last thinking step's thoughts as the final response to ensure content is never swallowed.
+  if (!isLoading && !finalResponseStep && thinkingSteps.length > 0) {
+    const lastThinkIdx = thinkingSteps.reduce(
+      (acc, s, idx) => (s.type === "thinking" ? idx : acc),
+      -1,
+    );
+    if (lastThinkIdx !== -1) {
+      const fallbackStep = thinkingSteps[lastThinkIdx];
+      thinkingSteps.splice(lastThinkIdx, 1);
+      finalResponseStep = {
+        id: fallbackStep.id + "-fallback-text",
+        type: "text_response",
+        content: fallbackStep.content,
+        isStreaming: false,
+      };
+    }
+  }
+
+  const isComplete = !isLoading;
+
   return (
     <div className="relative pl-7 ml-3.5 border-l border-primary/20 dark:border-primary/10 flex flex-col gap-3 my-4">
-      {messages.map((msg, index) => {
-        const trimmed = msg.content.trim();
-        const isCard =
-          trimmed.startsWith("⚙️") ||
-          trimmed.startsWith("🔄") ||
-          trimmed.startsWith("❌ **Failed to parse/execute") ||
-          msg.content.includes("<think>");
-        const dotTopClass = isCard ? "top-[26px]" : "top-[14px]";
+      {/* Indicator dot for the entire group */}
+      <div className="absolute -left-[36px] top-[14px] size-3 rounded-full border-2 border-primary bg-background z-10 flex items-center justify-center">
+        <span className="size-1 bg-primary rounded-full" />
+      </div>
 
-        return (
-          <div key={msg.id || index} className="relative animate-fade-in">
-            {/* A small dot on the timeline for each card/message */}
-            <div
-              className={cn(
-                "absolute -left-8 size-2 rounded-full border-2 border-primary/40 bg-background z-10",
-                dotTopClass,
-              )}
-            />
-            <AssistantMessage content={msg.content} isStreaming={msg.isStreaming} />
-          </div>
-        );
-      })}
-      {isLoading && (
+      {/* Render intermediate thinking steps grouped together inside a collapsible timeline card */}
+      {thinkingSteps.length > 0 && (
         <div className="relative animate-fade-in">
-          <div className="absolute -left-8 top-[14px] size-2 rounded-full border-2 border-primary/40 bg-background z-10" />
+          <ThinkingProcessCard steps={thinkingSteps} isComplete={isComplete} />
+        </div>
+      )}
+
+      {/* Render the final markdown response outside/below the thinking card */}
+      {finalResponseStep && (
+        <div className="relative animate-fade-in">
+          <div className="py-1">
+            {finalResponseStep.isStreaming ? (
+              <StreamingText content={finalResponseStep.content} />
+            ) : (
+              <Markdown content={finalResponseStep.content} />
+            )}
+          </div>
+        </div>
+      )}
+
+      {isLoading && (
+        <div className="relative animate-fade-in mt-1">
           <LoadingIndicator />
         </div>
       )}
@@ -869,10 +1057,16 @@ export const Chat: React.FC = () => {
           )}
         </div>
 
-        <div ref={innerRef} className="pb-4 relative max-w-3xl mx-auto px-4">
+        <div
+          ref={innerRef}
+          className={cn(
+            "pb-4 relative max-w-3xl mx-auto px-4",
+            messages.length === 0 && "h-full flex flex-col justify-center",
+          )}
+        >
           {messages.length === 0 ? (
             // Empty State
-            <div className="flex items-center justify-center h-full min-h-[350px]">
+            <div className="flex items-center justify-center min-h-[350px]">
               <div className="text-center animate-fade-in max-w-sm mx-auto p-6 rounded-lg bg-muted/40 dark:bg-muted/10 border border-border/30 backdrop-blur-sm gap-4 flex flex-col shadow-xl">
                 <div className="mx-auto size-14 rounded-full bg-primary/10 flex items-center justify-center animate-bounce duration-1000">
                   <span className="text-2xl filter drop-shadow-md">🫐</span>

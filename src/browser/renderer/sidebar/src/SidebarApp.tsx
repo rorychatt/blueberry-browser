@@ -18,7 +18,7 @@ const SidebarContent: React.FC = () => {
   }, [isDarkMode]);
 
   return (
-    <div className="h-screen flex flex-col bg-background border-l border-border overflow-hidden">
+    <div className="h-full flex flex-col bg-background border-l border-border overflow-hidden">
       {/* Tab Navigation Bar */}
       <div className="m-3 mb-2 p-1 flex gap-1 rounded-lg border border-border/40 bg-muted/60 dark:bg-muted/30 backdrop-blur-md">
         <button

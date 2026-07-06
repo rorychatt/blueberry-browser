@@ -63,10 +63,6 @@ export class EventManager {
     ipcMain.handle("set-topbar-height", (_, height: number) => {
       if (this.mainWindow.topBar) {
         this.mainWindow.topBar.setHeight(height);
-        // Bring views to front when expanded so they stack above the active tab
-        if (height > 88) {
-          this.mainWindow.bringViewsToFront();
-        }
       }
     });
   }
@@ -416,7 +412,7 @@ export class EventManager {
       }
     });
 
-    ipcMain.handle("run-e2e-test", async (_, filename: string) => {
+    ipcMain.handle("run-e2e-test", async (_, filename: string, headful = false) => {
       try {
         const safeName = path.basename(filename);
         const testPath = path.join(testsDir, safeName);
@@ -437,11 +433,16 @@ export class EventManager {
           "blueberry-core",
         );
 
+        const args = ["run", testPath];
+        if (headful) {
+          args.push("--headful");
+        }
+
         // Check if debug binary exists, fallback to cargo run
         let childProcess;
         try {
           await fs.access(binaryPath);
-          childProcess = spawn(binaryPath, [testPath]);
+          childProcess = spawn(binaryPath, args);
         } catch {
           // Fallback to cargo run
           childProcess = spawn("cargo", [
@@ -449,7 +450,7 @@ export class EventManager {
             "--manifest-path",
             "src/code/Cargo.toml",
             "--",
-            testPath,
+            ...args,
           ]);
         }
 
@@ -616,7 +617,7 @@ export class EventManager {
             });
 
             const endpoint = process.env.OLLAMA_ENDPOINT || "http://localhost:11434";
-            const model = process.env.OLLAMA_MODEL || "qwen3.6";
+            const model = process.env.OLLAMA_MODEL || "opencode";
 
             const payload = {
               model,
@@ -958,7 +959,7 @@ ${systemInstructions}
     let accumulatedLog = `# E2ETest Promptware Job Log (${jobId})\n\n- **Target Goal**: ${prompt}\n- **Started At**: ${new Date().toISOString()}\n\n## Steps\n\n`;
 
     const endpoint = process.env.OLLAMA_ENDPOINT || "http://localhost:11434";
-    const model = process.env.OLLAMA_MODEL || "qwen3.6";
+    const model = process.env.OLLAMA_MODEL || "opencode";
 
     while (true) {
       if (stepNum > 20) {
@@ -1264,7 +1265,7 @@ ${systemInstructions}
           });
 
           const endpoint = process.env.OLLAMA_ENDPOINT || "http://localhost:11434";
-          const model = process.env.OLLAMA_MODEL || "qwen3.6";
+          const model = process.env.OLLAMA_MODEL || "opencode";
 
           const payload = {
             model,

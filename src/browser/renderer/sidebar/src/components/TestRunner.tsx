@@ -10,6 +10,15 @@ import {
   Save,
   Terminal,
   X,
+  Compass,
+  Copy,
+  Check,
+  CheckCircle,
+  XCircle,
+  Cpu,
+  Trash2,
+  Eye,
+  Activity,
 } from "lucide-react";
 import { cn } from "@common/lib/utils";
 
@@ -29,13 +38,18 @@ export const TestRunner: React.FC = () => {
   const [tests, setTests] = useState<E2ETest[]>([]);
   const [selectedFilename, setSelectedFilename] = useState<string>("");
   const [yamlContent, setYAMLContent] = useState<string>("");
-  const [isEditing, setIsFocused] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
+  const [runMode, setRunMode] = useState<"tab" | "external" | null>(null);
   const [logs, setLogs] = useState<LogLine[]>([]);
   const [screenshots, setScreenshots] = useState<string[]>([]);
   const [selectedScreenshot, setSelectedScreenshot] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"logs" | "screenshots">("logs");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [headful, setHeadful] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [lastRunStatus, setLastRunStatus] = useState<"passed" | "failed" | null>(null);
 
   const logsEndRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -67,7 +81,7 @@ export const TestRunner: React.FC = () => {
               }
               return prev;
             });
-            // Automatically switch to screenshots tab or notify
+            // Automatically switch to screenshots tab
             setActiveTab("screenshots");
           }
         }, 800);
@@ -102,16 +116,25 @@ export const TestRunner: React.FC = () => {
     if (fetchedTests.length > 0 && !selectedFilename) {
       setSelectedFilename(fetchedTests[0].filename);
       setYAMLContent(fetchedTests[0].content);
+      setIsDirty(false);
     }
   };
 
   const handleSelectTest = (test: E2ETest) => {
     setSelectedFilename(test.filename);
     setYAMLContent(test.content);
+    setIsDirty(false);
     setIsDropdownOpen(false);
     // Clear old runs
     setLogs([]);
     setScreenshots([]);
+    setLastRunStatus(null);
+  };
+
+  const handleContentChange = (val: string) => {
+    setYAMLContent(val);
+    const originalTest = tests.find((t) => t.filename === selectedFilename);
+    setIsDirty(originalTest ? originalTest.content !== val : val.trim().length > 0);
   };
 
   const handleSave = async () => {
@@ -120,9 +143,8 @@ export const TestRunner: React.FC = () => {
     }
     const res = await window.sidebarAPI.saveE2ETest(selectedFilename, yamlContent);
     if (res.success) {
-      // Reload tests to update names/configs
+      setIsDirty(false);
       await loadTests();
-      alert("Test configuration saved successfully!");
     } else {
       alert(`Error saving test: ${res.error}`);
     }
@@ -149,8 +171,10 @@ steps:
       await loadTests();
       setSelectedFilename(validFilename);
       setYAMLContent(template);
+      setIsDirty(false);
       setLogs([]);
       setScreenshots([]);
+      setLastRunStatus(null);
     } else {
       alert(`Error creating test: ${res.error}`);
     }
@@ -161,18 +185,26 @@ steps:
       return;
     }
     setIsRunning(true);
+    setRunMode("external");
+    setLastRunStatus(null);
     setLogs([
       {
         id: "start",
-        text: `Starting test execution for '${selectedFilename}'...\n`,
+        text: `Starting external test execution for '${selectedFilename}'...\n`,
         type: "system",
       },
     ]);
     setScreenshots([]);
     setActiveTab("logs");
 
-    await window.sidebarAPI.runE2ETest(selectedFilename);
+    const res = await window.sidebarAPI.runE2ETest(selectedFilename, headful);
     setIsRunning(false);
+    setRunMode(null);
+    if (res && res.success) {
+      setLastRunStatus("passed");
+    } else {
+      setLastRunStatus("failed");
+    }
   };
 
   const handleRunTestInBrowser = async () => {
@@ -180,6 +212,8 @@ steps:
       return;
     }
     setIsRunning(true);
+    setRunMode("tab");
+    setLastRunStatus(null);
     setLogs([
       {
         id: "start",
@@ -190,39 +224,68 @@ steps:
     setScreenshots([]);
     setActiveTab("logs");
 
-    await window.sidebarAPI.runE2ETestInBrowser(selectedFilename);
+    const res = await window.sidebarAPI.runE2ETestInBrowser(selectedFilename);
     setIsRunning(false);
+    setRunMode(null);
+    if (res && res.success) {
+      setLastRunStatus("passed");
+    } else {
+      setLastRunStatus("failed");
+    }
+  };
+
+  const copyLogsToClipboard = () => {
+    if (logs.length === 0) {
+      return;
+    }
+    const fullLogText = logs.map((log) => log.text).join("");
+    void navigator.clipboard.writeText(fullLogText);
+    setCopied(true);
+    setTimeout(() => {
+      setCopied(false);
+    }, 2000);
+  };
+
+  const clearLogs = () => {
+    setLogs([]);
+    setScreenshots([]);
+    setLastRunStatus(null);
   };
 
   const currentTest = tests.find((t) => t.filename === selectedFilename);
 
   return (
-    <div className="flex flex-col h-full bg-transparent overflow-hidden animate-fade-in">
-      {/* Test Selector Dropdown header */}
-      <div className="p-4 border-b border-border bg-card/30 backdrop-blur-md flex items-center justify-between gap-2 relative">
+    <div className="flex flex-col h-full bg-gradient-to-b from-background via-background/95 to-background/90 overflow-hidden animate-fade-in text-foreground">
+      {/* Test Selector Dropdown Header */}
+      <div className="p-3 border-b border-border/30 bg-card/15 backdrop-blur-md flex items-center justify-between gap-2.5 relative shrink-0">
         <div className="relative flex-1" ref={dropdownRef}>
           <button
             onClick={() => {
               setIsDropdownOpen(!isDropdownOpen);
             }}
-            className="w-full flex items-center justify-between gap-2 px-4 py-2.5 rounded-md border border-border bg-background hover:bg-muted/50 transition-all text-sm font-medium shadow-sm outline-none"
+            className={cn(
+              "w-full flex items-center justify-between gap-2.5 px-3 py-2 rounded-lg border bg-background/55 dark:bg-background/20 hover:bg-muted/40 transition-all duration-300 text-xs font-semibold shadow-sm outline-none cursor-pointer",
+              isDropdownOpen
+                ? "border-primary/50 ring-2 ring-primary/15"
+                : "border-border/40 hover:border-border/80",
+            )}
           >
             <span className="flex items-center gap-2 truncate">
-              <FileCode className="size-4 text-primary" />
+              <FileCode className="size-4 text-primary animate-pulse" />
               <span className="truncate">
                 {currentTest ? currentTest.name : "Select E2E Test..."}
               </span>
             </span>
             <ChevronDown
               className={cn(
-                "size-4 text-muted-foreground transition-transform duration-200",
-                isDropdownOpen && "rotate-180",
+                "size-3.5 text-muted-foreground transition-transform duration-300 ease-out",
+                isDropdownOpen && "rotate-180 text-primary",
               )}
             />
           </button>
 
           {isDropdownOpen && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-background border border-border rounded-lg shadow-xl z-50 overflow-hidden max-h-60 overflow-y-auto animate-spring-scale">
+            <div className="absolute top-full left-0 right-0 mt-1.5 bg-background/95 dark:bg-background/90 backdrop-blur-xl border border-border/50 rounded-xl shadow-xl z-50 overflow-hidden max-h-56 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200">
               {tests.map((test) => (
                 <button
                   key={test.filename}
@@ -230,16 +293,19 @@ steps:
                     handleSelectTest(test);
                   }}
                   className={cn(
-                    "w-full text-left px-4 py-3 hover:bg-muted text-sm flex flex-col gap-0.5 border-b border-border/50 last:border-0 transition-colors",
-                    selectedFilename === test.filename && "bg-primary/5 hover:bg-primary/10",
+                    "w-full text-left px-3 py-2.5 hover:bg-muted/65 text-xs flex flex-col gap-0.5 border-b border-border/10 last:border-0 transition-colors cursor-pointer",
+                    selectedFilename === test.filename &&
+                      "bg-primary/5 dark:bg-primary/10 hover:bg-primary/10 text-primary",
                   )}
                 >
-                  <span className="font-semibold text-foreground truncate">{test.name}</span>
-                  <span className="text-xs text-muted-foreground truncate">{test.filename}</span>
+                  <span className="font-bold text-foreground truncate">{test.name}</span>
+                  <span className="text-[10px] text-muted-foreground truncate font-mono">
+                    {test.filename}
+                  </span>
                 </button>
               ))}
               {tests.length === 0 && (
-                <div className="p-4 text-center text-sm text-muted-foreground">No tests found</div>
+                <div className="p-4 text-center text-xs text-muted-foreground">No tests found</div>
               )}
             </div>
           )}
@@ -248,42 +314,59 @@ steps:
         <button
           onClick={handleCreateTest}
           title="Create New E2E Test"
-          className="size-10 rounded-md bg-primary text-primary-foreground flex items-center justify-center hover:opacity-90 active:scale-95 transition-all shadow-sm"
+          className="size-8 rounded-lg bg-primary hover:bg-primary/95 text-primary-foreground flex items-center justify-center hover:scale-[1.03] active:scale-95 transition-all shadow-md shadow-primary/15 cursor-pointer shrink-0"
         >
-          <Plus className="size-5" />
+          <Plus className="size-4.5 stroke-[2.5]" />
         </button>
       </div>
 
-      {/* Editor & Running Panel */}
-      <div className="flex-1 overflow-y-auto flex flex-col p-4 gap-4 min-h-0">
-        {/* Code Editor */}
+      {/* Main Area */}
+      <div className="flex-1 flex flex-col p-3 gap-3 min-h-0 overflow-hidden">
+        {/* YAML Code Editor */}
         <div
           className={cn(
-            "flex-1 flex flex-col min-h-[180px] max-h-[35%] bg-muted/40 dark:bg-muted/10 border rounded-lg overflow-hidden shadow-inner transition-all duration-200",
-            isEditing
-              ? "border-primary/40 shadow-[0_0_12px_rgba(67,97,238,0.15)]"
-              : "border-border",
+            "flex-[1.1] flex flex-col min-h-[140px] bg-zinc-950 dark:bg-zinc-950/90 border rounded-xl overflow-hidden shadow-lg transition-all duration-300 ease-in-out relative group",
+            isFocused
+              ? "border-primary/50 shadow-[0_0_15px_rgba(67,97,238,0.15)] ring-2 ring-primary/5"
+              : "border-border/30 hover:border-border/60",
           )}
         >
-          <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-card/50">
-            <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-              <FileCode className="size-3.5" />
+          <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-900 bg-zinc-900/60 backdrop-blur-sm shrink-0">
+            <span className="text-[10px] font-bold text-zinc-400 flex items-center gap-1.5 uppercase tracking-wider font-sans">
+              <Compass className="size-3.5 text-primary animate-spin-slow" />
               YAML Script Editor
             </span>
             {selectedFilename && (
-              <button
-                onClick={handleSave}
-                className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
-              >
-                <Save className="size-3" />
-                Save Changes
-              </button>
+              <div className="flex items-center gap-3">
+                {isDirty ? (
+                  <span className="flex items-center gap-1.5 px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[9px] font-bold animate-pulse">
+                    Unsaved
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1.5 px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[9px] font-bold">
+                    Saved
+                  </span>
+                )}
+                <button
+                  onClick={handleSave}
+                  disabled={!isDirty}
+                  className={cn(
+                    "flex items-center gap-1.5 text-[11px] font-bold transition-all cursor-pointer py-0.5 px-1.5 rounded",
+                    isDirty
+                      ? "text-primary hover:bg-primary/10 active:scale-95 hover:underline"
+                      : "text-zinc-600 cursor-not-allowed",
+                  )}
+                >
+                  <Save className="size-3" />
+                  Save
+                </button>
+              </div>
             )}
           </div>
           <textarea
             value={yamlContent}
             onChange={(e) => {
-              setYAMLContent(e.target.value);
+              handleContentChange(e.target.value);
             }}
             onFocus={() => {
               setIsFocused(true);
@@ -292,138 +375,237 @@ steps:
               setIsFocused(false);
             }}
             placeholder="# Write your E2E test YAML here..."
-            className="flex-1 p-4 font-mono text-xs bg-transparent text-foreground outline-none resize-none leading-relaxed overflow-y-auto"
+            className="flex-1 p-3.5 font-mono text-[11px] bg-transparent text-emerald-400/90 outline-none resize-none leading-relaxed overflow-y-auto caret-primary selection:bg-primary/20"
           />
         </div>
 
-        {/* Console & Screenshot Output */}
-        <div className="flex-[2] flex flex-col border border-border rounded-lg overflow-hidden bg-card/20 shadow-md min-h-[220px]">
-          {/* Output tabs */}
-          <div className="flex items-center justify-between px-3 py-1 border-b border-border bg-card/50">
-            <div className="flex gap-1.5">
+        {/* Dedicated Control & Options Panel */}
+        {selectedFilename && (
+          <div className="p-3 border border-border/30 bg-card/25 backdrop-blur-md rounded-xl flex flex-col gap-3 shadow-md shrink-0">
+            {/* Visual Window Option */}
+            <div className="flex items-center justify-between px-1">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[11px] font-bold flex items-center gap-1.5 text-foreground">
+                  <Eye className="size-3.5 text-primary" />
+                  Headful Mode
+                </span>
+                <span className="text-[9px] text-muted-foreground">
+                  Launch visible browser window for external runs
+                </span>
+              </div>
+              <button
+                onClick={() => {
+                  setHeadful(!headful);
+                }}
+                disabled={isRunning}
+                className={cn(
+                  "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-300 ease-in-out outline-none focus:ring-2 focus:ring-primary/20",
+                  headful ? "bg-primary" : "bg-zinc-200 dark:bg-zinc-800",
+                  isRunning && "opacity-50 cursor-not-allowed",
+                )}
+              >
+                <span
+                  className={cn(
+                    "pointer-events-none inline-block size-4 transform rounded-full bg-white shadow-md ring-0 transition duration-300 ease-in-out",
+                    headful ? "translate-x-4" : "translate-x-0",
+                  )}
+                />
+              </button>
+            </div>
+
+            {/* Run Buttons Panel */}
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                onClick={handleRunTestInBrowser}
+                disabled={isRunning}
+                className={cn(
+                  "flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-bold shadow-md transition-all duration-300 cursor-pointer border",
+                  isRunning
+                    ? runMode === "tab"
+                      ? "bg-primary/20 text-primary border-primary/40 animate-pulse cursor-not-allowed"
+                      : "bg-muted text-muted-foreground border-transparent opacity-40 cursor-not-allowed"
+                    : "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground border-primary/20 hover:scale-[1.02] hover:brightness-105 active:scale-98 hover:shadow-lg hover:shadow-primary/10",
+                )}
+              >
+                {isRunning && runMode === "tab" ? (
+                  <>
+                    <Loader className="size-3.5 animate-spin" />
+                    Running...
+                  </>
+                ) : (
+                  <>
+                    <Play className="size-3 fill-current" />
+                    Run in Tab
+                  </>
+                )}
+              </button>
+              <button
+                onClick={handleRunTest}
+                disabled={isRunning}
+                className={cn(
+                  "flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-bold shadow-md transition-all duration-300 cursor-pointer border",
+                  isRunning
+                    ? runMode === "external"
+                      ? "bg-emerald-500/20 text-emerald-500 border-emerald-500/40 animate-pulse cursor-not-allowed"
+                      : "bg-muted text-muted-foreground border-transparent opacity-40 cursor-not-allowed"
+                    : "bg-gradient-to-r from-emerald-500 to-teal-600 text-white border-emerald-500/20 hover:scale-[1.02] hover:brightness-105 active:scale-98 hover:shadow-lg hover:shadow-emerald-500/10",
+                )}
+              >
+                {isRunning && runMode === "external" ? (
+                  <>
+                    <Loader className="size-3.5 animate-spin" />
+                    Running...
+                  </>
+                ) : (
+                  <>
+                    <Cpu className="size-3.5" />
+                    Run External
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Output Console / Terminal */}
+        <div
+          className={cn(
+            "flex-1 flex flex-col border rounded-xl overflow-hidden bg-zinc-950 shadow-lg min-h-[160px] transition-all duration-300 ease-in-out relative",
+            isRunning
+              ? "border-primary/40 shadow-[0_0_20px_rgba(67,97,238,0.1)]"
+              : "border-border/30 hover:border-border/50",
+          )}
+        >
+          {/* Output Header */}
+          <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-900 bg-zinc-900/40 backdrop-blur-md shrink-0">
+            <div className="flex gap-2">
               <button
                 onClick={() => {
                   setActiveTab("logs");
                 }}
                 className={cn(
-                  "px-3 py-2 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all",
+                  "px-3 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition-all duration-300 cursor-pointer",
                   activeTab === "logs"
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+                    ? "bg-zinc-800 text-zinc-100 border border-zinc-700/60 shadow-inner"
+                    : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60",
                 )}
               >
                 <Terminal className="size-3.5" />
-                Console Logs
+                Logs
               </button>
               <button
                 onClick={() => {
                   setActiveTab("screenshots");
                 }}
                 className={cn(
-                  "px-3 py-2 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all relative",
+                  "px-3 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition-all duration-300 cursor-pointer relative",
                   activeTab === "screenshots"
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+                    ? "bg-zinc-800 text-zinc-100 border border-zinc-700/60 shadow-inner"
+                    : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60",
                 )}
               >
                 <ImageIcon className="size-3.5" />
                 Screenshots
                 {screenshots.length > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground animate-pulse">
+                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[8px] font-black text-primary-foreground shadow-sm">
                     {screenshots.length}
                   </span>
                 )}
               </button>
             </div>
 
-            {/* Run Test Buttons */}
-            {selectedFilename && (
-              <div className="flex gap-2">
-                <button
-                  onClick={handleRunTest}
-                  disabled={isRunning}
-                  className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold shadow-sm transition-all",
-                    isRunning
-                      ? "bg-muted text-muted-foreground cursor-not-allowed"
-                      : "bg-emerald-500 hover:bg-emerald-600 text-white active:scale-95",
-                  )}
-                >
-                  {isRunning ? (
-                    <>
-                      <Loader className="size-3.5 animate-spin" />
-                      Running...
-                    </>
-                  ) : (
-                    <>
-                      <Play className="size-3.5 fill-current" />
-                      Run External
-                    </>
-                  )}
-                </button>
-                <button
-                  onClick={handleRunTestInBrowser}
-                  disabled={isRunning}
-                  className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold shadow-sm transition-all",
-                    isRunning
-                      ? "bg-muted text-muted-foreground cursor-not-allowed"
-                      : "bg-primary hover:bg-primary/95 text-primary-foreground active:scale-95",
-                  )}
-                >
-                  {isRunning ? (
-                    <>
-                      <Loader className="size-3.5 animate-spin" />
-                      Running...
-                    </>
-                  ) : (
-                    <>
-                      <Play className="size-3.5 fill-current" />
-                      Run in Tab
-                    </>
-                  )}
-                </button>
+            {/* Run Status Display on Right */}
+            <div className="flex items-center gap-2">
+              {isRunning && (
+                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-[9px] font-bold animate-pulse">
+                  <Activity className="size-2.5 animate-spin" />
+                  RUNNING
+                </div>
+              )}
+              {!isRunning && lastRunStatus === "passed" && (
+                <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-black animate-fade-in shadow-[0_0_10px_rgba(16,185,129,0.05)]">
+                  <CheckCircle className="size-2.5" />
+                  PASSED
+                </div>
+              )}
+              {!isRunning && lastRunStatus === "failed" && (
+                <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[9px] font-black animate-fade-in shadow-[0_0_10px_rgba(244,63,94,0.05)]">
+                  <XCircle className="size-2.5" />
+                  FAILED
+                </div>
+              )}
+
+              {/* Utility Panel */}
+              <div className="flex items-center gap-1 border-l border-zinc-800 pl-2">
+                {activeTab === "logs" && logs.length > 0 && (
+                  <>
+                    <button
+                      onClick={copyLogsToClipboard}
+                      title="Copy all logs"
+                      className="p-1.5 rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors cursor-pointer"
+                    >
+                      {copied ? (
+                        <Check className="size-3.5 text-emerald-400" />
+                      ) : (
+                        <Copy className="size-3.5" />
+                      )}
+                    </button>
+                    <button
+                      onClick={clearLogs}
+                      title="Clear output"
+                      className="p-1.5 rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors cursor-pointer"
+                    >
+                      <Trash2 className="size-3.5 hover:text-rose-400 transition-colors" />
+                    </button>
+                  </>
+                )}
               </div>
-            )}
+            </div>
           </div>
 
-          {/* Content display */}
-          <div className="flex-1 bg-black/40 dark:bg-black/80 p-4 font-mono text-xs overflow-y-auto min-h-0 relative select-text">
+          {/* Console Content Window */}
+          <div className="flex-1 p-3.5 font-mono text-[10.5px] overflow-y-auto min-h-0 relative select-text scrollbar-thin bg-zinc-950 text-zinc-300">
             {activeTab === "logs" ? (
-              <div className="flex flex-col gap-1 text-gray-200">
+              <div className="flex flex-col gap-1.5">
                 {logs.map((log) => {
-                  let colorClass = "text-gray-300";
+                  let colorClass = "text-zinc-300";
+                  let icon: React.ReactNode = null;
 
                   if (log.type === "stderr") {
                     colorClass = "text-rose-400 font-semibold";
                   } else if (log.type === "system") {
-                    colorClass = "text-cyan-400 font-bold border-b border-cyan-900/30 pb-1 mb-1";
+                    colorClass = "text-cyan-400 font-bold border-b border-zinc-900 pb-1 mb-1";
                   } else {
-                    // Check for styled ticks/crosses inside stdout
                     if (log.text.includes("✓")) {
-                      colorClass = "text-emerald-400 font-semibold";
-                    } else if (log.text.includes("✗")) {
-                      colorClass = "text-rose-500 font-bold";
+                      colorClass = "text-emerald-400 font-semibold flex items-start gap-1.5";
+                      icon = <CheckCircle className="size-3.5 text-emerald-400 mt-0.5 shrink-0" />;
+                    } else if (log.text.includes("✗") || log.text.includes("failed")) {
+                      colorClass = "text-rose-400 font-bold flex items-start gap-1.5";
+                      icon = <XCircle className="size-3.5 text-rose-400 mt-0.5 shrink-0" />;
                     } else if (
                       log.text.includes("🚀") ||
                       log.text.includes("🎉") ||
-                      log.text.includes("📋")
+                      log.text.includes("🎯")
                     ) {
                       colorClass = "text-amber-300 font-bold";
                     }
                   }
 
                   return (
-                    <div key={log.id} className={cn("whitespace-pre-wrap break-all", colorClass)}>
-                      {log.text}
+                    <div
+                      key={log.id}
+                      className={cn("whitespace-pre-wrap break-all leading-normal", colorClass)}
+                    >
+                      {icon}
+                      <span>{log.text}</span>
                     </div>
                   );
                 })}
                 {logs.length === 0 && (
-                  <div className="text-muted-foreground flex flex-col items-center justify-center h-full min-h-[150px] gap-2">
-                    <Terminal className="size-8 opacity-20" />
-                    <p className="text-center">
-                      Select a test and click Run Test to see progress output.
+                  <div className="text-zinc-500 flex flex-col items-center justify-center h-full min-h-[120px] gap-2.5 my-auto">
+                    <Terminal className="size-8 opacity-25" />
+                    <p className="text-center text-[11px] font-sans px-4">
+                      Select an E2E test and run it to inspect terminal outputs.
                     </p>
                   </div>
                 )}
@@ -436,7 +618,7 @@ steps:
                     {screenshots.map((src, idx) => (
                       <div
                         key={src.slice(0, 100)}
-                        className="group relative border border-border rounded-md overflow-hidden aspect-video bg-muted cursor-pointer shadow-sm hover:border-primary/50 hover:shadow-md transition-all"
+                        className="group relative border border-zinc-800 rounded-xl overflow-hidden aspect-video bg-zinc-900/40 cursor-pointer shadow-md hover:border-primary/50 transition-all duration-300"
                         onClick={() => {
                           setSelectedScreenshot(src);
                         }}
@@ -444,22 +626,22 @@ steps:
                         <img
                           src={src}
                           alt={`Step ${idx + 1}`}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
                         />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                          <Maximize2 className="size-5 text-white" />
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all duration-300 backdrop-blur-[1px]">
+                          <Maximize2 className="size-4.5 text-white animate-fade-in" />
                         </div>
-                        <div className="absolute bottom-1 left-2 bg-black/60 px-1.5 py-0.5 rounded text-[10px] text-white font-sans">
-                          Screenshot #{idx + 1}
+                        <div className="absolute bottom-1.5 left-2 bg-black/75 backdrop-blur-md px-1.5 py-0.5 rounded text-[9px] text-white font-sans font-bold border border-zinc-800">
+                          Step #{idx + 1}
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-muted-foreground flex flex-col items-center justify-center h-full min-h-[150px] gap-2">
-                    <ImageIcon className="size-8 opacity-20" />
-                    <p className="text-center font-sans">
-                      No screenshots captured yet in this run.
+                  <div className="text-zinc-500 flex flex-col items-center justify-center h-full min-h-[120px] gap-2.5 my-auto">
+                    <ImageIcon className="size-8 opacity-25" />
+                    <p className="text-center font-sans text-[11px] px-4">
+                      No screenshots taken yet. Add a screenshot step in your YAML.
                     </p>
                   </div>
                 )}
@@ -469,24 +651,24 @@ steps:
         </div>
       </div>
 
-      {/* Screenshot Overlay Modal */}
+      {/* Modern Screenshot Overlay Modal */}
       {selectedScreenshot && (
-        <div className="fixed inset-0 bg-black/90 flex flex-col z-[100] p-4 animate-fade-in">
-          <div className="flex justify-end p-2">
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-xl flex flex-col z-[100] p-5 animate-in fade-in duration-300">
+          <div className="flex justify-end p-1 shrink-0">
             <button
               onClick={() => {
                 setSelectedScreenshot(null);
               }}
-              className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+              className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
             >
-              <X className="size-6" />
+              <X className="size-5" />
             </button>
           </div>
-          <div className="flex-1 flex items-center justify-center overflow-hidden">
+          <div className="flex-1 flex items-center justify-center overflow-hidden p-2">
             <img
               src={selectedScreenshot}
               alt="E2E Screenshot Fullscreen"
-              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl border border-white/10"
+              className="max-w-full max-h-full object-contain rounded-xl shadow-2xl border border-white/10 animate-in zoom-in-95 duration-300"
             />
           </div>
         </div>

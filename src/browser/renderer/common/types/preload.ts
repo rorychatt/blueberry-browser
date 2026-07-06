@@ -58,7 +58,10 @@ export interface SidebarAPI {
   getE2ETests: () => Promise<{ filename: string; name: string; content: string }[]>;
   saveE2ETest: (filename: string, content: string) => Promise<{ success: boolean; error?: string }>;
   getE2EScreenshot: (filename: string) => Promise<string | null>;
-  runE2ETest: (filename: string) => Promise<{ success: boolean; error?: string; code?: number }>;
+  runE2ETest: (
+    filename: string,
+    headful?: boolean,
+  ) => Promise<{ success: boolean; error?: string; code?: number }>;
   runE2ETestInBrowser: (filename: string) => Promise<{ success: boolean; error?: string }>;
   onE2ETestLog: (
     callback: (data: { type: "stdout" | "stderr" | "system"; text: string }) => void,
