@@ -27,12 +27,14 @@ export interface AppSettings {
   shortcuts: ShortcutConfig;
   landingPage: string;
   theme: "light" | "dark" | "system";
+  primaryColor?: string;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
   shortcuts: DEFAULT_SHORTCUTS,
   landingPage: "https://www.google.com",
   theme: "system",
+  primaryColor: "#4361ee",
 };
 
 export class SettingsManager {
@@ -55,6 +57,7 @@ export class SettingsManager {
         shortcuts: { ...DEFAULT_SHORTCUTS, ...config.shortcuts },
         landingPage: config.landingPage || "https://www.google.com",
         theme: config.theme || "system",
+        primaryColor: config.primaryColor || "#4361ee",
       };
     } catch {
       // File doesn't exist or is invalid, use defaults
@@ -62,6 +65,7 @@ export class SettingsManager {
         shortcuts: { ...DEFAULT_SHORTCUTS },
         landingPage: "https://www.google.com",
         theme: "system",
+        primaryColor: "#4361ee",
       };
     }
   }

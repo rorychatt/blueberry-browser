@@ -38,6 +38,9 @@ export class EventManager {
     // Dark mode events
     this.handleDarkModeEvents();
 
+    // Primary color events
+    this.handlePrimaryColorEvents();
+
     // Debug events
     this.handleDebugEvents();
 
@@ -268,6 +271,13 @@ export class EventManager {
     });
   }
 
+  private handlePrimaryColorEvents(): void {
+    // Primary color broadcasting
+    ipcMain.on("primary-color-changed", (event, primaryColor) => {
+      this.broadcastPrimaryColor(event.sender, primaryColor);
+    });
+  }
+
   private handleDebugEvents(): void {
     // Ping test
     ipcMain.on("ping", () => {
@@ -290,6 +300,25 @@ export class EventManager {
     this.mainWindow.allTabs.forEach((tab) => {
       if (tab.webContents !== sender) {
         tab.webContents.send("dark-mode-updated", isDarkMode);
+      }
+    });
+  }
+
+  private broadcastPrimaryColor(sender: WebContents, primaryColor: string): void {
+    // Send to topbar
+    if (this.mainWindow.topBar.view.webContents !== sender) {
+      this.mainWindow.topBar.view.webContents.send("primary-color-updated", primaryColor);
+    }
+
+    // Send to sidebar
+    if (this.mainWindow.sidebar.view.webContents !== sender) {
+      this.mainWindow.sidebar.view.webContents.send("primary-color-updated", primaryColor);
+    }
+
+    // Send to all tabs
+    this.mainWindow.allTabs.forEach((tab) => {
+      if (tab.webContents !== sender) {
+        tab.webContents.send("primary-color-updated", primaryColor);
       }
     });
   }
