@@ -324,7 +324,7 @@ export const SettingsApp: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen w-full select-none bg-background p-6 md:p-12 overflow-hidden transition-colors duration-300">
+    <div className="flex h-screen w-full select-none bg-background p-3 sm:p-6 md:p-10 overflow-hidden transition-colors duration-300">
       {/* Background Decorative Ambient Glows */}
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-primary/5 dark:bg-primary/5 blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[45%] h-[45%] rounded-full bg-primary/5 dark:bg-primary/5 blur-[130px] pointer-events-none" />
@@ -332,14 +332,16 @@ export const SettingsApp: React.FC = () => {
       {/* Main Glassmorphic Dashboard Window */}
       <div className="relative flex h-full w-full max-w-5xl mx-auto rounded-3xl overflow-hidden border border-border/50 bg-card/70 backdrop-blur-xl shadow-2xl">
         {/* Left Navigation Panel */}
-        <aside className="w-64 border-r border-border/30 bg-secondary/30 p-6 flex flex-col gap-6">
-          <div className="flex items-center gap-3 px-2">
-            <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md">
+        <aside className="w-16 sm:w-56 md:w-64 border-r border-border/30 bg-secondary/30 p-3 sm:p-6 flex flex-col gap-6 transition-all duration-300 shrink-0">
+          <div className="flex items-center justify-center sm:justify-start gap-3 px-1 sm:px-2">
+            <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md shrink-0">
               <Settings className="size-5 animate-spin-slow" />
             </div>
-            <div>
-              <h1 className="text-lg font-bold tracking-tight text-foreground">Blueberry</h1>
-              <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
+            <div className="hidden sm:block min-w-0">
+              <h1 className="text-lg font-bold tracking-tight text-foreground truncate">
+                Blueberry
+              </h1>
+              <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground truncate">
                 System Preferences
               </p>
             </div>
@@ -348,67 +350,72 @@ export const SettingsApp: React.FC = () => {
           <nav className="flex-1 flex flex-col gap-1">
             <button
               onClick={() => setActiveTab("general")}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+              className={`flex items-center justify-center sm:justify-start gap-3 px-3 sm:px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
                 activeTab === "general"
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
               }`}
+              title="General Settings"
             >
-              <Sliders className="size-4" />
-              General Settings
+              <Sliders className="size-4 shrink-0" />
+              <span className="hidden sm:inline truncate">General Settings</span>
             </button>
 
             <button
               onClick={() => setActiveTab("theming")}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+              className={`flex items-center justify-center sm:justify-start gap-3 px-3 sm:px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
                 activeTab === "theming"
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
               }`}
+              title="Theming Settings"
             >
-              <Palette className="size-4" />
-              Theming Settings
+              <Palette className="size-4 shrink-0" />
+              <span className="hidden sm:inline truncate">Theming Settings</span>
             </button>
 
             <button
               onClick={() => setActiveTab("shortcuts")}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+              className={`flex items-center justify-center sm:justify-start gap-3 px-3 sm:px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
                 activeTab === "shortcuts"
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
               }`}
+              title="Keyboard Shortcuts"
             >
-              <Keyboard className="size-4" />
-              Keyboard Shortcuts
+              <Keyboard className="size-4 shrink-0" />
+              <span className="hidden sm:inline truncate">Keyboard Shortcuts</span>
             </button>
 
             <button
               onClick={() => setActiveTab("history")}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+              className={`flex items-center justify-center sm:justify-start gap-3 px-3 sm:px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
                 activeTab === "history"
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
               }`}
+              title="Browsing History"
             >
-              <History className="size-4" />
-              Browsing History
+              <History className="size-4 shrink-0" />
+              <span className="hidden sm:inline truncate">Browsing History</span>
             </button>
 
             <button
               onClick={() => setActiveTab("about")}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+              className={`flex items-center justify-center sm:justify-start gap-3 px-3 sm:px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
                 activeTab === "about"
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
               }`}
+              title="About Browser"
             >
-              <Info className="size-4" />
-              About Browser
+              <Info className="size-4 shrink-0" />
+              <span className="hidden sm:inline truncate">About Browser</span>
             </button>
           </nav>
 
           {/* Quick Info Box in Sidebar */}
-          <div className="mt-auto p-4 rounded-2xl border border-border/30 bg-card/30 text-[11px] text-muted-foreground">
+          <div className="hidden sm:block mt-auto p-4 rounded-2xl border border-border/30 bg-card/30 text-[11px] text-muted-foreground">
             <span className="font-bold block text-foreground mb-1">Quick Tip:</span>
             Pressing standard shortcuts like{" "}
             <kbd className="px-1 border border-border rounded bg-secondary text-[9px] text-foreground">
@@ -419,11 +426,11 @@ export const SettingsApp: React.FC = () => {
         </aside>
 
         {/* Right Content Panel */}
-        <main className="flex-1 flex flex-col h-full overflow-hidden">
+        <main className="flex-1 flex flex-col h-full overflow-hidden min-w-0">
           {/* Header */}
-          <header className="px-8 py-6 border-b border-border/30 flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold tracking-tight text-foreground">
+          <header className="px-4 sm:px-8 py-4 sm:py-6 border-b border-border/30 flex items-center justify-between gap-4 shrink-0">
+            <div className="min-w-0 flex-1">
+              <h2 className="text-lg sm:text-xl font-bold tracking-tight text-foreground truncate">
                 {activeTab === "general"
                   ? "General Settings"
                   : activeTab === "theming"
@@ -434,7 +441,7 @@ export const SettingsApp: React.FC = () => {
                         ? "Browsing History"
                         : "About Blueberry"}
               </h2>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground leading-normal mt-0.5">
                 {activeTab === "general"
                   ? "Configure your home page preferences and general browser behaviors."
                   : activeTab === "theming"
@@ -449,15 +456,18 @@ export const SettingsApp: React.FC = () => {
 
             {/* Notification / Toast Banner inside Header */}
             {isSaved && (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/25 dark:border-emerald-500/35 text-emerald-600 dark:text-emerald-400 animate-fade-in">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/25 dark:border-emerald-500/35 text-emerald-600 dark:text-emerald-400 animate-fade-in shrink-0">
                 <Check className="size-4" />
-                <span className="text-xs font-semibold">Changes applied instantly!</span>
+                <span className="text-xs font-semibold hidden sm:inline">
+                  Changes applied instantly!
+                </span>
+                <span className="text-xs font-semibold sm:hidden">Saved!</span>
               </div>
             )}
           </header>
 
           {/* Scrollable View Area */}
-          <div className="flex-1 overflow-y-auto px-8 py-6">
+          <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-4 sm:py-6">
             {activeTab === "general" && (
               <div className="flex flex-col gap-8">
                 {/* Default Landing Page */}
@@ -470,7 +480,7 @@ export const SettingsApp: React.FC = () => {
                     click the new tab plus button.
                   </p>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-2">
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3 mt-2">
                     {/* Predefined choices */}
                     {Object.entries(PREDEFINED_LANDING_PAGES).map(([key, item]) => {
                       const isSelected = selectedLandingOption === key;
@@ -579,7 +589,7 @@ export const SettingsApp: React.FC = () => {
                     across all open windows.
                   </p>
 
-                  <div className="grid grid-cols-2 gap-4 mt-2">
+                  <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4 mt-2">
                     {/* Light Theme Card */}
                     <div
                       onClick={() => {
@@ -658,7 +668,7 @@ export const SettingsApp: React.FC = () => {
                   </p>
 
                   {/* Curated Color Presets Grid */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-2">
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3 mt-2">
                     {[
                       { name: "Blueberry Cobalt", hex: "#4361ee", desc: "Signature brand blue" },
                       { name: "Sunset Rose", hex: "#f72585", desc: "Vibrant energetic pink" },
@@ -805,9 +815,11 @@ export const SettingsApp: React.FC = () => {
 
                 {/* Shortcuts Grid/Table */}
                 <div className="border border-border/30 rounded-2xl overflow-hidden bg-secondary/20">
-                  <div className="grid grid-cols-12 gap-4 px-4 py-3 border-b border-border/30 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                    <span className="col-span-7">Action & Description</span>
-                    <span className="col-span-5 text-right pr-4">Shortcut Assignment</span>
+                  <div className="flex flex-col sm:grid sm:grid-cols-12 gap-2 sm:gap-4 px-4 py-3 border-b border-border/30 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    <span className="sm:col-span-7">Action & Description</span>
+                    <span className="hidden sm:inline sm:col-span-5 text-right pr-4">
+                      Shortcut Assignment
+                    </span>
                   </div>
 
                   <div className="divide-y divide-border/30">
@@ -819,11 +831,11 @@ export const SettingsApp: React.FC = () => {
                         <div
                           key={key}
                           onClick={() => !recordingKey && setRecordingKey(key)}
-                          className={`grid grid-cols-12 gap-4 items-center px-4 py-4 transition-all duration-150 group cursor-pointer ${
+                          className={`flex flex-col gap-2 sm:grid sm:grid-cols-12 sm:gap-4 sm:items-center px-4 py-4 transition-all duration-150 group cursor-pointer ${
                             isRecordingThis ? "bg-primary/5" : "hover:bg-secondary/40"
                           }`}
                         >
-                          <div className="col-span-7 pr-2">
+                          <div className="sm:col-span-7 pr-2">
                             <span className="text-sm font-bold text-foreground transition-colors group-hover:text-primary">
                               {SHORTCUT_LABELS[key].label}
                             </span>
@@ -832,7 +844,7 @@ export const SettingsApp: React.FC = () => {
                             </p>
                           </div>
 
-                          <div className="col-span-5 flex justify-end items-center gap-2">
+                          <div className="sm:col-span-5 flex sm:justify-end items-center gap-2 w-full">
                             {isRecordingThis ? (
                               <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-primary/40 bg-primary/10 text-xs font-bold tracking-tight text-primary animate-pulse">
                                 <span className="size-1.5 rounded-full bg-primary animate-ping" />
@@ -903,7 +915,7 @@ export const SettingsApp: React.FC = () => {
                     standard web exploration into a single cohesive, high-performance interface.
                   </p>
 
-                  <div className="grid grid-cols-2 gap-4 border-t border-border/30 pt-4 text-xs">
+                  <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-4 border-t border-border/30 pt-4 text-xs">
                     <div>
                       <span className="font-semibold text-muted-foreground block">
                         Runtime Environment
@@ -1063,23 +1075,23 @@ export const SettingsApp: React.FC = () => {
                                 return (
                                   <div
                                     key={entry.id}
-                                    className="flex items-center justify-between gap-4 p-4 hover:bg-secondary/30 transition-colors duration-150 group"
+                                    className="flex items-center justify-between gap-3 p-3 sm:p-4 hover:bg-secondary/30 transition-colors duration-150 group"
                                   >
-                                    <div className="flex-1 min-w-0 flex items-center gap-3">
+                                    <div className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
                                       <span className="text-xs font-mono font-semibold text-muted-foreground select-none shrink-0 w-11">
                                         {dateStr}
                                       </span>
-                                      <div className="min-w-0">
+                                      <div className="min-w-0 flex-1">
                                         <h4 className="text-sm font-bold text-foreground truncate group-hover:text-primary transition-colors duration-150">
                                           {entry.title || "New Tab"}
                                         </h4>
-                                        <p className="text-xs text-muted-foreground truncate font-mono mt-0.5 max-w-md">
+                                        <p className="text-xs text-muted-foreground truncate font-mono mt-0.5">
                                           {entry.url}
                                         </p>
                                       </div>
                                     </div>
 
-                                    <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150 shrink-0">
+                                    <div className="flex items-center gap-1.5 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity duration-150 shrink-0">
                                       <button
                                         onClick={() => {
                                           if (window.electron && window.electron.ipcRenderer) {
