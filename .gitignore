@@ -134,3 +134,8 @@ logs/
 *.pem
 *.key
 *.cert
+
+# Rust / Cargo
+target/
+/blueberry-core/target/
+**/target/

@@ -1,8 +1,9 @@
-import { NativeImage, WebContentsView } from "electron";
+import type { NativeImage } from "electron";
+import { WebContentsView } from "electron";
 
 export class Tab {
-  private webContentsView: WebContentsView;
-  private _id: string;
+  private readonly webContentsView: WebContentsView;
+  private readonly _id: string;
   private _title: string;
   private _url: string;
   private _isVisible: boolean = false;
@@ -15,8 +16,8 @@ export class Tab {
     // Create the WebContentsView for web content only
     this.webContentsView = new WebContentsView({
       webPreferences: {
-        nodeIntegration: false,
         contextIsolation: true,
+        nodeIntegration: false,
         sandbox: true,
         webSecurity: true,
       },
@@ -26,7 +27,7 @@ export class Tab {
     this.setupEventListeners();
 
     // Load the initial URL
-    this.loadURL(url);
+    void this.loadURL(url);
   }
 
   private setupEventListeners(): void {
@@ -82,22 +83,22 @@ export class Tab {
   }
 
   async screenshot(): Promise<NativeImage> {
-    return await this.webContentsView.webContents.capturePage();
+    return this.webContentsView.webContents.capturePage();
   }
 
   async runJs(code: string): Promise<any> {
-    return await this.webContentsView.webContents.executeJavaScript(code);
+    return this.webContentsView.webContents.executeJavaScript(code);
   }
 
   async getTabHtml(): Promise<string> {
-    return await this.runJs("return document.documentElement.outerHTML");
+    return this.runJs("return document.documentElement.outerHTML");
   }
 
   async getTabText(): Promise<string> {
-    return await this.runJs("return document.documentElement.innerText");
+    return this.runJs("return document.documentElement.innerText");
   }
 
-  loadURL(url: string): Promise<void> {
+  async loadURL(url: string): Promise<void> {
     this._url = url;
     return this.webContentsView.webContents.loadURL(url);
   }
@@ -108,6 +109,7 @@ export class Tab {
     }
   }
 
+  // Go forward logic
   goForward(): void {
     if (this.webContentsView.webContents.navigationHistory.canGoForward()) {
       this.webContentsView.webContents.navigationHistory.goForward();

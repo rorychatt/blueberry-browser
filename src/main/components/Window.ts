@@ -4,12 +4,12 @@ import { TopBar } from "./TopBar";
 import { SideBar } from "./SideBar";
 
 export class Window {
-  private _baseWindow: BaseWindow;
-  private tabsMap: Map<string, Tab> = new Map();
+  private readonly _baseWindow: BaseWindow;
+  private readonly tabsMap = new Map<string, Tab>();
   private activeTabId: string | null = null;
   private tabCounter: number = 0;
-  private _topBar: TopBar;
-  private _sideBar: SideBar;
+  private readonly _topBar: TopBar;
+  private readonly _sideBar: SideBar;
 
   constructor() {
     // Create the browser window.
@@ -19,7 +19,7 @@ export class Window {
       show: true,
       autoHideMenuBar: false,
       titleBarStyle: "hidden",
-      ...(process.platform !== "darwin" ? { titleBarOverlay: true } : {}),
+      ...(process.platform === "darwin" ? {} : { titleBarOverlay: true }),
       trafficLightPosition: { x: 15, y: 13 },
     });
 
@@ -43,8 +43,8 @@ export class Window {
       const bounds = this._baseWindow.getBounds();
       if (this.activeTab) {
         this.activeTab.webContents.send("window-resized", {
-          width: bounds.width,
           height: bounds.height,
+          width: bounds.width,
         });
       }
     });
@@ -52,7 +52,7 @@ export class Window {
     // Handle external link opening
     this.tabsMap.forEach((tab) => {
       tab.webContents.setWindowOpenHandler((details) => {
-        shell.openExternal(details.url);
+        void shell.openExternal(details.url);
         return { action: "deny" };
       });
     });
@@ -63,7 +63,9 @@ export class Window {
   private setupEventListeners(): void {
     this._baseWindow.on("closed", () => {
       // Clean up all tabs when window is closed
-      this.tabsMap.forEach((tab) => tab.destroy());
+      this.tabsMap.forEach((tab) => {
+        tab.destroy();
+      });
       this.tabsMap.clear();
     });
   }
@@ -81,7 +83,7 @@ export class Window {
   }
 
   get allTabs(): Tab[] {
-    return Array.from(this.tabsMap.values());
+    return [...this.tabsMap.values()];
   }
 
   get tabCount(): number {
@@ -99,10 +101,10 @@ export class Window {
     // Set the bounds to fill the window below the topbar and to the left of sidebar
     const bounds = this._baseWindow.getBounds();
     tab.view.setBounds({
+      height: bounds.height - 88, // Subtract topbar height
+      width: bounds.width - 400, // Subtract sidebar width
       x: 0,
       y: 88, // Start below the topbar
-      width: bounds.width - 400, // Subtract sidebar width
-      height: bounds.height - 88, // Subtract topbar height
     });
 
     // Store the tab
@@ -137,7 +139,7 @@ export class Window {
     // If this was the active tab, switch to another tab
     if (this.activeTabId === tabId) {
       this.activeTabId = null;
-      const remainingTabs = Array.from(this.tabsMap.keys());
+      const remainingTabs = [...this.tabsMap.keys()];
       if (remainingTabs.length > 0) {
         this.switchActiveTab(remainingTabs[0]);
       }
@@ -216,12 +218,7 @@ export class Window {
     this._baseWindow.setTitle(title);
   }
 
-  setBounds(bounds: {
-    x?: number;
-    y?: number;
-    width?: number;
-    height?: number;
-  }): void {
+  setBounds(bounds: { x?: number; y?: number; width?: number; height?: number }): void {
     this._baseWindow.setBounds(bounds);
   }
 
@@ -237,10 +234,10 @@ export class Window {
 
     this.tabsMap.forEach((tab) => {
       tab.view.setBounds({
+        height: bounds.height - 88, // Subtract topbar height
+        width: bounds.width - sidebarWidth,
         x: 0,
         y: 88, // Start below the topbar
-        width: bounds.width - sidebarWidth,
-        height: bounds.height - 88, // Subtract topbar height
       });
     });
   }
@@ -263,7 +260,7 @@ export class Window {
 
   // Getter for all tabs as array
   get tabs(): Tab[] {
-    return Array.from(this.tabsMap.values());
+    return [...this.tabsMap.values()];
   }
 
   // Getter for baseWindow to access from Menu

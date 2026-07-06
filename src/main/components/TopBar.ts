@@ -1,10 +1,11 @@
 import { is } from "@electron-toolkit/utils";
-import { BaseWindow, WebContentsView } from "electron";
-import { join } from "path";
+import type { BaseWindow } from "electron";
+import { WebContentsView } from "electron";
+import { join } from "node:path";
 
 export class TopBar {
-  private webContentsView: WebContentsView;
-  private baseWindow: BaseWindow;
+  private readonly webContentsView: WebContentsView;
+  private readonly baseWindow: BaseWindow;
 
   constructor(baseWindow: BaseWindow) {
     this.baseWindow = baseWindow;
@@ -16,25 +17,20 @@ export class TopBar {
   private createWebContentsView(): WebContentsView {
     const webContentsView = new WebContentsView({
       webPreferences: {
-        preload: join(__dirname, "../preload/topbar.js"),
-        nodeIntegration: false,
         contextIsolation: true,
+        nodeIntegration: false,
+        preload: join(__dirname, "../preload/topbar.js"),
         sandbox: false, // Need to disable sandbox for preload to work
       },
     });
 
     // Load the TopBar React app
-    if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
+    if (is.dev && process.env.ELECTRON_RENDERER_URL) {
       // In development, load through Vite dev server
-      const topbarUrl = new URL(
-        "/topbar/",
-        process.env["ELECTRON_RENDERER_URL"]
-      );
-      webContentsView.webContents.loadURL(topbarUrl.toString());
+      const topbarUrl = new URL("/topbar/", process.env.ELECTRON_RENDERER_URL);
+      void webContentsView.webContents.loadURL(topbarUrl.toString());
     } else {
-      webContentsView.webContents.loadFile(
-        join(__dirname, "../renderer/topbar.html")
-      );
+      void webContentsView.webContents.loadFile(join(__dirname, "../renderer/topbar.html"));
     }
 
     return webContentsView;
@@ -43,10 +39,10 @@ export class TopBar {
   private setupBounds(): void {
     const bounds = this.baseWindow.getBounds();
     this.webContentsView.setBounds({
+      height: 88, // Fixed height for topbar (40px tabs + 48px address bar)
+      width: bounds.width,
       x: 0,
       y: 0,
-      width: bounds.width,
-      height: 88, // Fixed height for topbar (40px tabs + 48px address bar)
     });
   }
 

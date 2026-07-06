@@ -1,0 +1,10 @@
+name: "Search Google for Blueberry Browser"
+steps:
+  - navigate: "https://www.google.com"
+  - wait: 1000
+  - type:
+      selector: "textarea[name='q']"
+      text: "Blueberry Browser"
+  - wait: 500
+  - screenshot: "google_search.png"
+  - agent: "Verify that the search input has the text 'Blueberry Browser' filled in."

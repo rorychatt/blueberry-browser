@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 
 export const useDarkMode = () => {
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -13,11 +13,7 @@ export const useDarkMode = () => {
 
   useEffect(() => {
     // Apply or remove dark class on document root
-    if (isDarkMode) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
+    document.documentElement.classList.toggle("dark", isDarkMode);
 
     // Save preference to localStorage
     localStorage.setItem("darkMode", JSON.stringify(isDarkMode));
@@ -40,10 +36,7 @@ export const useDarkMode = () => {
 
     return () => {
       if (window.electron) {
-        window.electron.ipcRenderer.removeListener(
-          "dark-mode-updated",
-          handleDarkModeUpdate
-        );
+        window.electron.ipcRenderer.removeListener("dark-mode-updated", handleDarkModeUpdate);
       }
     };
   }, []);

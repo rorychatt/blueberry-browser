@@ -1,15 +1,14 @@
-import { defineConfig } from "vite";
+import { defineConfig } from "vite-plus";
 import react from "@vitejs/plugin-react";
 
 export default defineConfig({
-  plugins: [react()],
   base: "./",
   build: {
-    outDir: "../../../out/renderer/topbar",
     emptyOutDir: true,
+    outDir: "../../../out/renderer/topbar",
     rollupOptions: {
       external: ["electron"],
     },
   },
+  plugins: [react()],
 });
-

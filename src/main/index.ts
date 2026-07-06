@@ -1,8 +1,8 @@
-import { app, BrowserWindow } from "electron";
+import { BrowserWindow, app } from "electron";
 import { electronApp } from "@electron-toolkit/utils";
-import { Window } from "./Window";
-import { AppMenu } from "./Menu";
-import { EventManager } from "./EventManager";
+import { Window } from "./components/Window";
+import { AppMenu } from "./components/Menu";
+import { EventManager } from "./ipc/EventManager";
 
 let mainWindow: Window | null = null;
 let eventManager: EventManager | null = null;
@@ -15,14 +15,14 @@ const createWindow = (): Window => {
   return window;
 };
 
-app.whenReady().then(() => {
+void app.whenReady().then(() => {
   electronApp.setAppUserModelId("com.electron");
 
   mainWindow = createWindow();
 
   app.on("activate", () => {
     // On macOS it's common to re-create a window in the app when the
-    // dock icon is clicked and there are no other windows open.
+    // Dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) {
       mainWindow = createWindow();
     }

@@ -2,7 +2,7 @@ import { Menu, app } from "electron";
 import type { Window } from "./Window";
 
 export class AppMenu {
-  private mainWindow: Window;
+  private readonly mainWindow: Window;
 
   constructor(mainWindow: Window) {
     this.mainWindow = mainWindow;
@@ -15,35 +15,41 @@ export class AppMenu {
         label: "File",
         submenu: [
           {
-            label: "New Tab",
             accelerator: "CmdOrCtrl+T",
-            click: () => this.handleNewTab(),
+            click: () => {
+              this.handleNewTab();
+            },
+            label: "New Tab",
           },
           {
-            label: "Close Tab",
             accelerator: "CmdOrCtrl+W",
-            click: () => this.handleCloseTab(),
+            click: () => {
+              this.handleCloseTab();
+            },
+            label: "Close Tab",
           },
           { type: "separator" },
           {
-            label: "Quit",
             accelerator: process.platform === "darwin" ? "Cmd+Q" : "Ctrl+Q",
-            click: () => app.quit(),
+            click: () => {
+              app.quit();
+            },
+            label: "Quit",
           },
         ],
       },
       {
         label: "Edit",
         submenu: [
-          { label: "Undo", accelerator: "CmdOrCtrl+Z", role: "undo" },
-          { label: "Redo", accelerator: "Shift+CmdOrCtrl+Z", role: "redo" },
+          { accelerator: "CmdOrCtrl+Z", label: "Undo", role: "undo" },
+          { accelerator: "Shift+CmdOrCtrl+Z", label: "Redo", role: "redo" },
           { type: "separator" },
-          { label: "Cut", accelerator: "CmdOrCtrl+X", role: "cut" },
-          { label: "Copy", accelerator: "CmdOrCtrl+C", role: "copy" },
-          { label: "Paste", accelerator: "CmdOrCtrl+V", role: "paste" },
+          { accelerator: "CmdOrCtrl+X", label: "Cut", role: "cut" },
+          { accelerator: "CmdOrCtrl+C", label: "Copy", role: "copy" },
+          { accelerator: "CmdOrCtrl+V", label: "Paste", role: "paste" },
           {
-            label: "Select All",
             accelerator: "CmdOrCtrl+A",
+            label: "Select All",
             role: "selectAll",
           },
         ],
@@ -52,33 +58,41 @@ export class AppMenu {
         label: "View",
         submenu: [
           {
-            label: "Reload",
             accelerator: "CmdOrCtrl+R",
-            click: () => this.handleReload(),
+            click: () => {
+              this.handleReload();
+            },
+            label: "Reload",
           },
           {
-            label: "Force Reload",
             accelerator: "CmdOrCtrl+Shift+R",
-            click: () => this.handleForceReload(),
+            click: () => {
+              this.handleForceReload();
+            },
+            label: "Force Reload",
           },
           { type: "separator" },
           {
-            label: "Toggle Sidebar",
             accelerator: "CmdOrCtrl+E",
-            click: () => this.handleToggleSidebar(),
+            click: () => {
+              this.handleToggleSidebar();
+            },
+            label: "Toggle Sidebar",
           },
           { type: "separator" },
           {
+            accelerator: process.platform === "darwin" ? "Alt+Command+I" : "Ctrl+Shift+I",
+            click: () => {
+              this.handleToggleDevTools();
+            },
             label: "Toggle Developer Tools",
-            accelerator:
-              process.platform === "darwin" ? "Alt+Command+I" : "Ctrl+Shift+I",
-            click: () => this.handleToggleDevTools(),
           },
           {
+            accelerator: process.platform === "darwin" ? "Ctrl+Command+F" : "F11",
+            click: () => {
+              this.handleToggleFullscreen();
+            },
             label: "Toggle Fullscreen",
-            accelerator:
-              process.platform === "darwin" ? "Ctrl+Command+F" : "F11",
-            click: () => this.handleToggleFullscreen(),
           },
         ],
       },
@@ -86,14 +100,18 @@ export class AppMenu {
         label: "Go",
         submenu: [
           {
-            label: "Back",
             accelerator: "CmdOrCtrl+Left",
-            click: () => this.handleGoBack(),
+            click: () => {
+              this.handleGoBack();
+            },
+            label: "Back",
           },
           {
-            label: "Forward",
             accelerator: "CmdOrCtrl+Right",
-            click: () => this.handleGoForward(),
+            click: () => {
+              this.handleGoForward();
+            },
+            label: "Forward",
           },
         ],
       },

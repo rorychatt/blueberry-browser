@@ -1,8 +1,9 @@
-import { ipcMain, WebContents } from "electron";
-import type { Window } from "./Window";
+import type { WebContents } from "electron";
+import { ipcMain } from "electron";
+import type { Window } from "../components/Window";
 
 export class EventManager {
-  private mainWindow: Window;
+  private readonly mainWindow: Window;
 
   constructor(mainWindow: Window) {
     this.mainWindow = mainWindow;
@@ -48,16 +49,16 @@ export class EventManager {
       const activeTabId = this.mainWindow.activeTab?.id;
       return this.mainWindow.allTabs.map((tab) => ({
         id: tab.id,
+        isActive: activeTabId === tab.id,
         title: tab.title,
         url: tab.url,
-        isActive: activeTabId === tab.id,
       }));
     });
 
     // Navigation (for compatibility with existing code)
     ipcMain.handle("navigate-to", (_, url: string) => {
       if (this.mainWindow.activeTab) {
-        this.mainWindow.activeTab.loadURL(url);
+        void this.mainWindow.activeTab.loadURL(url);
       }
     });
 
@@ -128,21 +129,21 @@ export class EventManager {
     ipcMain.handle("tab-run-js", async (_, tabId: string, code: string) => {
       const tab = this.mainWindow.getTab(tabId);
       if (tab) {
-        return await tab.runJs(code);
+        return tab.runJs(code);
       }
       return null;
     });
 
     // Tab info
     ipcMain.handle("get-active-tab-info", () => {
-      const activeTab = this.mainWindow.activeTab;
+      const { activeTab } = this.mainWindow;
       if (activeTab) {
         return {
-          id: activeTab.id,
-          url: activeTab.url,
-          title: activeTab.title,
           canGoBack: activeTab.webContents.canGoBack(),
           canGoForward: activeTab.webContents.canGoForward(),
+          id: activeTab.id,
+          title: activeTab.title,
+          url: activeTab.url,
         };
       }
       return null;
@@ -170,9 +171,7 @@ export class EventManager {
     });
 
     // Get messages
-    ipcMain.handle("sidebar-get-messages", () => {
-      return this.mainWindow.sidebar.client.getMessages();
-    });
+    ipcMain.handle("sidebar-get-messages", () => this.mainWindow.sidebar.client.getMessages());
   }
 
   private handlePageContentEvents(): void {
@@ -220,24 +219,20 @@ export class EventManager {
 
   private handleDebugEvents(): void {
     // Ping test
-    ipcMain.on("ping", () => console.log("pong"));
+    ipcMain.on("ping", () => {
+      console.log("pong");
+    });
   }
 
   private broadcastDarkMode(sender: WebContents, isDarkMode: boolean): void {
     // Send to topbar
     if (this.mainWindow.topBar.view.webContents !== sender) {
-      this.mainWindow.topBar.view.webContents.send(
-        "dark-mode-updated",
-        isDarkMode
-      );
+      this.mainWindow.topBar.view.webContents.send("dark-mode-updated", isDarkMode);
     }
 
     // Send to sidebar
     if (this.mainWindow.sidebar.view.webContents !== sender) {
-      this.mainWindow.sidebar.view.webContents.send(
-        "dark-mode-updated",
-        isDarkMode
-      );
+      this.mainWindow.sidebar.view.webContents.send("dark-mode-updated", isDarkMode);
     }
 
     // Send to all tabs
