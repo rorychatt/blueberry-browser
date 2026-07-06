@@ -26,6 +26,40 @@ const getFaviconUrl = (urlStr: string) => {
   }
 };
 
+const getMatchScore = (text: string, query: string): number => {
+  const target = text.toLowerCase();
+  const search = query.toLowerCase();
+
+  if (target === search) {
+    return 100;
+  }
+  if (target.startsWith(search)) {
+    return 80;
+  }
+  if (target.includes(search)) {
+    return 60;
+  }
+
+  // Subsequence / Fuzzy match
+  let searchIdx = 0;
+  let matches = 0;
+  for (let i = 0; i < target.length; i++) {
+    if (target[i] === search[searchIdx]) {
+      searchIdx++;
+      matches++;
+      if (searchIdx === search.length) {
+        break;
+      }
+    }
+  }
+
+  if (matches === search.length) {
+    return 40 - Math.min(20, target.length - search.length);
+  }
+
+  return 0;
+};
+
 export const AddressBar: React.FC = () => {
   const { activeTab, navigateToUrl, goBack, goForward, reload, isLoading, createTab } =
     useBrowser();
@@ -86,17 +120,21 @@ export const AddressBar: React.FC = () => {
     }
     const lowerQuery = url.toLowerCase();
 
-    // Filter history matching title or URL
-    const filtered = historyList.filter(
-      (entry) =>
-        (entry.title && entry.title.toLowerCase().includes(lowerQuery)) ||
-        (entry.url && entry.url.toLowerCase().includes(lowerQuery)),
-    );
+    // Score and filter history list based on query
+    const scored = historyList
+      .map((entry) => {
+        const titleScore = entry.title ? getMatchScore(entry.title, lowerQuery) : 0;
+        const urlScore = entry.url ? getMatchScore(entry.url, lowerQuery) : 0;
+        return { entry, score: Math.max(titleScore, urlScore) };
+      })
+      .filter((item) => item.score > 0)
+      .toSorted((a, b) => b.score - a.score);
 
-    // De-duplicate matching URLs
+    // De-duplicate matching URLs while preserving the sorted order
     const seenUrls = new Set<string>();
     const unique: HistoryEntry[] = [];
-    for (const entry of filtered) {
+    for (const item of scored) {
+      const entry = item.entry;
       try {
         const cleanUrl = new URL(entry.url).href;
         if (!seenUrls.has(cleanUrl)) {
@@ -371,6 +409,14 @@ export const AddressBar: React.FC = () => {
         <div className="relative">
           <ToolBarButton
             Icon={History}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              setIsEditing(false);
+              setIsFocused(false);
+              if (activeTab) {
+                setUrl(activeTab.url || "");
+              }
+            }}
             onClick={() => setIsHistoryDropdownOpen(!isHistoryDropdownOpen)}
             toggled={isHistoryDropdownOpen}
             className="hover:scale-105 transition-all duration-200"
@@ -381,6 +427,14 @@ export const AddressBar: React.FC = () => {
         </div>
         <ToolBarButton
           Icon={Settings}
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            setIsEditing(false);
+            setIsFocused(false);
+            if (activeTab) {
+              setUrl(activeTab.url || "");
+            }
+          }}
           onClick={() => createTab("blueberry://settings")}
           className="hover:rotate-45 transition-transform duration-300"
         />

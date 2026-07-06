@@ -7,6 +7,7 @@ interface ToolBarButtonProps {
   active?: boolean;
   toggled?: boolean;
   onClick?: () => void;
+  onMouseDown?: (e: React.MouseEvent<HTMLDivElement>) => void;
   children?: React.ReactNode;
   className?: string;
 }
@@ -16,6 +17,7 @@ export const ToolBarButton: React.FC<ToolBarButtonProps> = ({
   active = true,
   toggled = false,
   onClick,
+  onMouseDown,
   children,
   className,
 }) => (
@@ -29,6 +31,7 @@ export const ToolBarButton: React.FC<ToolBarButtonProps> = ({
       className,
     )}
     onClick={active ? onClick : undefined}
+    onMouseDown={active ? onMouseDown : undefined}
     tabIndex={-1}
   >
     {children || (Icon && <Icon className="size-4.5" />)}
