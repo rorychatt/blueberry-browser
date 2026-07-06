@@ -32,8 +32,8 @@ graph TD
     end
 
     subgraph local_env [Local Offline Environment]
-        AgentClient -->|HTTP API: /api/generate| LocalOllama[Ollama: qwen3.6]
-        LLMClient -->|Local API / qwen3.6| LocalOllama
+        AgentClient -->|HTTP API: /api/generate| LocalOllama[Ollama: opencode]
+        LLMClient -->|Local API / opencode| LocalOllama
         Interaction -->|Direct WebSockets CDP| HeadlessChrome[Headless / Headful Chrome]
     end
 
@@ -248,7 +248,7 @@ If a YAML file specifies a global `prompt` instead of a static sequence of `step
 1. It initializes an active `BrowserEngine` viewport and registers a randomized `job_id`.
 2. It extracts the current URL and page text context (automatically truncating deep text blocks to 5,000 characters to optimize local LLM latency).
 3. It compiles the local `E2ETest` Promptware, stitching the user's objective, compiled memory logs, and current page context into an LLM system prompt.
-4. It calls the local Ollama API (`/api/generate` using `qwen3.6`), pulling a deterministic low-temperature response.
+4. It calls the local Ollama API (`/api/generate` using `opencode`), pulling a deterministic low-temperature response.
 5. It parses the returned JSON action. If the action is a page navigation or interaction, it executes it through WebSocket CDP channels and iterates.
 6. The loop continues for up to 20 steps. At conclusion (success or failure), it outputs a final `reflection` written back to `E2ETest/memory/learnings.md` and saves the complete transcript inside `E2ETest/logs/job_*.md`.
 

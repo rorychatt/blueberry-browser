@@ -102,16 +102,16 @@ Configure your LLM provider by editing the `.env` file:
 
 Make sure you have [Ollama](https://ollama.com) installed and running on your machine.
 
-1. Download and start your model of choice (e.g. `qwen3.6` or another preferred model):
+1. Download and start your model of choice (e.g. `opencode` or another preferred model):
    ```bash
-   ollama run qwen3.6
+   ollama run opencode
    ```
 2. Set up the `.env` file:
    ```env
    LLM_PROVIDER=ollama
-   LLM_MODEL=qwen3.6
+   LLM_MODEL=opencode
    OLLAMA_ENDPOINT=http://localhost:11434
-   OLLAMA_MODEL=qwen3.6
+   OLLAMA_MODEL=opencode
    ```
 
 #### Option B: Cloud APIs (OpenAI or Anthropic)

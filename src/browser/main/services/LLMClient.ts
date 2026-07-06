@@ -32,7 +32,7 @@ type LLMProvider = "openai" | "anthropic" | "ollama";
 
 const DEFAULT_MODELS: Record<LLMProvider, string> = {
   anthropic: "claude-3-5-sonnet-20241022",
-  ollama: "qwen3.6",
+  ollama: "opencode",
   openai: "gpt-4o-mini",
 };
 
