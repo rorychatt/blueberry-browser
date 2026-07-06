@@ -12,16 +12,16 @@ pub struct TestSuite {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "lowercase")]
-pub enum TestStep {
-    Navigate(String),
-    Click(String),
-    Type(TypeStep),
-    Wait(u64),
+pub struct TestStep {
+    pub navigate: Option<String>,
+    pub click: Option<String>,
+    #[serde(rename = "type")]
+    pub type_step: Option<TypeStep>,
+    pub wait: Option<u64>,
     #[serde(rename = "wait_for")]
-    WaitFor(String),
-    Screenshot(String),
-    Agent(String),
+    pub wait_for: Option<String>,
+    pub screenshot: Option<String>,
+    pub agent: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

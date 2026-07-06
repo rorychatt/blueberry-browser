@@ -9,7 +9,7 @@ use clap::{Parser, Subcommand};
 use ollama_agent::OllamaAgent;
 use std::collections::HashMap;
 use std::time::Instant;
-use yaml_parser::{TestStep, TestSuite};
+use yaml_parser::TestSuite;
 
 #[derive(Parser)]
 #[command(name = "blueberry")]
@@ -107,118 +107,112 @@ async fn main() -> Result<()> {
                     let step_num = index + 1;
                     let step_start = Instant::now();
 
-                    match step {
-                        TestStep::Navigate(url) => {
-                            print!("  [{}] Navigate to '{}'... ", step_num, url);
-                            match browser.navigate(url).await {
-                                Ok(_) => println!("✓ ({:?})", step_start.elapsed()),
-                                Err(e) => {
-                                    println!("✗ Failed!");
-                                    println!("     Error: {}", e);
-                                    failed = true;
-                                    break;
-                                }
+                    if let Some(url) = &step.navigate {
+                        print!("  [{}] Navigate to '{}'... ", step_num, url);
+                        match browser.navigate(url).await {
+                            Ok(_) => println!("✓ ({:?})", step_start.elapsed()),
+                            Err(e) => {
+                                println!("✗ Failed!");
+                                println!("     Error: {}", e);
+                                failed = true;
+                                break;
                             }
                         }
-                        TestStep::Click(selector) => {
-                            print!("  [{}] Click element '{}'... ", step_num, selector);
-                            match browser.click(selector).await {
-                                Ok(_) => println!("✓ ({:?})", step_start.elapsed()),
-                                Err(e) => {
-                                    println!("✗ Failed!");
-                                    println!("     Error: {}", e);
-                                    failed = true;
-                                    break;
-                                }
+                    } else if let Some(selector) = &step.click {
+                        print!("  [{}] Click element '{}'... ", step_num, selector);
+                        match browser.click(selector).await {
+                            Ok(_) => println!("✓ ({:?})", step_start.elapsed()),
+                            Err(e) => {
+                                println!("✗ Failed!");
+                                println!("     Error: {}", e);
+                                failed = true;
+                                break;
                             }
                         }
-                        TestStep::Type(type_step) => {
-                            print!(
-                                "  [{}] Type '{}' into '{}'... ",
-                                step_num, type_step.text, type_step.selector
-                            );
-                            match browser
-                                .type_text(&type_step.selector, &type_step.text)
-                                .await
-                            {
-                                Ok(_) => println!("✓ ({:?})", step_start.elapsed()),
-                                Err(e) => {
-                                    println!("✗ Failed!");
-                                    println!("     Error: {}", e);
-                                    failed = true;
-                                    break;
-                                }
+                    } else if let Some(type_step) = &step.type_step {
+                        print!(
+                            "  [{}] Type '{}' into '{}'... ",
+                            step_num, type_step.text, type_step.selector
+                        );
+                        match browser
+                            .type_text(&type_step.selector, &type_step.text)
+                            .await
+                        {
+                            Ok(_) => println!("✓ ({:?})", step_start.elapsed()),
+                            Err(e) => {
+                                println!("✗ Failed!");
+                                println!("     Error: {}", e);
+                                failed = true;
+                                break;
                             }
                         }
-                        TestStep::Wait(ms) => {
-                            print!("  [{}] Wait {}ms... ", step_num, ms);
-                            browser.wait(*ms).await?;
-                            println!("✓ ({:?})", step_start.elapsed());
-                        }
-                        TestStep::WaitFor(selector) => {
-                            print!(
-                                "  [{}] Wait for element '{}' to exist... ",
-                                step_num, selector
-                            );
-                            match browser.wait_for_element(selector, 10000).await {
-                                Ok(_) => println!("✓ ({:?})", step_start.elapsed()),
-                                Err(e) => {
-                                    println!("✗ Failed!");
-                                    println!("     Error: {}", e);
-                                    failed = true;
-                                    break;
-                                }
+                    } else if let Some(ms) = &step.wait {
+                        print!("  [{}] Wait {}ms... ", step_num, ms);
+                        browser.wait(*ms).await?;
+                        println!("✓ ({:?})", step_start.elapsed());
+                    } else if let Some(selector) = &step.wait_for {
+                        print!(
+                            "  [{}] Wait for element '{}' to exist... ",
+                            step_num, selector
+                        );
+                        match browser.wait_for_element(selector, 10000).await {
+                            Ok(_) => println!("✓ ({:?})", step_start.elapsed()),
+                            Err(e) => {
+                                println!("✗ Failed!");
+                                println!("     Error: {}", e);
+                                failed = true;
+                                break;
                             }
                         }
-                        TestStep::Screenshot(path) => {
-                            print!("  [{}] Take screenshot saved to '{}'... ", step_num, path);
-                            match browser.screenshot(path).await {
-                                Ok(_) => println!("✓ ({:?})", step_start.elapsed()),
-                                Err(e) => {
-                                    println!("✗ Failed!");
-                                    println!("     Error: {}", e);
-                                    failed = true;
-                                    break;
-                                }
+                    } else if let Some(path) = &step.screenshot {
+                        print!("  [{}] Take screenshot saved to '{}'... ", step_num, path);
+                        match browser.screenshot(path).await {
+                            Ok(_) => println!("✓ ({:?})", step_start.elapsed()),
+                            Err(e) => {
+                                println!("✗ Failed!");
+                                println!("     Error: {}", e);
+                                failed = true;
+                                break;
                             }
                         }
-                        TestStep::Agent(prompt) => {
-                            print!(
-                                "  [{}] Local Ollama Agent evaluation: '{}'... ",
-                                step_num, prompt
-                            );
+                    } else if let Some(prompt) = &step.agent {
+                        print!(
+                            "  [{}] Local Ollama Agent evaluation: '{}'... ",
+                            step_num, prompt
+                        );
 
-                            // Capture text content
-                            let text_content = match browser.get_text().await {
-                                Ok(text) => text,
-                                Err(e) => {
-                                    println!("✗ Failed!");
-                                    println!("     Error retrieving page text: {}", e);
-                                    failed = true;
-                                    break;
-                                }
-                            };
+                        // Capture text content
+                        let text_content = match browser.get_text().await {
+                            Ok(text) => text,
+                            Err(e) => {
+                                println!("✗ Failed!");
+                                println!("     Error retrieving page text: {}", e);
+                                failed = true;
+                                break;
+                            }
+                        };
 
-                            match agent.assert(prompt, &text_content).await {
-                                Ok(response) => {
-                                    if response.success {
-                                        println!("✓ ({:?})", step_start.elapsed());
-                                        println!("     AI Reason: {}", response.reason);
-                                    } else {
-                                        println!("✗ Failed!");
-                                        println!("     AI Assertion Failed: {}", response.reason);
-                                        failed = true;
-                                        break;
-                                    }
-                                }
-                                Err(e) => {
+                        match agent.assert(prompt, &text_content).await {
+                            Ok(response) => {
+                                if response.success {
+                                    println!("✓ ({:?})", step_start.elapsed());
+                                    println!("     AI Reason: {}", response.reason);
+                                } else {
                                     println!("✗ Failed!");
-                                    println!("     AI Execution Error: {}", e);
+                                    println!("     AI Assertion Failed: {}", response.reason);
                                     failed = true;
                                     break;
                                 }
                             }
+                            Err(e) => {
+                                println!("✗ Failed!");
+                                println!("     AI Execution Error: {}", e);
+                                failed = true;
+                                break;
+                            }
                         }
+                    } else {
+                        println!("  [{}] ⚠️ Warning: empty or unknown step definition.", step_num);
                     }
                 }
 
