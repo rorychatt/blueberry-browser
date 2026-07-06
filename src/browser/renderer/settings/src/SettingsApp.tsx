@@ -14,6 +14,11 @@ import {
   Moon,
   Palette,
   Sliders,
+  History,
+  Search,
+  Trash2,
+  ExternalLink,
+  Clock,
 } from "lucide-react";
 
 interface ShortcutConfig {
@@ -31,6 +36,13 @@ interface AppSettings {
   landingPage: string;
   theme: "light" | "dark" | "system";
   primaryColor?: string;
+}
+
+interface HistoryEntry {
+  id: string;
+  url: string;
+  title: string;
+  timestamp: number;
 }
 
 const SHORTCUT_LABELS: Record<keyof ShortcutConfig, { label: string; desc: string }> = {
@@ -81,8 +93,23 @@ export const SettingsApp: React.FC = () => {
   const [recordingKey, setRecordingKey] = useState<keyof ShortcutConfig | null>(null);
   const [isSaved, setIsSaved] = useState(false);
   const [activeTab, setActiveTab] = useState<
-    "general" | "theming" | "shortcuts" | "about" | "shortcuts_legacy"
+    "general" | "theming" | "shortcuts" | "about" | "history" | "shortcuts_legacy"
   >("general");
+
+  // History state
+  const [historyList, setHistoryList] = useState<HistoryEntry[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const loadHistory = async () => {
+    if (window.historyAPI && window.historyAPI.getHistory) {
+      try {
+        const list = await window.historyAPI.getHistory();
+        setHistoryList(list || []);
+      } catch (err) {
+        console.error("Failed to load history list:", err);
+      }
+    }
+  };
 
   // Safe checks for platform and version info to prevent renderer crashes
   const platform = window.settingsAPI?.getPlatform ? window.settingsAPI.getPlatform() : "darwin";
@@ -94,6 +121,27 @@ export const SettingsApp: React.FC = () => {
   const [landingPage, setLandingPage] = useState<string>("https://www.google.com");
   const [selectedLandingOption, setSelectedLandingOption] = useState<string>("google");
   const [customLandingUrl, setCustomLandingUrl] = useState<string>("");
+
+  // URL hash navigation on mount
+  useEffect(() => {
+    const handleHashChange = () => {
+      if (window.location.hash === "#history") {
+        setActiveTab("history");
+      }
+    };
+    handleHashChange();
+    window.addEventListener("hashchange", handleHashChange);
+    return () => {
+      window.removeEventListener("hashchange", handleHashChange);
+    };
+  }, []);
+
+  // Fetch history when history tab is activated
+  useEffect(() => {
+    if (activeTab === "history") {
+      void loadHistory();
+    }
+  }, [activeTab]);
 
   // Load settings on mount
   useEffect(() => {
@@ -335,6 +383,18 @@ export const SettingsApp: React.FC = () => {
             </button>
 
             <button
+              onClick={() => setActiveTab("history")}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+                activeTab === "history"
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
+              }`}
+            >
+              <History className="size-4" />
+              Browsing History
+            </button>
+
+            <button
               onClick={() => setActiveTab("about")}
               className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
                 activeTab === "about"
@@ -370,7 +430,9 @@ export const SettingsApp: React.FC = () => {
                     ? "Theming Settings"
                     : activeTab === "shortcuts"
                       ? "Keyboard Shortcuts"
-                      : "About Blueberry"}
+                      : activeTab === "history"
+                        ? "Browsing History"
+                        : "About Blueberry"}
               </h2>
               <p className="text-xs text-muted-foreground">
                 {activeTab === "general"
@@ -379,7 +441,9 @@ export const SettingsApp: React.FC = () => {
                     ? "Configure your interface aesthetics, light/dark mode preference, and primary colors."
                     : activeTab === "shortcuts"
                       ? "Re-bind browser shortcuts to fully customize your browsing experience."
-                      : "Blueberry Browser build version and specifications."}
+                      : activeTab === "history"
+                        ? "Manage, search, or clear your local browsing logs and activity history."
+                        : "Blueberry Browser build version and specifications."}
               </p>
             </div>
 
@@ -873,6 +937,195 @@ export const SettingsApp: React.FC = () => {
                       </span>
                     </div>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "history" && (
+              <div className="flex flex-col gap-6 h-full pb-8">
+                {/* Search and Clear Actions Header */}
+                <div className="flex items-center justify-between gap-4">
+                  <div className="relative flex-1 max-w-md">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search history by title or URL..."
+                      className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-border bg-secondary/20 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all duration-200"
+                    />
+                    {searchQuery && (
+                      <button
+                        onClick={() => setSearchQuery("")}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground hover:text-foreground hover:scale-105 active:scale-95 transition-transform"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+
+                  {historyList.length > 0 && (
+                    <button
+                      onClick={async () => {
+                        if (
+                          confirm(
+                            "Are you sure you want to clear your entire browsing history? This action cannot be undone.",
+                          )
+                        ) {
+                          if (window.historyAPI && window.historyAPI.clearHistory) {
+                            await window.historyAPI.clearHistory();
+                            void loadHistory();
+                          }
+                        }
+                      }}
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-rose-500/30 hover:border-rose-500/50 bg-rose-500/5 hover:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-bold transition-all duration-200"
+                    >
+                      <Trash2 className="size-4" />
+                      Clear History
+                    </button>
+                  )}
+                </div>
+
+                {/* Date-grouped History List */}
+                <div className="flex-1 overflow-y-auto pr-2 flex flex-col gap-6">
+                  {(() => {
+                    const filtered = historyList.filter((entry) => {
+                      const q = searchQuery.toLowerCase().trim();
+                      if (!q) return true;
+                      return (
+                        (entry.title || "").toLowerCase().includes(q) ||
+                        (entry.url || "").toLowerCase().includes(q)
+                      );
+                    });
+
+                    if (filtered.length === 0) {
+                      return (
+                        <div className="flex flex-col items-center justify-center p-12 rounded-2xl border border-dashed border-border bg-secondary/10 text-center animate-fade-in">
+                          <div className="p-4 rounded-full bg-secondary/50 text-muted-foreground mb-4">
+                            <Clock className="size-8" />
+                          </div>
+                          <h4 className="text-sm font-bold text-foreground">No History Found</h4>
+                          <p className="text-xs text-muted-foreground max-w-xs mt-1">
+                            {searchQuery
+                              ? `No browsing history matches "${searchQuery}". Try searching for something else.`
+                              : "Pages you visit will show up here, letting you search and find them easily."}
+                          </p>
+                        </div>
+                      );
+                    }
+
+                    const grouped = {
+                      Today: [] as HistoryEntry[],
+                      Yesterday: [] as HistoryEntry[],
+                      "Last 7 Days": [] as HistoryEntry[],
+                      Older: [] as HistoryEntry[],
+                    };
+
+                    const now = new Date();
+                    const todayStart = new Date(
+                      now.getFullYear(),
+                      now.getMonth(),
+                      now.getDate(),
+                    ).getTime();
+                    const yesterdayStart = todayStart - 24 * 60 * 60 * 1000;
+                    const sevenDaysAgoStart = todayStart - 6 * 24 * 60 * 60 * 1000;
+
+                    filtered.forEach((entry) => {
+                      const t = entry.timestamp;
+                      if (t >= todayStart) {
+                        grouped.Today.push(entry);
+                      } else if (t >= yesterdayStart) {
+                        grouped.Yesterday.push(entry);
+                      } else if (t >= sevenDaysAgoStart) {
+                        grouped["Last 7 Days"].push(entry);
+                      } else {
+                        grouped.Older.push(entry);
+                      }
+                    });
+
+                    return (Object.keys(grouped) as Array<keyof typeof grouped>).map(
+                      (groupName) => {
+                        const entries = grouped[groupName];
+                        if (entries.length === 0) return null;
+
+                        return (
+                          <div key={groupName} className="flex flex-col gap-2 animate-fade-in">
+                            <h3 className="text-[11px] font-bold uppercase tracking-wider text-primary px-1">
+                              {groupName}
+                            </h3>
+                            <div className="border border-border/30 rounded-2xl overflow-hidden bg-secondary/10 divide-y divide-border/30 shadow-sm">
+                              {entries.map((entry) => {
+                                const dateStr = new Date(entry.timestamp).toLocaleTimeString([], {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                });
+
+                                return (
+                                  <div
+                                    key={entry.id}
+                                    className="flex items-center justify-between gap-4 p-4 hover:bg-secondary/30 transition-colors duration-150 group"
+                                  >
+                                    <div className="flex-1 min-w-0 flex items-center gap-3">
+                                      <span className="text-xs font-mono font-semibold text-muted-foreground select-none shrink-0 w-11">
+                                        {dateStr}
+                                      </span>
+                                      <div className="min-w-0">
+                                        <h4 className="text-sm font-bold text-foreground truncate group-hover:text-primary transition-colors duration-150">
+                                          {entry.title || "New Tab"}
+                                        </h4>
+                                        <p className="text-xs text-muted-foreground truncate font-mono mt-0.5 max-w-md">
+                                          {entry.url}
+                                        </p>
+                                      </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150 shrink-0">
+                                      <button
+                                        onClick={() => {
+                                          if (window.electron && window.electron.ipcRenderer) {
+                                            void window.electron.ipcRenderer.invoke(
+                                              "create-tab",
+                                              entry.url,
+                                            );
+                                          } else {
+                                            window.open(entry.url, "_blank");
+                                          }
+                                        }}
+                                        title="Open in New Tab"
+                                        className="p-1.5 rounded-lg border border-border/40 hover:border-primary/30 bg-card hover:bg-primary/5 text-muted-foreground hover:text-primary hover:scale-105 active:scale-95 transition-all duration-150"
+                                      >
+                                        <ExternalLink className="size-3.5" />
+                                      </button>
+                                      <button
+                                        onClick={async () => {
+                                          if (
+                                            window.historyAPI &&
+                                            window.historyAPI.deleteHistoryEntry
+                                          ) {
+                                            const success =
+                                              await window.historyAPI.deleteHistoryEntry(entry.id);
+                                            if (success) {
+                                              setHistoryList((prev) =>
+                                                prev.filter((item) => item.id !== entry.id),
+                                              );
+                                            }
+                                          }
+                                        }}
+                                        title="Delete from History"
+                                        className="p-1.5 rounded-lg border border-border/40 hover:border-rose-500/30 bg-card hover:bg-rose-500/5 text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400 hover:scale-105 active:scale-95 transition-all duration-150"
+                                      >
+                                        <Trash2 className="size-3.5" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      },
+                    );
+                  })()}
                 </div>
               </div>
             )}
