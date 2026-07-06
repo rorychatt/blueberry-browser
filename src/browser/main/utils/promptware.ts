@@ -201,11 +201,7 @@ export async function saveReflectionMemory(
     // Add the new entry
     entries.push(fullRefContent.trim());
 
-    // Keep only the most recent 5 entries (sliding window)
-    const maxEntries = 5;
-    const prunedEntries = entries.slice(-maxEntries);
-
-    const updatedContent = `${prunedEntries.join("\n\n---\n\n")}\n`;
+    const updatedContent = `${entries.join("\n\n---\n\n")}\n`;
     await fs.writeFile(filePath, updatedContent, "utf8");
   } else {
     await fs.writeFile(filePath, `${fullRefContent.trim()}\n`, "utf8");
