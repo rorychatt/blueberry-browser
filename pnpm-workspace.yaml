@@ -1,10 +1,11 @@
 allowBuilds:
-  electron: set this to true or false
-  esbuild: set this to true or false
+  electron: true
+  electron-winstaller: true
+  esbuild: true
 catalog:
-  vite: npm:@voidzero-dev/vite-plus-core@latest
+  vite: npm:@voidzero-dev/vite-plus-core@0.2.2
   vitest: 4.1.9
-  vite-plus: latest
+  vite-plus: 0.2.2
 overrides:
   vite: "catalog:"
   vitest: "catalog:"

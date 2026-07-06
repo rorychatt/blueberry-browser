@@ -14,3 +14,10 @@ Docs are local at `node_modules/vite-plus/docs` or online at https://viteplus.de
 - [ ] If setup, runtime, or package-manager behavior looks wrong, run `vp env doctor` and include its output when asking for help.
 
 <!--VITE PLUS END-->
+
+# Package Dependency Versioning Rule
+
+- **Only Fixed Versions Allowed**: In all projects across this workspace (such as in `package.json` files, `pnpm-workspace.yaml` catalogs, or `Cargo.toml` Rust dependencies), always use exact, fixed versions.
+  - Do not use carets (`^`), tildes (`~`), or dynamic versions like `latest`.
+  - In Node/npm/pnpm, specify exact versions like `"1.2.3"`.
+  - In Rust/Cargo, specify exact versions prepended with the exact version modifier, like `"=1.2.3"`.
