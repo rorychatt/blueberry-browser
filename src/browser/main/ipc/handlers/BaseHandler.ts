@@ -1,4 +1,4 @@
-import type { Window } from "../../components/Window";
+import { Window } from "../../components/Window";
 
 export interface IpcHandler {
   register(): void;

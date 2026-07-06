@@ -285,7 +285,10 @@ export class BrowserSkills {
         }
 
         case "navigate": {
-          const url = params.url;
+          let url = (params.url || "").trim();
+          // Strip any leading/trailing single/double quotes (sometimes output by LLMs)
+          url = url.replace(/^['"\s]+|['"\s]+$/g, "");
+
           if (!url) {
             return {
               success: false,
@@ -293,6 +296,12 @@ export class BrowserSkills {
               stateChanged: false,
             };
           }
+
+          // Ensure URL has a valid scheme (e.g. http://, https://, file://)
+          if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(url)) {
+            url = "https://" + url;
+          }
+
           const tab = window.activeTab;
           if (!tab) {
             return {
