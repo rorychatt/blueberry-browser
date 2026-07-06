@@ -70,10 +70,11 @@
 @layer base {
   * {
     box-sizing: border-box;
+    transition:
+      background-color 0.2s ease,
+      border-color 0.2s ease;
   }
-}
 
-@layer base {
   body {
     font-family:
       "Plus Jakarta Sans",
