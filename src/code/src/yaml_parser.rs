@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::Read;
@@ -32,9 +32,9 @@ pub struct TypeStep {
 
 impl TestSuite {
     pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let mut file = File::open(path)
-            .map_err(|e| anyhow!("Failed to open YAML test file: {}", e))?;
-        
+        let mut file =
+            File::open(path).map_err(|e| anyhow!("Failed to open YAML test file: {}", e))?;
+
         let mut contents = String::new();
         file.read_to_string(&mut contents)
             .map_err(|e| anyhow!("Failed to read YAML test file: {}", e))?;

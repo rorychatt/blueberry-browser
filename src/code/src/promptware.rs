@@ -1,12 +1,12 @@
-use anyhow::{anyhow, Result};
+use crate::browser::BrowserEngine;
+use crate::ollama_agent::OllamaAgent;
+use anyhow::{Result, anyhow};
+use chrono::Utc;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::time::Instant;
-use chrono::Utc;
-use crate::browser::BrowserEngine;
-use crate::ollama_agent::OllamaAgent;
 
 #[derive(Debug, Deserialize)]
 pub struct PromptwareAction {
@@ -50,11 +50,19 @@ pub fn read_memory(promptware_name: &str, filename: &str) -> Result<String> {
 
     if !file_path.exists() {
         // Try capital Memory
-        let alt_path = promptwares_dir.join(promptware_name).join("Memory").join(filename);
+        let alt_path = promptwares_dir
+            .join(promptware_name)
+            .join("Memory")
+            .join(filename);
         if alt_path.exists() {
-            return fs::read_to_string(alt_path).map_err(|e| anyhow!("Failed to read memory file: {}", e));
+            return fs::read_to_string(alt_path)
+                .map_err(|e| anyhow!("Failed to read memory file: {}", e));
         }
-        return Err(anyhow!("Memory file '{}' not found in promptware '{}'", filename, promptware_name));
+        return Err(anyhow!(
+            "Memory file '{}' not found in promptware '{}'",
+            filename,
+            promptware_name
+        ));
     }
 
     fs::read_to_string(file_path).map_err(|e| anyhow!("Failed to read memory file: {}", e))
@@ -67,8 +75,7 @@ pub fn write_memory(promptware_name: &str, filename: &str, content: &str) -> Res
         .map_err(|e| anyhow!("Failed to create memory directory: {}", e))?;
 
     let file_path = memory_dir.join(filename);
-    fs::write(&file_path, content)
-        .map_err(|e| anyhow!("Failed to write memory file: {}", e))?;
+    fs::write(&file_path, content).map_err(|e| anyhow!("Failed to write memory file: {}", e))?;
 
     Ok(())
 }
@@ -76,12 +83,10 @@ pub fn write_memory(promptware_name: &str, filename: &str, content: &str) -> Res
 pub fn write_log(promptware_name: &str, job_id: &str, content: &str) -> Result<()> {
     let promptwares_dir = find_promptwares_dir();
     let logs_dir = promptwares_dir.join(promptware_name).join("logs");
-    fs::create_dir_all(&logs_dir)
-        .map_err(|e| anyhow!("Failed to create logs directory: {}", e))?;
+    fs::create_dir_all(&logs_dir).map_err(|e| anyhow!("Failed to create logs directory: {}", e))?;
 
     let file_path = logs_dir.join(format!("{}.md", job_id));
-    fs::write(&file_path, content)
-        .map_err(|e| anyhow!("Failed to write log file: {}", e))?;
+    fs::write(&file_path, content).map_err(|e| anyhow!("Failed to write log file: {}", e))?;
 
     Ok(())
 }
@@ -92,24 +97,27 @@ pub fn compile_prompt_system_and_user(
 ) -> Result<(String, String)> {
     let promptwares_dir = find_promptwares_dir();
     let folder = promptwares_dir.join(promptware_name);
-    
+
     // Try system_prompt.md, fallback to Program.md
     let mut system_md_path = folder.join("system_prompt.md");
     if !system_md_path.exists() {
         system_md_path = folder.join("Program.md");
     }
-    
+
     if !system_md_path.exists() {
-        return Err(anyhow!("Neither system_prompt.md nor Program.md found at {:?}", folder));
+        return Err(anyhow!(
+            "Neither system_prompt.md nor Program.md found at {:?}",
+            folder
+        ));
     }
-    
+
     let system_instructions = fs::read_to_string(&system_md_path)
         .map_err(|e| anyhow!("Failed to read system instructions file: {}", e))?;
 
     // Load Memory files
     let mut memory_files = Vec::new();
     let mut memory_contents = String::new();
-    
+
     let memory_dir = folder.join("memory");
     let memory_dir_alt = folder.join("Memory");
     let active_memory_dir = if memory_dir.exists() {
@@ -129,7 +137,10 @@ pub fn compile_prompt_system_and_user(
                         if filename != ".gitkeep" {
                             memory_files.push(filename.to_string());
                             if let Ok(content) = fs::read_to_string(&path) {
-                                memory_contents.push_str(&format!("### File: {}\n\n{}\n\n---\n\n", filename, content));
+                                memory_contents.push_str(&format!(
+                                    "### File: {}\n\n{}\n\n---\n\n",
+                                    filename, content
+                                ));
                             }
                         }
                     }
@@ -151,7 +162,7 @@ pub fn compile_prompt_system_and_user(
     };
 
     let system_prompt = format!(
-r#"You are an agentic application that evolves over time.
+        r#"You are an agentic application that evolves over time.
 
 This prompt is your Firmware and is never allowed to change.
 
@@ -186,11 +197,7 @@ When you return your final JSON response, provide a `reflection` field containin
 
 {}
 "#,
-        folder,
-        memory_files_listing,
-        memory_contents_section,
-        promptware_name,
-        system_instructions
+        folder, memory_files_listing, memory_contents_section, promptware_name, system_instructions
     );
 
     // Now load user prompt
@@ -198,7 +205,7 @@ When you return your final JSON response, provide a `reflection` field containin
     let user_prompt = if user_md_path.exists() {
         let user_template = fs::read_to_string(&user_md_path)
             .map_err(|e| anyhow!("Failed to read user_prompt.md: {}", e))?;
-        
+
         let mut compiled_user = user_template;
         for (key, val) in values {
             compiled_user = compiled_user.replace(&format!("{{{{{}}}}}", key), val);
@@ -213,7 +220,7 @@ When you return your final JSON response, provide a `reflection` field containin
 
         let mut header_keys: Vec<&String> = headers.keys().collect();
         header_keys.sort();
-        
+
         let mut header_str = String::new();
         for key in header_keys {
             if let Some(val) = headers.get(key) {
@@ -244,7 +251,11 @@ fn clean_json_response(output: &str) -> &str {
     text.trim()
 }
 
-pub async fn run_e2e_loop(browser: &BrowserEngine, agent: &OllamaAgent, test_prompt: &str) -> Result<()> {
+pub async fn run_e2e_loop(
+    browser: &BrowserEngine,
+    agent: &OllamaAgent,
+    test_prompt: &str,
+) -> Result<()> {
     let start_time = Instant::now();
     let job_id = format!("job_{}", Utc::now().format("%Y%m%d_%H%M%S"));
     println!("🤖 Promptware Agent running E2ETest (Job ID: {})", job_id);
@@ -252,12 +263,21 @@ pub async fn run_e2e_loop(browser: &BrowserEngine, agent: &OllamaAgent, test_pro
     println!("--------------------------------------------------");
 
     let mut step_num = 1;
-    let mut accumulated_log = format!("# E2ETest Promptware Job Log ({})\n\n- **Target Goal**: {}\n- **Started At**: {}\n\n## Steps\n\n", job_id, test_prompt, Utc::now().to_rfc3339());
+    let mut accumulated_log = format!(
+        "# E2ETest Promptware Job Log ({})\n\n- **Target Goal**: {}\n- **Started At**: {}\n\n## Steps\n\n",
+        job_id,
+        test_prompt,
+        Utc::now().to_rfc3339()
+    );
 
     loop {
         if step_num > 20 {
-            let err_msg = "Execution stopped: exceeded maximum steps limit of 20 to prevent infinite loop.";
-            accumulated_log.push_str(&format!("\n### ❌ Execution Stopped\n\nError: {}\n", err_msg));
+            let err_msg =
+                "Execution stopped: exceeded maximum steps limit of 20 to prevent infinite loop.";
+            accumulated_log.push_str(&format!(
+                "\n### ❌ Execution Stopped\n\nError: {}\n",
+                err_msg
+            ));
             let _ = write_log("E2ETest", &job_id, &accumulated_log);
             return Err(anyhow!(err_msg));
         }
@@ -266,8 +286,11 @@ pub async fn run_e2e_loop(browser: &BrowserEngine, agent: &OllamaAgent, test_pro
         println!("  [Step {}] Reading page context...", step_num);
 
         let current_url_val = browser.run_js("window.location.href").await?;
-        let current_url = current_url_val.as_str().unwrap_or("about:blank").to_string();
-        
+        let current_url = current_url_val
+            .as_str()
+            .unwrap_or("about:blank")
+            .to_string();
+
         let page_text = match browser.get_text().await {
             Ok(text) => text,
             Err(_) => "".to_string(),
@@ -275,7 +298,11 @@ pub async fn run_e2e_loop(browser: &BrowserEngine, agent: &OllamaAgent, test_pro
 
         // Truncate page text context to 5000 characters to keep it extremely fast and lightweight
         let page_text_truncated = if page_text.len() > 5000 {
-            format!("{}... (truncated, total length: {} characters)", &page_text[0..5000], page_text.len())
+            format!(
+                "{}... (truncated, total length: {} characters)",
+                &page_text[0..5000],
+                page_text.len()
+            )
         } else {
             page_text.clone()
         };
@@ -287,27 +314,45 @@ pub async fn run_e2e_loop(browser: &BrowserEngine, agent: &OllamaAgent, test_pro
 
         let (system_prompt, user_prompt) = compile_prompt_system_and_user("E2ETest", &values)?;
 
-        println!("  [Step {}] Evaluating next action using local Ollama model...", step_num);
-        let response_raw = agent.generate_with_system(&system_prompt, &user_prompt).await?;
+        println!(
+            "  [Step {}] Evaluating next action using local Ollama model...",
+            step_num
+        );
+        let response_raw = agent
+            .generate_with_system(&system_prompt, &user_prompt)
+            .await?;
         let cleaned_json = clean_json_response(&response_raw);
 
         let action: PromptwareAction = match serde_json::from_str(cleaned_json) {
             Ok(act) => act,
             Err(e) => {
-                println!("  [Step {}] ❌ Failed to parse JSON response from LLM!", step_num);
+                println!(
+                    "  [Step {}] ❌ Failed to parse JSON response from LLM!",
+                    step_num
+                );
                 println!("     Raw Output:\n---\n{}\n---", response_raw);
                 accumulated_log.push_str(&format!(
                     "### Step {}\n- **Current URL**: {}\n- **Error**: Failed to parse JSON response: {}\n- **Raw Model Response**:\n```\n{}\n```\n\n",
                     step_num, current_url, e, response_raw
                 ));
                 let _ = write_log("E2ETest", &job_id, &accumulated_log);
-                return Err(anyhow!("Failed to parse action JSON: {}. Model output: '{}'", e, cleaned_json));
+                return Err(anyhow!(
+                    "Failed to parse action JSON: {}. Model output: '{}'",
+                    e,
+                    cleaned_json
+                ));
             }
         };
 
         let action_name = action.action.to_lowercase();
-        let reason = action.reason.clone().unwrap_or_else(|| "No reason provided.".to_string());
-        println!("  [Step {}] Action decided: '{}' (reason: '{}')", step_num, action_name, reason);
+        let reason = action
+            .reason
+            .clone()
+            .unwrap_or_else(|| "No reason provided.".to_string());
+        println!(
+            "  [Step {}] Action decided: '{}' (reason: '{}')",
+            step_num, action_name, reason
+        );
 
         accumulated_log.push_str(&format!(
             "### Step {}\n- **Current URL**: {}\n- **Action**: `{}`\n- **Reason**: {}\n- **Elapsed**: {:?}\n\n",
@@ -317,32 +362,53 @@ pub async fn run_e2e_loop(browser: &BrowserEngine, agent: &OllamaAgent, test_pro
         // If a reflection/learning was generated, let's write it to memory!
         if let Some(ref_content) = &action.reflection {
             if !ref_content.trim().is_empty() {
-                let ref_filename = format!("reflection_{}_{}.md", Utc::now().format("%Y%m%d_%H%M%S"), step_num);
+                let ref_filename = format!(
+                    "reflection_{}_{}.md",
+                    Utc::now().format("%Y%m%d_%H%M%S"),
+                    step_num
+                );
                 let full_ref_content = format!(
                     "# Reflection - Step {}\n\n- **Prompt**: {}\n- **Action**: {}\n- **Reason**: {}\n- **Reflection/Learning**:\n{}\n",
                     step_num, test_prompt, action_name, reason, ref_content
                 );
                 let _ = write_memory("E2ETest", &ref_filename, &full_ref_content);
-                println!("  [Step {}] 💡 Saved learning reflection to memory: {}", step_num, ref_filename);
+                println!(
+                    "  [Step {}] 💡 Saved learning reflection to memory: {}",
+                    step_num, ref_filename
+                );
                 accumulated_log.push_str(&format!("- **💡 Learning Saved**: {}\n\n", ref_filename));
             }
         }
 
         match action_name.as_str() {
             "navigate" => {
-                let url = action.url.ok_or_else(|| anyhow!("Action 'navigate' requires a 'url' field"))?;
+                let url = action
+                    .url
+                    .ok_or_else(|| anyhow!("Action 'navigate' requires a 'url' field"))?;
                 println!("  [Step {}] 🌐 Navigating to '{}'...", step_num, url);
                 browser.navigate(&url).await?;
             }
             "click" => {
-                let selector = action.selector.ok_or_else(|| anyhow!("Action 'click' requires a 'selector' field"))?;
-                println!("  [Step {}] 🖱️ Clicking element '{}'...", step_num, selector);
+                let selector = action
+                    .selector
+                    .ok_or_else(|| anyhow!("Action 'click' requires a 'selector' field"))?;
+                println!(
+                    "  [Step {}] 🖱️ Clicking element '{}'...",
+                    step_num, selector
+                );
                 browser.click(&selector).await?;
             }
             "type" => {
-                let selector = action.selector.ok_or_else(|| anyhow!("Action 'type' requires a 'selector' field"))?;
-                let text = action.text.ok_or_else(|| anyhow!("Action 'type' requires a 'text' field"))?;
-                println!("  [Step {}] ⌨️ Typing '{}' into '{}'...", step_num, text, selector);
+                let selector = action
+                    .selector
+                    .ok_or_else(|| anyhow!("Action 'type' requires a 'selector' field"))?;
+                let text = action
+                    .text
+                    .ok_or_else(|| anyhow!("Action 'type' requires a 'text' field"))?;
+                println!(
+                    "  [Step {}] ⌨️ Typing '{}' into '{}'...",
+                    step_num, text, selector
+                );
                 browser.type_text(&selector, &text).await?;
             }
             "wait" => {
@@ -351,19 +417,36 @@ pub async fn run_e2e_loop(browser: &BrowserEngine, agent: &OllamaAgent, test_pro
                 browser.wait(ms).await?;
             }
             "wait_for" => {
-                let selector = action.selector.ok_or_else(|| anyhow!("Action 'wait_for' requires a 'selector' field"))?;
-                println!("  [Step {}] 🔍 Waiting for element '{}'...", step_num, selector);
+                let selector = action
+                    .selector
+                    .ok_or_else(|| anyhow!("Action 'wait_for' requires a 'selector' field"))?;
+                println!(
+                    "  [Step {}] 🔍 Waiting for element '{}'...",
+                    step_num, selector
+                );
                 browser.wait_for_element(&selector, 10000).await?;
             }
             "screenshot" => {
-                let path = action.selector.or(action.text).unwrap_or_else(|| "tests/screenshot.png".to_string());
-                println!("  [Step {}] 📸 Taking screenshot saved to '{}'...", step_num, path);
+                let path = action
+                    .selector
+                    .or(action.text)
+                    .unwrap_or_else(|| "tests/screenshot.png".to_string());
+                println!(
+                    "  [Step {}] 📸 Taking screenshot saved to '{}'...",
+                    step_num, path
+                );
                 browser.screenshot(&path).await?;
             }
             "complete" => {
                 println!("--------------------------------------------------");
-                println!("🎉 Promptware E2ETest Goal ACHIEVED in {:?}", start_time.elapsed());
-                accumulated_log.push_str(&format!("\n## 🎉 Goal Achieved Successfully\n\nPassed in {:?}", start_time.elapsed()));
+                println!(
+                    "🎉 Promptware E2ETest Goal ACHIEVED in {:?}",
+                    start_time.elapsed()
+                );
+                accumulated_log.push_str(&format!(
+                    "\n## 🎉 Goal Achieved Successfully\n\nPassed in {:?}",
+                    start_time.elapsed()
+                ));
                 let _ = write_log("E2ETest", &job_id, &accumulated_log);
                 return Ok(());
             }
@@ -372,7 +455,10 @@ pub async fn run_e2e_loop(browser: &BrowserEngine, agent: &OllamaAgent, test_pro
                 println!("❌ Promptware E2ETest Goal FAILED: {}", reason);
                 accumulated_log.push_str(&format!("\n## ❌ Goal Failed\n\nReason: {}\n", reason));
                 let _ = write_log("E2ETest", &job_id, &accumulated_log);
-                return Err(anyhow!("Goal declared as failed by agent. Reason: {}", reason));
+                return Err(anyhow!(
+                    "Goal declared as failed by agent. Reason: {}",
+                    reason
+                ));
             }
             _ => {
                 let err_msg = format!("Unknown action: '{}'", action_name);
@@ -384,5 +470,116 @@ pub async fn run_e2e_loop(browser: &BrowserEngine, agent: &OllamaAgent, test_pro
 
         step_num += 1;
         println!();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    fn cleanup(name: &str) {
+        let test_dir = find_promptwares_dir().join(name);
+        if test_dir.exists() {
+            let _ = fs::remove_dir_all(&test_dir);
+        }
+    }
+
+    #[test]
+    fn test_write_and_read_memory() {
+        let test_name = "__test_promptware_memory_cli__";
+        cleanup(test_name);
+
+        let filename = "test_memory.md";
+        let content = "# Test Memory Content\nThis is a test of promptware memory.";
+
+        // Write memory
+        let write_res = write_memory(test_name, filename, content);
+        assert!(write_res.is_ok(), "Failed to write memory");
+
+        // Verify the file was actually created in the correct location
+        let promptwares_dir = find_promptwares_dir();
+        let expected_path = promptwares_dir
+            .join(test_name)
+            .join("memory")
+            .join(filename);
+        assert!(
+            expected_path.exists(),
+            "Memory file was not created on disk"
+        );
+
+        // Read memory back
+        let read_res = read_memory(test_name, filename);
+        assert!(read_res.is_ok(), "Failed to read memory");
+        assert_eq!(read_res.unwrap(), content);
+
+        cleanup(test_name);
+    }
+
+    #[test]
+    fn test_write_log() {
+        let test_name = "__test_promptware_log_cli__";
+        cleanup(test_name);
+
+        let job_id = "test_job_123456";
+        let content = "# E2ETest Promptware Test Log\n- Step 1: Ok";
+
+        // Write log
+        let write_res = write_log(test_name, job_id, content);
+        assert!(write_res.is_ok(), "Failed to write log");
+
+        // Verify the log file was actually created on disk
+        let promptwares_dir = find_promptwares_dir();
+        let expected_path = promptwares_dir
+            .join(test_name)
+            .join("logs")
+            .join(format!("{}.md", job_id));
+        assert!(expected_path.exists(), "Log file was not created on disk");
+
+        // Verify log contents are correct
+        let read_content =
+            fs::read_to_string(&expected_path).expect("Failed to read log file back");
+        assert_eq!(read_content, content);
+
+        cleanup(test_name);
+    }
+
+    #[test]
+    fn test_compile_prompt_system_and_user() {
+        let test_name = "__test_promptware_compile_cli__";
+        cleanup(test_name);
+
+        let promptwares_dir = find_promptwares_dir();
+        let folder = promptwares_dir.join(test_name);
+        fs::create_dir_all(&folder).expect("Failed to create test folder");
+
+        // Write mock system_prompt.md and user_prompt.md
+        let system_prompt_content =
+            "This is a custom system instruction. Let's do this: {{Prompt}}";
+        let user_prompt_content = "Please perform: {{Prompt}} at {{CurrentUrl}}";
+
+        fs::write(folder.join("system_prompt.md"), system_prompt_content)
+            .expect("Failed to write system prompt");
+        fs::write(folder.join("user_prompt.md"), user_prompt_content)
+            .expect("Failed to write user prompt");
+
+        let mut values = HashMap::new();
+        values.insert("Prompt".to_string(), "Click Submit".to_string());
+        values.insert("CurrentUrl".to_string(), "https://example.com".to_string());
+
+        let compile_res = compile_prompt_system_and_user(test_name, &values);
+        assert!(compile_res.is_ok(), "Failed to compile prompt");
+
+        let (system_compiled, user_compiled) = compile_res.unwrap();
+
+        // System prompt contains the file list and accumulated memories sections, plus system_instructions
+        assert!(system_compiled.contains("This is a custom system instruction."));
+        // User prompt has replaced template variables
+        assert_eq!(
+            user_compiled,
+            "Please perform: Click Submit at https://example.com"
+        );
+
+        cleanup(test_name);
     }
 }

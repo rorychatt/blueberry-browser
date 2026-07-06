@@ -3,13 +3,13 @@ mod ollama_agent;
 mod promptware;
 mod yaml_parser;
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use browser::BrowserEngine;
 use clap::{Parser, Subcommand};
 use ollama_agent::OllamaAgent;
 use std::collections::HashMap;
 use std::time::Instant;
-use yaml_parser::{TestSuite, TestStep};
+use yaml_parser::{TestStep, TestSuite};
 
 #[derive(Parser)]
 #[command(name = "blueberry")]
@@ -81,11 +81,18 @@ async fn main() -> Result<()> {
             let suite_start = Instant::now();
 
             if let Some(prompt_text) = &suite.prompt {
-                println!("🎯 Running Promptware-based E2E Test Agent with goal: '{}'", prompt_text);
+                println!(
+                    "🎯 Running Promptware-based E2E Test Agent with goal: '{}'",
+                    prompt_text
+                );
                 match promptware::run_e2e_loop(&browser, &agent, prompt_text).await {
                     Ok(_) => {
                         println!("--------------------------------------------------");
-                        println!("🎉 Test Suite '{}' PASSED successfully in {:?}", suite.name, suite_start.elapsed());
+                        println!(
+                            "🎉 Test Suite '{}' PASSED successfully in {:?}",
+                            suite.name,
+                            suite_start.elapsed()
+                        );
                     }
                     Err(e) => {
                         println!("--------------------------------------------------");
@@ -130,7 +137,10 @@ async fn main() -> Result<()> {
                                 "  [{}] Type '{}' into '{}'... ",
                                 step_num, type_step.text, type_step.selector
                             );
-                            match browser.type_text(&type_step.selector, &type_step.text).await {
+                            match browser
+                                .type_text(&type_step.selector, &type_step.text)
+                                .await
+                            {
                                 Ok(_) => println!("✓ ({:?})", step_start.elapsed()),
                                 Err(e) => {
                                     println!("✗ Failed!");
@@ -146,7 +156,10 @@ async fn main() -> Result<()> {
                             println!("✓ ({:?})", step_start.elapsed());
                         }
                         TestStep::WaitFor(selector) => {
-                            print!("  [{}] Wait for element '{}' to exist... ", step_num, selector);
+                            print!(
+                                "  [{}] Wait for element '{}' to exist... ",
+                                step_num, selector
+                            );
                             match browser.wait_for_element(selector, 10000).await {
                                 Ok(_) => println!("✓ ({:?})", step_start.elapsed()),
                                 Err(e) => {
@@ -170,8 +183,11 @@ async fn main() -> Result<()> {
                             }
                         }
                         TestStep::Agent(prompt) => {
-                            print!("  [{}] Local Ollama Agent evaluation: '{}'... ", step_num, prompt);
-                            
+                            print!(
+                                "  [{}] Local Ollama Agent evaluation: '{}'... ",
+                                step_num, prompt
+                            );
+
                             // Capture text content
                             let text_content = match browser.get_text().await {
                                 Ok(text) => text,
@@ -208,20 +224,37 @@ async fn main() -> Result<()> {
 
                 println!("--------------------------------------------------");
                 if failed {
-                    println!("❌ Test Suite '{}' FAILED in {:?}", suite.name, suite_start.elapsed());
+                    println!(
+                        "❌ Test Suite '{}' FAILED in {:?}",
+                        suite.name,
+                        suite_start.elapsed()
+                    );
                     std::process::exit(1);
                 } else {
-                    println!("🎉 Test Suite '{}' PASSED successfully in {:?}", suite.name, suite_start.elapsed());
+                    println!(
+                        "🎉 Test Suite '{}' PASSED successfully in {:?}",
+                        suite.name,
+                        suite_start.elapsed()
+                    );
                 }
             } else {
-                return Err(anyhow!("Test suite must contain either 'prompt' or 'steps'"));
+                return Err(anyhow!(
+                    "Test suite must contain either 'prompt' or 'steps'"
+                ));
             }
         }
-        Commands::Agent { prompt, context_file } => {
+        Commands::Agent {
+            prompt,
+            context_file,
+        } => {
             println!("🤖 Offline Agent Assertion Engine");
             let context = match context_file {
                 Some(file) => std::fs::read_to_string(file)?,
-                None => return Err(anyhow!("Context file must be provided in manual agent execution mode.")),
+                None => {
+                    return Err(anyhow!(
+                        "Context file must be provided in manual agent execution mode."
+                    ));
+                }
             };
 
             let agent = OllamaAgent::new();
@@ -247,11 +280,87 @@ async fn main() -> Result<()> {
             let content = promptware::read_memory(&name, &filename)?;
             println!("{}", content);
         }
-        Commands::PromptwareWriteMemory { name, filename, content } => {
+        Commands::PromptwareWriteMemory {
+            name,
+            filename,
+            content,
+        } => {
             promptware::write_memory(&name, &filename, &content)?;
-            println!("✓ Memory saved successfully under {}/memory/{}", name, filename);
+            println!(
+                "✓ Memory saved successfully under {}/memory/{}",
+                name, filename
+            );
         }
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::Parser;
+
+    #[test]
+    fn test_cli_parsing_promptware_run() {
+        let args = vec![
+            "blueberry",
+            "promptware-run",
+            "E2ETest",
+            "--input",
+            "Run search test",
+        ];
+        let cli = Cli::try_parse_from(args).expect("Failed to parse promptware-run command");
+        match cli.command {
+            Commands::PromptwareRun { name, input } => {
+                assert_eq!(name, "E2ETest");
+                assert_eq!(input, "Run search test");
+            }
+            _ => panic!("Expected PromptwareRun subcommand"),
+        }
+    }
+
+    #[test]
+    fn test_cli_parsing_promptware_read_memory() {
+        let args = vec![
+            "blueberry",
+            "promptware-read-memory",
+            "ChatCompanion",
+            "learnings.md",
+        ];
+        let cli =
+            Cli::try_parse_from(args).expect("Failed to parse promptware-read-memory command");
+        match cli.command {
+            Commands::PromptwareReadMemory { name, filename } => {
+                assert_eq!(name, "ChatCompanion");
+                assert_eq!(filename, "learnings.md");
+            }
+            _ => panic!("Expected PromptwareReadMemory subcommand"),
+        }
+    }
+
+    #[test]
+    fn test_cli_parsing_promptware_write_memory() {
+        let args = vec![
+            "blueberry",
+            "promptware-write-memory",
+            "AssertionAgent",
+            "rules.md",
+            "Avoid double negation",
+        ];
+        let cli =
+            Cli::try_parse_from(args).expect("Failed to parse promptware-write-memory command");
+        match cli.command {
+            Commands::PromptwareWriteMemory {
+                name,
+                filename,
+                content,
+            } => {
+                assert_eq!(name, "AssertionAgent");
+                assert_eq!(filename, "rules.md");
+                assert_eq!(content, "Avoid double negation");
+            }
+            _ => panic!("Expected PromptwareWriteMemory subcommand"),
+        }
+    }
 }

@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
@@ -18,8 +18,7 @@ impl OllamaAgent {
         // Read from environment or fallback to defaults
         let endpoint = std::env::var("OLLAMA_ENDPOINT")
             .unwrap_or_else(|_| "http://localhost:11434".to_string());
-        let model = std::env::var("OLLAMA_MODEL")
-            .unwrap_or_else(|_| "qwen3.6".to_string());
+        let model = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "qwen3.6".to_string());
 
         Self { endpoint, model }
     }
@@ -33,7 +32,8 @@ impl OllamaAgent {
         values.insert("Assertion".to_string(), prompt.to_string());
         values.insert("PageContent".to_string(), page_text.to_string());
 
-        let (system, user) = crate::promptware::compile_prompt_system_and_user("AssertionAgent", &values)?;
+        let (system, user) =
+            crate::promptware::compile_prompt_system_and_user("AssertionAgent", &values)?;
 
         let body = serde_json::json!({
             "model": self.model,
@@ -46,16 +46,20 @@ impl OllamaAgent {
         });
 
         let url = format!("{}/api/generate", self.endpoint);
-        
-        let response = client
-            .post(&url)
-            .json(&body)
-            .send()
-            .await
-            .map_err(|e| anyhow!("Failed to send request to Ollama ({}): {}. Make sure Ollama is running local.", url, e))?;
+
+        let response = client.post(&url).json(&body).send().await.map_err(|e| {
+            anyhow!(
+                "Failed to send request to Ollama ({}): {}. Make sure Ollama is running local.",
+                url,
+                e
+            )
+        })?;
 
         if !response.status().is_success() {
-            return Err(anyhow!("Ollama returned error status: {}", response.status()));
+            return Err(anyhow!(
+                "Ollama returned error status: {}",
+                response.status()
+            ));
         }
 
         let resp_json: serde_json::Value = response.json().await?;
@@ -78,14 +82,13 @@ impl OllamaAgent {
         };
 
         // Try to parse the response as our AgentResponse struct
-        let agent_resp: AgentResponse = serde_json::from_str(clean_text)
-            .map_err(|e| {
-                anyhow!(
-                    "Failed to parse Agent Response as JSON. Cleaned model output: '{}'. Error: {}",
-                    clean_text,
-                    e
-                )
-            })?;
+        let agent_resp: AgentResponse = serde_json::from_str(clean_text).map_err(|e| {
+            anyhow!(
+                "Failed to parse Agent Response as JSON. Cleaned model output: '{}'. Error: {}",
+                clean_text,
+                e
+            )
+        })?;
 
         Ok(agent_resp)
     }
@@ -105,16 +108,20 @@ impl OllamaAgent {
         });
 
         let url = format!("{}/api/generate", self.endpoint);
-        
-        let response = client
-            .post(&url)
-            .json(&body)
-            .send()
-            .await
-            .map_err(|e| anyhow!("Failed to send request to Ollama ({}): {}. Make sure Ollama is running local.", url, e))?;
+
+        let response = client.post(&url).json(&body).send().await.map_err(|e| {
+            anyhow!(
+                "Failed to send request to Ollama ({}): {}. Make sure Ollama is running local.",
+                url,
+                e
+            )
+        })?;
 
         if !response.status().is_success() {
-            return Err(anyhow!("Ollama returned error status: {}", response.status()));
+            return Err(anyhow!(
+                "Ollama returned error status: {}",
+                response.status()
+            ));
         }
 
         let resp_json: serde_json::Value = response.json().await?;
@@ -143,16 +150,20 @@ impl OllamaAgent {
         });
 
         let url = format!("{}/api/generate", self.endpoint);
-        
-        let response = client
-            .post(&url)
-            .json(&body)
-            .send()
-            .await
-            .map_err(|e| anyhow!("Failed to send request to Ollama ({}): {}. Make sure Ollama is running local.", url, e))?;
+
+        let response = client.post(&url).json(&body).send().await.map_err(|e| {
+            anyhow!(
+                "Failed to send request to Ollama ({}): {}. Make sure Ollama is running local.",
+                url,
+                e
+            )
+        })?;
 
         if !response.status().is_success() {
-            return Err(anyhow!("Ollama returned error status: {}", response.status()));
+            return Err(anyhow!(
+                "Ollama returned error status: {}",
+                response.status()
+            ));
         }
 
         let resp_json: serde_json::Value = response.json().await?;
