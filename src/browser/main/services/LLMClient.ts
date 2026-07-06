@@ -7,6 +7,8 @@ import { join } from "node:path";
 import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import type { Window } from "../components/Window";
+import { AccessibilityExtractor } from "./AccessibilityExtractor";
+import { BrowserSkills } from "./BrowserSkills";
 
 // Load environment variables from .env file
 dotenv.config({ path: join(__dirname, "../../src/.env") });
@@ -289,7 +291,7 @@ export class LLMClient {
     const memoryContentsSection =
       memoryContents === "" ? "(no accumulated memories yet)" : memoryContents;
 
-    return `---
+    const compiled = `---
 ${headerStr}
 ---
 You are an agentic application that evolves over time.
@@ -321,6 +323,8 @@ Complete your task and return the appropriate output.
 
 ${programMd}
 `;
+
+    return compiled.replace("{{BrowserSkills}}", BrowserSkills.getSkillsInstructions());
   }
 
   private async prepareMessagesWithContext(
@@ -329,6 +333,7 @@ ${programMd}
     // Get page context from active tab
     let pageUrl: string | null = null;
     let pageText: string | null = null;
+    let accessibilityContext = "No active page structure available.";
 
     if (this.window) {
       const { activeTab } = this.window;
@@ -339,6 +344,11 @@ ${programMd}
         } catch (error) {
           console.error("Failed to get page text:", error);
         }
+        try {
+          accessibilityContext = await AccessibilityExtractor.extract(activeTab);
+        } catch (error) {
+          console.error("Failed to extract accessibility context:", error);
+        }
       }
     }
 
@@ -346,10 +356,11 @@ ${programMd}
     const headers: Record<string, string> = {
       CurrentTime: new Date().toISOString(),
       CurrentUrl: pageUrl || "about:blank",
+      AccessibilityContext: accessibilityContext,
       PageContent: pageContentTruncated,
     };
 
-    const system = await this.compilePromptware("ChatCompanion", headers);
+    const system = await this.compilePromptware("OpenCode", headers);
 
     return { system, messages: this.messages };
   }
@@ -423,6 +434,69 @@ ${programMd}
       content: accumulatedText,
       isComplete: true,
     });
+
+    // Detect and parse single JSON browser control skill action blocks from OpenCode's streamed response
+    const jsonBlockRegex = /```json\s*([\s\S]*?)\s*```/g;
+    const matches = [...accumulatedText.matchAll(jsonBlockRegex)];
+
+    if (matches.length > 0) {
+      const jsonContent = matches[0][1].trim();
+      try {
+        const action = JSON.parse(jsonContent);
+
+        // Log beginning of execution
+        const execMessageIndex = this.messages.length;
+        this.messages.push({
+          role: "assistant",
+          content: `⚙️ **Executing Browser Action:** \`${action.action}\`...\n`,
+        });
+        this.sendMessagesToRenderer();
+
+        if (this.window) {
+          const result = await BrowserSkills.executeAction(this.window, action);
+
+          // Update log with execution result
+          if (result.success) {
+            this.messages[execMessageIndex] = {
+              role: "assistant",
+              content: `⚙️ **Executing Browser Action:** \`${action.action}\`...\n✅ *Success:* ${result.message}`,
+            };
+          } else {
+            this.messages[execMessageIndex] = {
+              role: "assistant",
+              content: `⚙️ **Executing Browser Action:** \`${action.action}\`...\n❌ *Error:* ${result.message}`,
+            };
+          }
+          this.sendMessagesToRenderer();
+
+          // If the action successfully changed the page state, rerun the agent loop with new context!
+          if (result.success && result.stateChanged) {
+            // Give page a short moment to settle down
+            await new Promise((resolve) => setTimeout(resolve, 1500));
+
+            this.messages.push({
+              role: "assistant",
+              content: `🔄 *Page state updated. Retrieving new accessibility context and continuing...*`,
+            });
+            this.sendMessagesToRenderer();
+
+            // Prepare messages with fresh context and trigger stream
+            const { system, messages } = await this.prepareMessagesWithContext({
+              message: "Continue executing your plan based on the updated page context.",
+              messageId: `${messageId}-rerun`,
+            });
+            await this.streamResponse(messages, system, `${messageId}-rerun`);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to parse or execute JSON action block:", err);
+        this.messages.push({
+          role: "assistant",
+          content: `❌ **Failed to parse/execute action block:** ${(err as Error).message}`,
+        });
+        this.sendMessagesToRenderer();
+      }
+    }
   }
 
   private handleStreamError(error: unknown, messageId: string): void {
