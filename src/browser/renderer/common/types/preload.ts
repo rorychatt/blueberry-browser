@@ -86,10 +86,16 @@ export interface TopBarAPI {
   toggleSidebar: () => Promise<void>;
 }
 
+export interface SettingsAPI {
+  getShortcuts: () => Promise<unknown>;
+  saveShortcuts: (shortcuts: unknown) => Promise<boolean>;
+}
+
 declare global {
   interface Window {
     electron: import("@electron-toolkit/preload").ElectronAPI;
     sidebarAPI: SidebarAPI;
     topBarAPI: TopBarAPI;
+    settingsAPI: SettingsAPI;
   }
 }

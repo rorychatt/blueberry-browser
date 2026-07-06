@@ -9,7 +9,9 @@
     "browser/renderer/sidebar/**/*",
     "browser/renderer/sidebar/**/*.tsx",
     "browser/renderer/topbar/**/*",
-    "browser/renderer/topbar/**/*.tsx"
+    "browser/renderer/topbar/**/*.tsx",
+    "browser/renderer/settings/**/*",
+    "browser/renderer/settings/**/*.tsx"
   ],
   "compilerOptions": {
     "composite": true,
