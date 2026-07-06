@@ -89,6 +89,8 @@ export interface TopBarAPI {
 export interface SettingsAPI {
   getShortcuts: () => Promise<unknown>;
   saveShortcuts: (shortcuts: unknown) => Promise<boolean>;
+  getSettings: () => Promise<unknown>;
+  saveSettings: (settings: unknown) => Promise<boolean>;
 }
 
 declare global {

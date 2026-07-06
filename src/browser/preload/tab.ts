@@ -6,12 +6,14 @@ const isSettingsPage =
   window.location.href.includes("/settings") ||
   window.location.pathname.includes("settings");
 
-if (isSettingsPage) {
-  const settingsAPI = {
-    getShortcuts: async () => ipcRenderer.invoke("get-shortcuts"),
-    saveShortcuts: async (shortcuts: unknown) => ipcRenderer.invoke("save-shortcuts", shortcuts),
-  };
+const settingsAPI = {
+  getShortcuts: async () => ipcRenderer.invoke("get-shortcuts"),
+  saveShortcuts: async (shortcuts: unknown) => ipcRenderer.invoke("save-shortcuts", shortcuts),
+  getSettings: async () => ipcRenderer.invoke("get-settings"),
+  saveSettings: async (settings: unknown) => ipcRenderer.invoke("save-settings", settings),
+};
 
+if (isSettingsPage) {
   if (process.contextIsolated) {
     try {
       contextBridge.exposeInMainWorld("settingsAPI", settingsAPI);

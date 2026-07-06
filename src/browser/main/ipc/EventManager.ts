@@ -61,6 +61,20 @@ export class EventManager {
       await this.mainWindow.loadShortcuts();
       return true;
     });
+
+    // Get all settings
+    ipcMain.handle("get-settings", async () => {
+      const settings = await SettingsManager.getInstance().getSettings();
+      return settings;
+    });
+
+    // Save all settings
+    ipcMain.handle("save-settings", async (_, settings) => {
+      await SettingsManager.getInstance().saveSettings(settings);
+      // Reload settings dynamically on the main window!
+      await this.mainWindow.loadSettings();
+      return true;
+    });
   }
 
   private handleTabEvents(): void {

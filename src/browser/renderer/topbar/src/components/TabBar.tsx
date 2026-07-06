@@ -82,7 +82,7 @@ export const TabBar: React.FC = () => {
   const { tabs, createTab, closeTab, switchTab } = useBrowser();
 
   const handleCreateTab = () => {
-    void createTab("https://www.google.com");
+    void createTab();
   };
 
   return (

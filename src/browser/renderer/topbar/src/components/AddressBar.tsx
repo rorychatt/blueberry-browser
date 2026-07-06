@@ -11,7 +11,6 @@ import {
 import { useBrowser } from "../contexts/BrowserContext";
 import { ToolBarButton } from "../components/ToolBarButton";
 import { Favicon } from "../components/Favicon";
-import { DarkModeToggle } from "../components/DarkModeToggle";
 import { cn } from "@common/lib/utils";
 
 export const AddressBar: React.FC = () => {
@@ -207,7 +206,6 @@ export const AddressBar: React.FC = () => {
 
       {/* Actions Menu */}
       <div className="flex items-center gap-2 app-region-no-drag">
-        <DarkModeToggle />
         <ToolBarButton
           Icon={isSidebarOpen ? PanelLeftClose : PanelLeft}
           onClick={toggleSidebar}
@@ -215,7 +213,7 @@ export const AddressBar: React.FC = () => {
         />
         <ToolBarButton
           Icon={Settings}
-          onClick={() => void createTab("blueberry://settings")}
+          onClick={() => createTab("blueberry://settings")}
           className="hover:rotate-45 transition-transform duration-300"
         />
       </div>

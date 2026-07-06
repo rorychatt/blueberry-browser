@@ -7,8 +7,10 @@ import { calculateTabBounds } from "../utils/bounds";
 import { registerKeyboardShortcuts } from "../utils/shortcuts";
 import {
   type ShortcutConfig,
+  type AppSettings,
   SettingsManager,
   DEFAULT_SHORTCUTS,
+  DEFAULT_SETTINGS,
 } from "../services/SettingsManager";
 
 export class Window {
@@ -19,10 +21,11 @@ export class Window {
   private readonly _topBar: TopBar;
   private readonly _sideBar: SideBar;
   public shortcuts: ShortcutConfig = { ...DEFAULT_SHORTCUTS };
+  public settings: AppSettings = { ...DEFAULT_SETTINGS };
 
   constructor() {
-    // Load persisted shortcuts asynchronously
-    void this.loadShortcuts();
+    // Load persisted settings asynchronously
+    void this.loadSettings();
 
     // Create the browser window.
     this._baseWindow = new BaseWindow(getBaseWindowOptions());
@@ -112,7 +115,8 @@ export class Window {
     }
 
     const tabId = `tab-${++this.tabCounter}`;
-    const tab = new Tab(tabId, url, () => this.notifyTabsUpdated());
+    const defaultUrl = SettingsManager.getInstance().getSettingsSync().landingPage;
+    const tab = new Tab(tabId, url || defaultUrl, () => this.notifyTabsUpdated());
 
     // Register standard shortcuts on the tab
     this.registerKeyboardShortcuts(tab.webContents);
@@ -299,8 +303,13 @@ export class Window {
     }
   }
 
+  async loadSettings(): Promise<void> {
+    this.settings = await SettingsManager.getInstance().getSettings();
+    this.shortcuts = this.settings.shortcuts;
+  }
+
   async loadShortcuts(): Promise<void> {
-    this.shortcuts = await SettingsManager.getInstance().getShortcuts();
+    await this.loadSettings();
   }
 
   // Register standard keyboard shortcuts on a WebContents
