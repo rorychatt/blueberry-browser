@@ -24,13 +24,13 @@ const TabItem: React.FC<TabItemProps> = ({
   onActivate,
 }) => {
   const baseClassName = cn(
-    "relative flex items-center h-8 pl-3.5 pr-2.5 select-none rounded-lg gap-2",
+    "relative flex items-center h-8 pl-4 pr-3 select-none rounded-lg gap-2",
     "text-primary group/tab transition-all duration-200 cursor-pointer",
     "app-region-no-drag", // Make tabs clickable
     isActive
       ? "bg-background shadow-tab dark:bg-secondary dark:shadow-none font-medium"
       : "bg-transparent hover:bg-muted/50 dark:hover:bg-muted/30",
-    isPinned ? "w-8 !px-0 justify-center gap-0" : "",
+    isPinned ? "w-8 !px-0 justify-center gap-0" : "min-w-[140px] max-w-[200px]",
   );
 
   return (

@@ -188,7 +188,10 @@ export class Window {
       return false;
     }
 
-    // Hide the currently active tab
+    // Show the new active tab first
+    tab.show();
+
+    // Hide the previously active tab
     if (this.activeTabId && this.activeTabId !== tabId) {
       const currentTab = this.tabsMap.get(this.activeTabId);
       if (currentTab) {
@@ -196,8 +199,6 @@ export class Window {
       }
     }
 
-    // Show the new active tab
-    tab.show();
     this.activeTabId = tabId;
 
     // Focus the tab's WebContents
