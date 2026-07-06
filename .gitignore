@@ -141,6 +141,7 @@ target/
 **/target/
 
 # Promptware runtime logs and memories
-**/promptwares/*/memory/reflection_*.md
+**/promptwares/*/memory/*.md
+!**/promptwares/*/memory/.gitkeep
 **/promptwares/*/logs/*.md
 **/promptwares/*/logs/job_*.md
