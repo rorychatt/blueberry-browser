@@ -100,6 +100,17 @@ export class Window {
 
   // Tab management methods
   createTab(url?: string): Tab {
+    // If the url is blueberry://settings, check if we already have a tab with this url
+    if (url === "blueberry://settings") {
+      const existingSettingsTab = [...this.tabsMap.values()].find(
+        (t) => t.url === "blueberry://settings",
+      );
+      if (existingSettingsTab) {
+        this.switchActiveTab(existingSettingsTab.id);
+        return existingSettingsTab;
+      }
+    }
+
     const tabId = `tab-${++this.tabCounter}`;
     const tab = new Tab(tabId, url, () => this.notifyTabsUpdated());
 

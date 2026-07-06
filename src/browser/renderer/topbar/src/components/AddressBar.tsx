@@ -208,7 +208,6 @@ export const AddressBar: React.FC = () => {
       {/* Actions Menu */}
       <div className="flex items-center gap-2 app-region-no-drag">
         <DarkModeToggle />
-        <ToolBarButton Icon={Settings} onClick={() => void createTab("blueberry://settings")} />
         <ToolBarButton
           Icon={isSidebarOpen ? PanelLeftClose : PanelLeft}
           onClick={toggleSidebar}
@@ -216,7 +215,7 @@ export const AddressBar: React.FC = () => {
         />
         <ToolBarButton
           Icon={Settings}
-          onClick={() => createTab("blueberry://settings")}
+          onClick={() => void createTab("blueberry://settings")}
           className="hover:rotate-45 transition-transform duration-300"
         />
       </div>

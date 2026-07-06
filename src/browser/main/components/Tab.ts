@@ -1,5 +1,7 @@
 import type { NativeImage } from "electron";
 import { WebContentsView } from "electron";
+import { is } from "@electron-toolkit/utils";
+import { join } from "node:path";
 
 export class Tab {
   private readonly webContentsView: WebContentsView;
@@ -20,7 +22,8 @@ export class Tab {
       webPreferences: {
         contextIsolation: true,
         nodeIntegration: false,
-        sandbox: true,
+        preload: join(__dirname, "../preload/tab.mjs"),
+        sandbox: false, // Need to disable sandbox for preload to work
         webSecurity: true,
       },
     });
@@ -41,12 +44,20 @@ export class Tab {
 
     // Update URL when navigation occurs
     this.webContentsView.webContents.on("did-navigate", (_, url) => {
-      this._url = url;
+      if (url.includes("/settings/") || url.includes("settings/index.html")) {
+        this._url = "blueberry://settings";
+      } else {
+        this._url = url;
+      }
       this.onUpdate?.();
     });
 
     this.webContentsView.webContents.on("did-navigate-in-page", (_, url) => {
-      this._url = url;
+      if (url.includes("/settings/") || url.includes("settings/index.html")) {
+        this._url = "blueberry://settings";
+      } else {
+        this._url = url;
+      }
       this.onUpdate?.();
     });
   }
@@ -106,6 +117,17 @@ export class Tab {
   }
 
   async loadURL(url: string): Promise<void> {
+    if (url === "blueberry://settings") {
+      this._url = "blueberry://settings";
+      if (is.dev && process.env.ELECTRON_RENDERER_URL) {
+        const settingsUrl = new URL("/settings/", process.env.ELECTRON_RENDERER_URL);
+        return this.webContentsView.webContents.loadURL(settingsUrl.toString());
+      } else {
+        return this.webContentsView.webContents.loadFile(
+          join(__dirname, "../renderer/settings/index.html"),
+        );
+      }
+    }
     this._url = url;
     return this.webContentsView.webContents.loadURL(url);
   }
