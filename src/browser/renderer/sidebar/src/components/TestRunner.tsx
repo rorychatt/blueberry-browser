@@ -42,7 +42,7 @@ export const TestRunner: React.FC = () => {
 
   // Load tests on mount
   useEffect(() => {
-    loadTests();
+    void loadTests();
 
     // Setup logs listener
     window.sidebarAPI.onE2ETestLog((data) => {
@@ -86,6 +86,7 @@ export const TestRunner: React.FC = () => {
       window.sidebarAPI.removeE2ETestLogListener();
       document.removeEventListener("mousedown", handleClickOutside);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Auto scroll logs
@@ -204,7 +205,7 @@ steps:
             onClick={() => {
               setIsDropdownOpen(!isDropdownOpen);
             }}
-            className="w-full flex items-center justify-between gap-2 px-4 py-2.5 rounded-xl border border-border bg-background hover:bg-muted/50 transition-all text-sm font-medium shadow-sm outline-none"
+            className="w-full flex items-center justify-between gap-2 px-4 py-2.5 rounded-md border border-border bg-background hover:bg-muted/50 transition-all text-sm font-medium shadow-sm outline-none"
           >
             <span className="flex items-center gap-2 truncate">
               <FileCode className="size-4 text-primary" />
@@ -221,7 +222,7 @@ steps:
           </button>
 
           {isDropdownOpen && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-background border border-border rounded-2xl shadow-xl z-50 overflow-hidden max-h-60 overflow-y-auto animate-spring-scale">
+            <div className="absolute top-full left-0 right-0 mt-2 bg-background border border-border rounded-lg shadow-xl z-50 overflow-hidden max-h-60 overflow-y-auto animate-spring-scale">
               {tests.map((test) => (
                 <button
                   key={test.filename}
@@ -247,7 +248,7 @@ steps:
         <button
           onClick={handleCreateTest}
           title="Create New E2E Test"
-          className="size-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center hover:opacity-90 active:scale-95 transition-all shadow-sm"
+          className="size-10 rounded-md bg-primary text-primary-foreground flex items-center justify-center hover:opacity-90 active:scale-95 transition-all shadow-sm"
         >
           <Plus className="size-5" />
         </button>
@@ -258,7 +259,7 @@ steps:
         {/* Code Editor */}
         <div
           className={cn(
-            "flex-1 flex flex-col min-h-[180px] max-h-[35%] bg-muted/40 dark:bg-muted/10 border rounded-2xl overflow-hidden shadow-inner transition-all duration-200",
+            "flex-1 flex flex-col min-h-[180px] max-h-[35%] bg-muted/40 dark:bg-muted/10 border rounded-lg overflow-hidden shadow-inner transition-all duration-200",
             isEditing
               ? "border-primary/40 shadow-[0_0_12px_rgba(67,97,238,0.15)]"
               : "border-border",
@@ -296,7 +297,7 @@ steps:
         </div>
 
         {/* Console & Screenshot Output */}
-        <div className="flex-[2] flex flex-col border border-border rounded-3xl overflow-hidden bg-card/20 shadow-md min-h-[220px]">
+        <div className="flex-[2] flex flex-col border border-border rounded-lg overflow-hidden bg-card/20 shadow-md min-h-[220px]">
           {/* Output tabs */}
           <div className="flex items-center justify-between px-3 py-1 border-b border-border bg-card/50">
             <div className="flex gap-1.5">
@@ -342,7 +343,7 @@ steps:
                   onClick={handleRunTest}
                   disabled={isRunning}
                   className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm transition-all",
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold shadow-sm transition-all",
                     isRunning
                       ? "bg-muted text-muted-foreground cursor-not-allowed"
                       : "bg-emerald-500 hover:bg-emerald-600 text-white active:scale-95",
@@ -364,7 +365,7 @@ steps:
                   onClick={handleRunTestInBrowser}
                   disabled={isRunning}
                   className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm transition-all",
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold shadow-sm transition-all",
                     isRunning
                       ? "bg-muted text-muted-foreground cursor-not-allowed"
                       : "bg-primary hover:bg-primary/95 text-primary-foreground active:scale-95",
@@ -434,8 +435,8 @@ steps:
                   <div className="grid grid-cols-2 gap-3">
                     {screenshots.map((src, idx) => (
                       <div
-                        key={idx}
-                        className="group relative border border-border rounded-xl overflow-hidden aspect-video bg-muted cursor-pointer shadow-sm hover:border-primary/50 hover:shadow-md transition-all"
+                        key={src.slice(0, 100)}
+                        className="group relative border border-border rounded-md overflow-hidden aspect-video bg-muted cursor-pointer shadow-sm hover:border-primary/50 hover:shadow-md transition-all"
                         onClick={() => {
                           setSelectedScreenshot(src);
                         }}

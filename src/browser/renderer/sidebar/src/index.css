@@ -31,7 +31,9 @@
     --border: 209 213 219;
     --input: 209 213 219;
     --ring: 119 119 119;
-    --radius: 0.75rem;
+    --radius: 0.5rem;
+    --radius-boxes: 8px;
+    --radius-buttons: 4px;
   }
 
   .dark {

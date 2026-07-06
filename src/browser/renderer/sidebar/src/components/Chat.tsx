@@ -31,7 +31,7 @@ const useAutoScroll = (messages: Message[]) => {
 // User Message Component - appears on the right
 const UserMessage: React.FC<{ content: string }> = ({ content }) => (
   <div className="relative max-w-[85%] ml-auto animate-fade-in">
-    <div className="bg-secondary text-secondary-foreground rounded-2xl rounded-tr-sm px-5 py-3 shadow-sm border border-primary/10">
+    <div className="bg-secondary text-secondary-foreground rounded-lg px-5 py-3 shadow-sm border border-primary/10">
       <div className="text-sm font-medium" style={{ whiteSpace: "pre-wrap" }}>
         {content}
       </div>
@@ -67,6 +67,33 @@ const StreamingText: React.FC<{ content: string }> = ({ content }) => {
   );
 };
 
+const CustomCode: React.FC<React.ComponentProps<"code">> = ({ className, children, ...props }) => {
+  const inline = !className;
+  return inline ? (
+    <code
+      className="bg-muted dark:bg-muted/50 px-1 py-0.5 rounded text-sm text-foreground"
+      {...props}
+    >
+      {children}
+    </code>
+  ) : (
+    <code className={className} {...props}>
+      {children}
+    </code>
+  );
+};
+
+const CustomLink: React.FC<React.ComponentProps<"a">> = ({ children, href }) => (
+  <a href={href} className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
+    {children}
+  </a>
+);
+
+const markdownComponents = {
+  code: CustomCode,
+  a: CustomLink,
+};
+
 // Markdown Renderer Component
 const Markdown: React.FC<{ content: string }> = ({ content }) => (
   <div
@@ -80,38 +107,7 @@ const Markdown: React.FC<{ content: string }> = ({ content }) => (
                     prose-pre:bg-muted dark:prose-pre:bg-muted/50 prose-pre:p-3 
                     prose-pre:rounded-lg prose-pre:overflow-x-auto"
   >
-    <ReactMarkdown
-      remarkPlugins={[remarkGfm, remarkBreaks]}
-      components={{
-        // Custom code block styling
-        code: ({ node, className, children, ...props }) => {
-          const inline = !className;
-          return inline ? (
-            <code
-              className="bg-muted dark:bg-muted/50 px-1 py-0.5 rounded text-sm text-foreground"
-              {...props}
-            >
-              {children}
-            </code>
-          ) : (
-            <code className={className} {...props}>
-              {children}
-            </code>
-          );
-        },
-        // Custom link styling
-        a: ({ children, href }) => (
-          <a
-            href={href}
-            className="text-primary hover:underline"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {children}
-          </a>
-        ),
-      }}
-    >
+    <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={markdownComponents}>
       {content}
     </ReactMarkdown>
   </div>
@@ -147,7 +143,7 @@ const LoadingIndicator: React.FC = () => {
   return (
     <div
       className={cn(
-        "flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-muted/50 dark:bg-muted/10 border border-border/20 backdrop-blur-sm shadow-sm transition-all duration-300 ease-in-out w-fit animate-fade-in",
+        "flex items-center gap-2.5 px-4 py-2.5 rounded-lg bg-muted/50 dark:bg-muted/10 border border-border/20 backdrop-blur-sm shadow-sm transition-all duration-300 ease-in-out w-fit animate-fade-in",
         isVisible ? "scale-100 opacity-100" : "scale-95 opacity-0",
       )}
     >
@@ -204,7 +200,7 @@ const ChatInput: React.FC<{
   return (
     <div
       className={cn(
-        "w-full border p-3 rounded-3xl bg-background dark:bg-secondary",
+        "w-full border p-3 rounded-lg bg-background dark:bg-secondary",
         "shadow-chat animate-spring-scale outline-none transition-all duration-200",
         isFocused ? "border-primary/20 dark:border-primary/30" : "border-border",
       )}
@@ -244,7 +240,7 @@ const ChatInput: React.FC<{
           onClick={handleSubmit}
           disabled={disabled || !value.trim()}
           className={cn(
-            "size-9 rounded-full flex items-center justify-center",
+            "size-9 rounded-md flex items-center justify-center",
             "transition-all duration-200",
             "bg-primary text-primary-foreground",
             "hover:opacity-80 disabled:opacity-50",
@@ -322,7 +318,7 @@ export const Chat: React.FC = () => {
           {messages.length === 0 ? (
             // Empty State
             <div className="flex items-center justify-center h-full min-h-[350px]">
-              <div className="text-center animate-fade-in max-w-sm mx-auto p-6 rounded-3xl bg-muted/40 dark:bg-muted/10 border border-border/30 backdrop-blur-sm gap-4 flex flex-col shadow-xl">
+              <div className="text-center animate-fade-in max-w-sm mx-auto p-6 rounded-lg bg-muted/40 dark:bg-muted/10 border border-border/30 backdrop-blur-sm gap-4 flex flex-col shadow-xl">
                 <div className="mx-auto size-14 rounded-full bg-primary/10 flex items-center justify-center animate-bounce duration-1000">
                   <span className="text-2xl filter drop-shadow-md">🫐</span>
                 </div>
@@ -334,7 +330,7 @@ export const Chat: React.FC = () => {
                     Ready to assist you with browsing and E2E automation.
                   </p>
                 </div>
-                <div className="flex items-center justify-center gap-1 py-1 px-2.5 rounded-xl bg-background border border-border/40 text-[10px] font-semibold text-muted-foreground shadow-sm w-fit mx-auto">
+                <div className="flex items-center justify-center gap-1 py-1 px-2.5 rounded bg-background border border-border/40 text-[10px] font-semibold text-muted-foreground shadow-sm w-fit mx-auto">
                   <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border text-[9px] font-mono shadow-sm">
                     ⌘
                   </kbd>
@@ -351,7 +347,7 @@ export const Chat: React.FC = () => {
               {/* Render conversation turns */}
               {conversationTurns.map((turn, index) => (
                 <ConversationTurnComponent
-                  key={`turn-${index}`}
+                  key={turn.user?.id || turn.assistant?.id || index}
                   turn={turn}
                   isLoading={showLoadingAfterLastTurn && index === conversationTurns.length - 1}
                 />

@@ -24,7 +24,7 @@ const TabItem: React.FC<TabItemProps> = ({
   onActivate,
 }) => {
   const baseClassName = cn(
-    "relative flex items-center h-8 pl-2 pr-1.5 select-none rounded-lg",
+    "relative flex items-center h-8 pl-2 pr-1.5 select-none rounded-md",
     "text-primary group/tab transition-all duration-200 cursor-pointer",
     "app-region-no-drag", // Make tabs clickable
     isActive
@@ -85,13 +85,8 @@ export const TabBar: React.FC = () => {
     void createTab("https://www.google.com");
   };
 
-  const isMac =
-    typeof window !== "undefined" &&
-    ((window.topBarAPI && window.topBarAPI.platform === "darwin") ||
-      window.navigator.userAgent.includes("Mac"));
-
   return (
-    <div className={cn("flex-1 overflow-x-hidden flex items-center", isMac && "pl-20")}>
+    <div className="flex-1 overflow-x-hidden flex items-center">
       {/* Tabs */}
       <div className="flex-1 overflow-x-auto flex">
         {tabs.map((tab) => (

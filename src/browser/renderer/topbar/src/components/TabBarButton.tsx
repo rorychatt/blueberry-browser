@@ -11,7 +11,7 @@ interface TabBarButtonProps {
 export const TabBarButton: React.FC<TabBarButtonProps> = ({ Icon, onClick, className }) => (
   <div
     className={cn(
-      "size-8 flex items-center justify-center rounded-lg",
+      "size-8 flex items-center justify-center rounded-md",
       "hover:bg-primary/10 active:bg-primary/20 app-region-no-drag",
       "transition-colors duration-200 cursor-pointer",
       className,
