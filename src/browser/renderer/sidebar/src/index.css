@@ -67,13 +67,10 @@
   }
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-  transition:
-    background-color 0.2s ease,
-    border-color 0.2s ease;
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
 }
 
 @layer base {
@@ -107,10 +104,12 @@
   }
 }
 
-#root {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
+@layer base {
+  #root {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
 }
 
 /* Custom super-clean slim scrollbar */

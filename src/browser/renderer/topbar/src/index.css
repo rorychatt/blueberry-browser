@@ -50,12 +50,6 @@
   }
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
 @layer base {
   body {
     font-family:
@@ -80,8 +74,10 @@
   }
 }
 
-#root {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
+@layer base {
+  #root {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
 }
