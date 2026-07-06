@@ -198,6 +198,92 @@ export class BrowserSkills {
     return docs;
   }
 
+  private static readonly VISUAL_CSS = `
+    .blueberry-vignette {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 2147483645;
+      box-shadow: inset 0 0 50px rgba(59, 130, 246, 0.35), inset 0 0 120px rgba(99, 102, 241, 0.15);
+      border: 4px solid rgba(59, 130, 246, 0.3);
+      opacity: 0;
+      transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      align-items: flex-start;
+      justify-content: flex-end;
+      padding: 16px;
+    }
+    .blueberry-vignette.active {
+      opacity: 1;
+    }
+    .blueberry-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(59, 130, 246, 0.4);
+      padding: 8px 16px;
+      border-radius: 9999px;
+      color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 15px rgba(59, 130, 246, 0.25);
+      transform: translateY(-10px);
+      transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+      pointer-events: auto;
+    }
+    .blueberry-vignette.active .blueberry-badge {
+      transform: translateY(0);
+    }
+    .blueberry-badge-dot {
+      width: 10px;
+      height: 10px;
+      background: #3b82f6;
+      border-radius: 50%;
+      display: inline-block;
+      box-shadow: 0 0 10px #3b82f6, 0 0 20px #3b82f6;
+      animation: blueberry-pulse-animation 1.5s infinite ease-in-out;
+    }
+    @keyframes blueberry-pulse-animation {
+      0% { transform: scale(0.85); opacity: 0.5; }
+      50% { transform: scale(1.15); opacity: 1; }
+      100% { transform: scale(0.85); opacity: 0.5; }
+    }
+    .blueberry-cursor {
+      position: fixed;
+      pointer-events: none;
+      z-index: 2147483647;
+      left: 0;
+      top: 0;
+      width: 36px;
+      height: 36px;
+      opacity: 0;
+      transform: translate3d(50vw, 105vh, 0);
+      transition: transform 0.8s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s ease;
+      filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.4));
+    }
+    .blueberry-cursor.visible {
+      opacity: 1;
+    }
+    .blueberry-click-ripple {
+      position: fixed;
+      border: 2.5px solid #6366f1;
+      background: rgba(99, 102, 241, 0.2);
+      border-radius: 50%;
+      width: 12px;
+      height: 12px;
+      opacity: 1;
+      transform: translate3d(-50%, -50%, 0) scale(1);
+      transition: transform 0.5s cubic-bezier(0.1, 0.8, 0.3, 1), opacity 0.5s ease-out;
+      pointer-events: none;
+      z-index: 2147483646;
+    }
+  `;
+
   /**
    * Injects the CSS and JS for vignette and virtual cursor into the active tab.
    */
@@ -205,107 +291,39 @@ export class BrowserSkills {
     const tab = window.activeTab;
     if (!tab) return;
 
+    try {
+      // Injects the CSS directly into the document using WebContents.insertCSS,
+      // completely bypassing page-level Content Security Policies (e.g. style-src restrictions).
+      const needsCss = await tab.runJs(`!window.__blueberryStylesInjected`);
+      if (needsCss) {
+        await tab.webContents.insertCSS(this.VISUAL_CSS);
+        await tab.runJs(`window.__blueberryStylesInjected = true;`);
+      }
+    } catch (e) {
+      console.error("Failed to inject CSS styles via insertCSS:", e);
+    }
+
     const script = `
       (() => {
-        const getHead = () => document.head || document.documentElement;
-        const getBody = () => document.body || document.documentElement;
-
-        const styleId = "blueberry-agent-styles";
-        function ensureStyles() {
-          if (!document.getElementById(styleId)) {
-            const style = document.createElement("style");
-            style.id = styleId;
-            style.textContent = \`
-              .blueberry-vignette {
-                position: fixed;
-                inset: 0;
-                pointer-events: none;
-                z-index: 99999999;
-                box-shadow: inset 0 0 50px rgba(59, 130, 246, 0.35), inset 0 0 120px rgba(99, 102, 241, 0.15);
-                border: 4px solid rgba(59, 130, 246, 0.3);
-                opacity: 0;
-                transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-                display: flex;
-                align-items: flex-start;
-                justify-content: flex-end;
-                padding: 16px;
+        function safeAppend(el) {
+          const body = document.body;
+          if (body) {
+            body.appendChild(el);
+          } else {
+            document.documentElement.appendChild(el);
+            // Setup a MutationObserver to automatically relocate elements to document.body once loaded,
+            // avoiding layering issues where elements attached to documentElement are masked by body background colors.
+            const observer = new MutationObserver((mutations, obs) => {
+              if (document.body) {
+                document.body.appendChild(el);
+                obs.disconnect();
               }
-              .blueberry-vignette.active {
-                opacity: 1;
-              }
-              .blueberry-badge {
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                background: rgba(15, 23, 42, 0.85);
-                backdrop-filter: blur(12px);
-                -webkit-backdrop-filter: blur(12px);
-                border: 1px solid rgba(59, 130, 246, 0.4);
-                padding: 8px 16px;
-                border-radius: 9999px;
-                color: #f8fafc;
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
-                font-size: 13px;
-                font-weight: 600;
-                letter-spacing: 0.3px;
-                box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 15px rgba(59, 130, 246, 0.25);
-                transform: translateY(-10px);
-                transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-                pointer-events: auto;
-              }
-              .blueberry-vignette.active .blueberry-badge {
-                transform: translateY(0);
-              }
-              .blueberry-badge-dot {
-                width: 10px;
-                height: 10px;
-                background: #3b82f6;
-                border-radius: 50%;
-                display: inline-block;
-                box-shadow: 0 0 10px #3b82f6, 0 0 20px #3b82f6;
-                animation: blueberry-pulse-animation 1.5s infinite ease-in-out;
-              }
-              @keyframes blueberry-pulse-animation {
-                0% { transform: scale(0.85); opacity: 0.5; }
-                50% { transform: scale(1.15); opacity: 1; }
-                100% { transform: scale(0.85); opacity: 0.5; }
-              }
-              .blueberry-cursor {
-                position: fixed;
-                pointer-events: none;
-                z-index: 100000000;
-                left: 0;
-                top: 0;
-                width: 36px;
-                height: 36px;
-                opacity: 0;
-                transform: translate3d(\${window.innerWidth / 2}px, \${window.innerHeight + 50}px, 0);
-                transition: transform 0.8s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s ease;
-                filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.4));
-              }
-              .blueberry-cursor.visible {
-                opacity: 1;
-              }
-              .blueberry-click-ripple {
-                position: fixed;
-                border: 2.5px solid #6366f1;
-                background: rgba(99, 102, 241, 0.2);
-                border-radius: 50%;
-                width: 12px;
-                height: 12px;
-                opacity: 1;
-                transform: translate3d(-50%, -50%, 0) scale(1);
-                transition: transform 0.5s cubic-bezier(0.1, 0.8, 0.3, 1), opacity 0.5s ease-out;
-                pointer-events: none;
-                z-index: 99999998;
-              }
-            \`;
-            getHead().appendChild(style);
+            });
+            observer.observe(document.documentElement, { childList: true, subtree: true });
           }
         }
 
         function ensureVignette() {
-          ensureStyles();
           let vignette = document.querySelector(".blueberry-vignette");
           if (!vignette) {
             vignette = document.createElement("div");
@@ -316,13 +334,14 @@ export class BrowserSkills {
                 <span>Blueberry Agent Active</span>
               </div>
             \`;
-            getBody().appendChild(vignette);
+            safeAppend(vignette);
+          } else if (vignette.parentElement !== document.body && document.body) {
+            document.body.appendChild(vignette);
           }
           return vignette;
         }
 
         function ensureCursor() {
-          ensureStyles();
           let cursor = document.querySelector(".blueberry-cursor");
           if (!cursor) {
             cursor = document.createElement("div");
@@ -333,14 +352,15 @@ export class BrowserSkills {
                 <circle cx="4" cy="2.5" r="3" fill="#6366f1" stroke="#ffffff" stroke-width="1.5"/>
               </svg>
             \\\`;
-            getBody().appendChild(cursor);
+            safeAppend(cursor);
+          } else if (cursor.parentElement !== document.body && document.body) {
+            document.body.appendChild(cursor);
           }
           return cursor;
         }
 
         // Try to inject initially
         try {
-          ensureStyles();
           ensureVignette();
           ensureCursor();
         } catch (e) {
@@ -386,7 +406,7 @@ export class BrowserSkills {
               ripple.className = "blueberry-click-ripple";
               ripple.style.left = \\\`\\\${x}px\\\`;
               ripple.style.top = \\\`\\\${y}px\\\`;
-              getBody().appendChild(ripple);
+              safeAppend(ripple);
 
               void ripple.offsetWidth;
               ripple.style.transform = "translate3d(-50%, -50%, 0) scale(4)";
@@ -615,11 +635,33 @@ export class BrowserSkills {
               return true;
             })()
           `;
-          await tab.runJs(clickScript);
+          let lastError: Error | null = null;
+          const maxAttempts = 3;
+          for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+              await tab.runJs(clickScript);
+              return {
+                success: true,
+                message: `Simulated click on element matching CSS selector: \`${selector}\``,
+                stateChanged: true,
+              };
+            } catch (err) {
+              lastError = err as Error;
+              console.warn(
+                `[BrowserSkills] Click attempt ${attempt} failed for selector "${selector}":`,
+                err,
+              );
+              if (attempt < maxAttempts) {
+                // Wait 1 second before next attempt
+                await new Promise((resolve) => setTimeout(resolve, 1000));
+              }
+            }
+          }
+
           return {
-            success: true,
-            message: `Simulated click on element matching CSS selector: \`${selector}\``,
-            stateChanged: true,
+            success: false,
+            message: `Failed to click element matching CSS selector \`${selector}\` after ${maxAttempts} attempts: ${lastError?.message || "Unknown error"}`,
+            stateChanged: false,
           };
         }
 
