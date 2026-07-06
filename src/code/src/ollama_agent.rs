@@ -18,7 +18,7 @@ impl OllamaAgent {
         // Read from environment or fallback to defaults
         let endpoint = std::env::var("OLLAMA_ENDPOINT")
             .unwrap_or_else(|_| "http://localhost:11434".to_string());
-        let model = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "qwen3.6".to_string());
+        let model = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "opencode".to_string());
 
         Self { endpoint, model }
     }
