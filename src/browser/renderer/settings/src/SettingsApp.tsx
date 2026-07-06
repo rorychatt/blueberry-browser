@@ -258,24 +258,22 @@ export const SettingsApp: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen w-full select-none bg-radial from-neutral-100 to-neutral-200 dark:from-neutral-900 dark:to-neutral-950 p-6 md:p-12 overflow-hidden transition-colors duration-300">
+    <div className="flex h-screen w-full select-none bg-background p-6 md:p-12 overflow-hidden transition-colors duration-300">
       {/* Background Decorative Ambient Glows */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-blue-400/20 dark:bg-blue-600/10 blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[45%] h-[45%] rounded-full bg-indigo-500/20 dark:bg-indigo-700/10 blur-[130px] pointer-events-none" />
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-primary/5 dark:bg-primary/5 blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[45%] h-[45%] rounded-full bg-primary/5 dark:bg-primary/5 blur-[130px] pointer-events-none" />
 
       {/* Main Glassmorphic Dashboard Window */}
-      <div className="relative flex w-full max-w-5xl mx-auto rounded-3xl overflow-hidden border border-white/20 dark:border-neutral-800/60 bg-white/60 dark:bg-neutral-900/60 backdrop-blur-xl shadow-2xl">
+      <div className="relative flex w-full max-w-5xl mx-auto rounded-3xl overflow-hidden border border-border/50 bg-card/70 backdrop-blur-xl shadow-2xl">
         {/* Left Navigation Panel */}
-        <aside className="w-64 border-r border-black/5 dark:border-white/5 bg-black/5 dark:bg-black/20 p-6 flex flex-col gap-6">
+        <aside className="w-64 border-r border-border/30 bg-secondary/30 p-6 flex flex-col gap-6">
           <div className="flex items-center gap-3 px-2">
-            <div className="flex size-10 items-center justify-center rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-500/30">
+            <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md">
               <Settings className="size-5 animate-spin-slow" />
             </div>
             <div>
-              <h1 className="text-lg font-bold tracking-tight text-neutral-800 dark:text-neutral-100">
-                Blueberry
-              </h1>
-              <p className="text-[10px] uppercase tracking-wider font-semibold text-neutral-400 dark:text-neutral-500">
+              <h1 className="text-lg font-bold tracking-tight text-foreground">Blueberry</h1>
+              <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
                 System Preferences
               </p>
             </div>
@@ -286,8 +284,8 @@ export const SettingsApp: React.FC = () => {
               onClick={() => setActiveTab("general")}
               className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
                 activeTab === "general"
-                  ? "bg-blue-500/10 dark:bg-blue-500/15 text-blue-600 dark:text-blue-400"
-                  : "text-neutral-600 dark:text-neutral-400 hover:bg-neutral-500/5 hover:text-neutral-800 dark:hover:text-neutral-200"
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
               }`}
             >
               <Palette className="size-4" />
@@ -298,8 +296,8 @@ export const SettingsApp: React.FC = () => {
               onClick={() => setActiveTab("shortcuts")}
               className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
                 activeTab === "shortcuts"
-                  ? "bg-blue-500/10 dark:bg-blue-500/15 text-blue-600 dark:text-blue-400"
-                  : "text-neutral-600 dark:text-neutral-400 hover:bg-neutral-500/5 hover:text-neutral-800 dark:hover:text-neutral-200"
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
               }`}
             >
               <Keyboard className="size-4" />
@@ -310,8 +308,8 @@ export const SettingsApp: React.FC = () => {
               onClick={() => setActiveTab("about")}
               className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
                 activeTab === "about"
-                  ? "bg-blue-500/10 dark:bg-blue-500/15 text-blue-600 dark:text-blue-400"
-                  : "text-neutral-600 dark:text-neutral-400 hover:bg-neutral-500/5 hover:text-neutral-800 dark:hover:text-neutral-200"
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
               }`}
             >
               <Info className="size-4" />
@@ -320,12 +318,10 @@ export const SettingsApp: React.FC = () => {
           </nav>
 
           {/* Quick Info Box in Sidebar */}
-          <div className="mt-auto p-4 rounded-2xl border border-black/5 dark:border-white/5 bg-white/20 dark:bg-white/5 text-[11px] text-neutral-500 dark:text-neutral-400">
-            <span className="font-bold block text-neutral-700 dark:text-neutral-300 mb-1">
-              Quick Tip:
-            </span>
+          <div className="mt-auto p-4 rounded-2xl border border-border/30 bg-card/30 text-[11px] text-muted-foreground">
+            <span className="font-bold block text-foreground mb-1">Quick Tip:</span>
             Pressing standard shortcuts like{" "}
-            <kbd className="px-1 border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-800 text-[9px]">
+            <kbd className="px-1 border border-border rounded bg-secondary text-[9px] text-foreground">
               ⌘E
             </kbd>{" "}
             toggles the copilot sidebar immediately.
@@ -335,16 +331,16 @@ export const SettingsApp: React.FC = () => {
         {/* Right Content Panel */}
         <main className="flex-1 flex flex-col h-full overflow-hidden">
           {/* Header */}
-          <header className="px-8 py-6 border-b border-black/5 dark:border-white/5 flex items-center justify-between">
+          <header className="px-8 py-6 border-b border-border/30 flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-bold tracking-tight text-neutral-800 dark:text-neutral-100">
+              <h2 className="text-xl font-bold tracking-tight text-foreground">
                 {activeTab === "general"
                   ? "General Settings"
                   : activeTab === "shortcuts"
                     ? "Keyboard Shortcuts"
                     : "About Blueberry"}
               </h2>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400">
+              <p className="text-xs text-muted-foreground">
                 {activeTab === "general"
                   ? "Configure your home page preferences, general behaviors, and interface aesthetics."
                   : activeTab === "shortcuts"
@@ -368,12 +364,12 @@ export const SettingsApp: React.FC = () => {
               <div className="flex flex-col gap-8">
                 {/* 1. Theme Selector */}
                 <div className="flex flex-col gap-3">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
                     Interface Color Theme
                   </h3>
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
-                    Choose between our light and dark blueberry palettes. The theme will apply
-                    immediately across all open tabs.
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Choose between our light and dark color themes. The theme will apply immediately
+                    across all open windows.
                   </p>
 
                   <div className="grid grid-cols-2 gap-4 mt-2">
@@ -384,26 +380,26 @@ export const SettingsApp: React.FC = () => {
                       }}
                       className={`relative flex flex-col gap-4 p-5 rounded-2xl border transition-all duration-300 cursor-pointer select-none group ${
                         !isDarkMode
-                          ? "border-blue-500 bg-white shadow-lg shadow-blue-500/10 text-neutral-900"
-                          : "border-black/5 dark:border-white/5 bg-neutral-800/40 hover:bg-neutral-800/60 text-neutral-300"
+                          ? "border-primary bg-card shadow-lg shadow-primary/5 text-foreground"
+                          : "border-border/40 bg-secondary/30 hover:bg-secondary/50 text-muted-foreground"
                       }`}
                     >
                       <div className="flex items-center justify-between">
                         <div
-                          className={`p-2.5 rounded-xl ${!isDarkMode ? "bg-amber-100 text-amber-600" : "bg-neutral-800 text-neutral-500"}`}
+                          className={`p-2.5 rounded-xl ${!isDarkMode ? "bg-primary/10 text-primary" : "bg-secondary text-muted-foreground"}`}
                         >
                           <Sun className="size-5" />
                         </div>
                         {!isDarkMode && (
-                          <span className="flex size-5 items-center justify-center rounded-full bg-blue-500 text-white">
+                          <span className="flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
                             <Check className="size-3 stroke-[3]" />
                           </span>
                         )}
                       </div>
                       <div>
                         <h4 className="font-bold text-sm">Light Mode</h4>
-                        <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-1">
-                          Fresh, high-contrast, clean blueberry-tinted surfaces.
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Fresh, high-contrast, clean monochromatic surfaces.
                         </p>
                       </div>
                     </div>
@@ -415,26 +411,26 @@ export const SettingsApp: React.FC = () => {
                       }}
                       className={`relative flex flex-col gap-4 p-5 rounded-2xl border transition-all duration-300 cursor-pointer select-none group ${
                         isDarkMode
-                          ? "border-blue-500 bg-neutral-900 shadow-lg shadow-blue-500/10 text-neutral-100"
-                          : "border-black/5 dark:border-white/5 bg-neutral-100/40 hover:bg-neutral-100/60 text-neutral-700"
+                          ? "border-primary bg-card shadow-lg shadow-primary/5 text-foreground"
+                          : "border-border/40 bg-secondary/30 hover:bg-secondary/50 text-muted-foreground"
                       }`}
                     >
                       <div className="flex items-center justify-between">
                         <div
-                          className={`p-2.5 rounded-xl ${isDarkMode ? "bg-indigo-950 text-indigo-400" : "bg-neutral-200 text-neutral-400"}`}
+                          className={`p-2.5 rounded-xl ${isDarkMode ? "bg-primary/10 text-primary" : "bg-secondary text-muted-foreground"}`}
                         >
                           <Moon className="size-5" />
                         </div>
                         {isDarkMode && (
-                          <span className="flex size-5 items-center justify-center rounded-full bg-blue-500 text-white">
+                          <span className="flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
                             <Check className="size-3 stroke-[3]" />
                           </span>
                         )}
                       </div>
                       <div>
                         <h4 className="font-bold text-sm">Dark Mode</h4>
-                        <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-1">
-                          Premium deep-blueberry shades designed for low-light comfort.
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Premium deep-slate shades designed for low-light comfort.
                         </p>
                       </div>
                     </div>
@@ -442,14 +438,14 @@ export const SettingsApp: React.FC = () => {
                 </div>
 
                 {/* Divider */}
-                <div className="h-px bg-black/5 dark:bg-white/5 w-full" />
+                <div className="h-px bg-border/30 w-full" />
 
                 {/* 2. Default Landing Page */}
                 <div className="flex flex-col gap-3">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
                     Default Landing Page
                   </h3>
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
+                  <p className="text-xs text-muted-foreground leading-relaxed">
                     Choose which webpage opens when you launch the browser, create a fresh tab, or
                     click the new tab plus button.
                   </p>
@@ -464,23 +460,23 @@ export const SettingsApp: React.FC = () => {
                           onClick={() => setSelectedLandingOption(key)}
                           className={`flex flex-col p-4 rounded-xl border transition-all duration-200 cursor-pointer select-none ${
                             isSelected
-                              ? "border-blue-500 bg-blue-500/5 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 shadow-sm"
-                              : "border-black/5 dark:border-white/5 bg-white/20 dark:bg-white/5 hover:bg-white/40 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300"
+                              ? "border-primary bg-primary/5 text-primary shadow-sm"
+                              : "border-border/40 bg-secondary/30 hover:bg-secondary/50 text-foreground"
                           }`}
                         >
                           <div className="flex items-center gap-2">
                             <span
                               className={`text-[10px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded ${
                                 isSelected
-                                  ? "bg-blue-500/15 text-blue-600 dark:text-blue-400"
-                                  : "bg-black/5 dark:bg-white/5 text-neutral-500"
+                                  ? "bg-primary/15 text-primary"
+                                  : "bg-secondary text-muted-foreground"
                               }`}
                             >
                               {key.slice(0, 3)}
                             </span>
                             <span className="font-bold text-sm truncate">{item.label}</span>
                           </div>
-                          <span className="text-[11px] text-neutral-400 dark:text-neutral-500 mt-1 leading-normal">
+                          <span className="text-[11px] text-muted-foreground mt-1 leading-normal">
                             {item.desc}
                           </span>
                         </div>
@@ -492,15 +488,15 @@ export const SettingsApp: React.FC = () => {
                       onClick={() => setSelectedLandingOption("custom")}
                       className={`flex flex-col p-4 rounded-xl border transition-all duration-200 cursor-pointer select-none ${
                         selectedLandingOption === "custom"
-                          ? "border-blue-500 bg-blue-500/5 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 shadow-sm"
-                          : "border-black/5 dark:border-white/5 bg-white/20 dark:bg-white/5 hover:bg-white/40 dark:hover:bg-white/10 text-neutral-700 dark:text-neutral-300"
+                          ? "border-primary bg-primary/5 text-primary shadow-sm"
+                          : "border-border/40 bg-secondary/30 hover:bg-secondary/50 text-foreground"
                       }`}
                     >
                       <div className="flex items-center gap-2">
                         <Globe className="size-4 shrink-0" />
                         <span className="font-bold text-sm">Custom URL</span>
                       </div>
-                      <span className="text-[11px] text-neutral-400 dark:text-neutral-500 mt-1 leading-normal">
+                      <span className="text-[11px] text-muted-foreground mt-1 leading-normal">
                         Type any website URL you want to set.
                       </span>
                     </div>
@@ -508,21 +504,21 @@ export const SettingsApp: React.FC = () => {
 
                   {/* Animated Expandable Custom URL Input Field */}
                   {selectedLandingOption === "custom" && (
-                    <div className="mt-3 p-4 rounded-2xl border border-blue-500/20 bg-blue-500/5 text-blue-600 dark:text-blue-400 animate-fade-in flex flex-col gap-2">
-                      <label className="text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                    <div className="mt-3 p-4 rounded-2xl border border-primary/20 bg-primary/5 text-primary animate-fade-in flex flex-col gap-2">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                         Custom Website Address
                       </label>
                       <div className="relative flex items-center">
-                        <Globe className="absolute left-4 size-4 text-neutral-400 pointer-events-none" />
+                        <Globe className="absolute left-4 size-4 text-muted-foreground pointer-events-none" />
                         <input
                           type="text"
                           value={customLandingUrl}
                           onChange={(e) => setCustomLandingUrl(e.target.value)}
                           placeholder="e.g. google.com, wikipedia.org, github.com"
-                          className="w-full pl-11 pr-4 py-3 rounded-xl border border-black/10 dark:border-neutral-700/60 bg-white dark:bg-neutral-800 text-sm text-neutral-800 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all duration-200 shadow-inner"
+                          className="w-full pl-11 pr-4 py-3 rounded-xl border border-border bg-card text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200 shadow-inner"
                         />
                       </div>
-                      <p className="text-[10px] text-neutral-400 dark:text-neutral-500 mt-1 leading-normal">
+                      <p className="text-[10px] text-muted-foreground mt-1 leading-normal">
                         Note: If `http://` or `https://` is omitted, `https://` will be prepended
                         automatically upon saving.
                       </p>
@@ -531,10 +527,10 @@ export const SettingsApp: React.FC = () => {
                 </div>
 
                 {/* Actions Bar inside content */}
-                <div className="flex items-center justify-between gap-4 mt-4 pt-4 border-t border-black/5 dark:border-white/5">
+                <div className="flex items-center justify-between gap-4 mt-4 pt-4 border-t border-border/30">
                   <button
                     onClick={handleRestoreDefaults}
-                    className="flex items-center gap-2 px-5 py-3 rounded-xl border border-black/10 dark:border-neutral-700/60 text-sm font-semibold text-neutral-600 dark:text-neutral-300 hover:bg-neutral-500/5 active:brightness-95 transition-all duration-200"
+                    className="flex items-center gap-2 px-5 py-3 rounded-xl border border-border text-sm font-semibold text-foreground hover:bg-secondary/50 active:brightness-95 transition-all duration-200"
                   >
                     <Undo2 className="size-4" />
                     Restore Defaults
@@ -542,7 +538,7 @@ export const SettingsApp: React.FC = () => {
 
                   <button
                     onClick={handleSave}
-                    className="flex items-center gap-2 px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white text-sm font-semibold shadow-lg shadow-blue-500/25 hover:shadow-blue-500/35 active:brightness-95 transition-all duration-200"
+                    className="flex items-center gap-2 px-6 py-3 rounded-xl bg-primary hover:bg-primary/90 active:bg-primary/85 text-primary-foreground text-sm font-semibold shadow-lg shadow-primary/10 active:brightness-95 transition-all duration-200"
                   >
                     <Save className="size-4" />
                     Save Changes
@@ -555,17 +551,17 @@ export const SettingsApp: React.FC = () => {
               <div className="flex flex-col gap-6">
                 {/* Visual recording alert banner */}
                 {recordingKey && (
-                  <div className="flex items-start gap-3 p-4 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 animate-pulse">
+                  <div className="flex items-start gap-3 p-4 rounded-2xl bg-primary/5 border border-primary/25 text-primary animate-pulse">
                     <KeyboardIcon className="size-5 mt-0.5 shrink-0" />
                     <div>
                       <h4 className="text-sm font-bold">Listening for keystrokes...</h4>
-                      <p className="text-xs text-blue-500 dark:text-blue-300/80 mt-1">
+                      <p className="text-xs text-primary/80 mt-1">
                         Press the exact combination of keys you want to assign to{" "}
-                        <strong className="font-semibold text-blue-700 dark:text-blue-300">
+                        <strong className="font-semibold text-primary">
                           {SHORTCUT_LABELS[recordingKey].label}
                         </strong>
                         . Press{" "}
-                        <kbd className="px-1.5 py-0.5 rounded border border-blue-500/30 bg-blue-500/5 text-[10px]">
+                        <kbd className="px-1.5 py-0.5 rounded border border-primary/30 bg-primary/10 text-[10px]">
                           Esc
                         </kbd>{" "}
                         to cancel.
@@ -575,13 +571,13 @@ export const SettingsApp: React.FC = () => {
                 )}
 
                 {/* Shortcuts Grid/Table */}
-                <div className="border border-black/5 dark:border-white/5 rounded-2xl overflow-hidden bg-black/5 dark:bg-black/10">
-                  <div className="grid grid-cols-12 gap-4 px-4 py-3 border-b border-black/5 dark:border-white/5 text-[11px] font-bold uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
+                <div className="border border-border/30 rounded-2xl overflow-hidden bg-secondary/20">
+                  <div className="grid grid-cols-12 gap-4 px-4 py-3 border-b border-border/30 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                     <span className="col-span-7">Action & Description</span>
                     <span className="col-span-5 text-right pr-4">Shortcut Assignment</span>
                   </div>
 
-                  <div className="divide-y divide-black/5 dark:divide-white/5">
+                  <div className="divide-y divide-border/30">
                     {(Object.keys(SHORTCUT_LABELS) as Array<keyof ShortcutConfig>).map((key) => {
                       const isRecordingThis = recordingKey === key;
                       const shortcutVal = shortcuts[key];
@@ -591,24 +587,22 @@ export const SettingsApp: React.FC = () => {
                           key={key}
                           onClick={() => !recordingKey && setRecordingKey(key)}
                           className={`grid grid-cols-12 gap-4 items-center px-4 py-4 transition-all duration-150 group cursor-pointer ${
-                            isRecordingThis
-                              ? "bg-blue-500/10 dark:bg-blue-500/20"
-                              : "hover:bg-black/5 dark:hover:bg-white/5"
+                            isRecordingThis ? "bg-primary/5" : "hover:bg-secondary/40"
                           }`}
                         >
                           <div className="col-span-7 pr-2">
-                            <span className="text-sm font-bold text-neutral-800 dark:text-neutral-200 transition-colors group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                            <span className="text-sm font-bold text-foreground transition-colors group-hover:text-primary">
                               {SHORTCUT_LABELS[key].label}
                             </span>
-                            <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-0.5">
+                            <p className="text-xs text-muted-foreground mt-0.5">
                               {SHORTCUT_LABELS[key].desc}
                             </p>
                           </div>
 
                           <div className="col-span-5 flex justify-end items-center gap-2">
                             {isRecordingThis ? (
-                              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-blue-500/40 bg-blue-500/10 text-xs font-bold tracking-tight text-blue-600 dark:text-blue-400 animate-pulse">
-                                <span className="size-1.5 rounded-full bg-blue-500 animate-ping" />
+                              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-primary/40 bg-primary/10 text-xs font-bold tracking-tight text-primary animate-pulse">
+                                <span className="size-1.5 rounded-full bg-primary animate-ping" />
                                 Recording...
                               </div>
                             ) : (
@@ -616,7 +610,7 @@ export const SettingsApp: React.FC = () => {
                                 {shortcutVal.split("+").map((part) => (
                                   <kbd
                                     key={part}
-                                    className="px-2.5 py-1 text-xs font-bold rounded-lg border border-black/10 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 shadow-sm"
+                                    className="px-2.5 py-1 text-xs font-bold rounded-lg border border-border bg-card text-foreground shadow-sm"
                                   >
                                     {part === "CmdOrCtrl"
                                       ? process.platform === "darwin"
@@ -638,7 +632,7 @@ export const SettingsApp: React.FC = () => {
                 <div className="flex items-center justify-between gap-4 mt-2">
                   <button
                     onClick={handleRestoreDefaults}
-                    className="flex items-center gap-2 px-5 py-3 rounded-xl border border-black/10 dark:border-neutral-700/60 text-sm font-semibold text-neutral-600 dark:text-neutral-300 hover:bg-neutral-500/5 active:brightness-95 transition-all duration-200"
+                    className="flex items-center gap-2 px-5 py-3 rounded-xl border border-border text-sm font-semibold text-foreground hover:bg-secondary/50 active:brightness-95 transition-all duration-200"
                   >
                     <Undo2 className="size-4" />
                     Restore Defaults
@@ -646,7 +640,7 @@ export const SettingsApp: React.FC = () => {
 
                   <button
                     onClick={handleSave}
-                    className="flex items-center gap-2 px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white text-sm font-semibold shadow-lg shadow-blue-500/25 hover:shadow-blue-500/35 active:brightness-95 transition-all duration-200"
+                    className="flex items-center gap-2 px-6 py-3 rounded-xl bg-primary hover:bg-primary/90 active:bg-primary/85 text-primary-foreground text-sm font-semibold shadow-lg shadow-primary/10 active:brightness-95 transition-all duration-200"
                   >
                     <Save className="size-4" />
                     Save Changes
@@ -657,57 +651,53 @@ export const SettingsApp: React.FC = () => {
 
             {activeTab === "about" && (
               <div className="flex flex-col gap-6 max-w-xl">
-                <div className="p-6 rounded-2xl border border-black/5 dark:border-white/5 bg-black/5 dark:bg-black/10 flex flex-col gap-4">
+                <div className="p-6 rounded-2xl border border-border/30 bg-secondary/20 flex flex-col gap-4">
                   <div className="flex items-center gap-4">
-                    <div className="size-12 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-xl shadow-lg shadow-blue-500/30">
+                    <div className="size-12 rounded-xl bg-primary text-primary-foreground flex items-center justify-center font-black text-xl shadow-lg shadow-primary/10">
                       B
                     </div>
                     <div>
-                      <h3 className="text-md font-bold text-neutral-800 dark:text-neutral-100">
-                        Blueberry Browser
-                      </h3>
-                      <p className="text-xs text-neutral-400 dark:text-neutral-500">
+                      <h3 className="text-md font-bold text-foreground">Blueberry Browser</h3>
+                      <p className="text-xs text-muted-foreground">
                         Version 1.0.0 (Official Build)
                       </p>
                     </div>
                   </div>
 
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed border-t border-black/5 dark:border-white/5 pt-4">
-                    Blueberry is an state-of-the-art AI-native, client-side automated browser. It
+                  <p className="text-xs text-muted-foreground leading-relaxed border-t border-border/30 pt-4">
+                    Blueberry is a state-of-the-art AI-native, client-side automated browser. It
                     integrates next-generation LLM orchestration, E2E testing pipelines, and
                     standard web exploration into a single cohesive, high-performance interface.
                   </p>
 
-                  <div className="grid grid-cols-2 gap-4 border-t border-black/5 dark:border-white/5 pt-4 text-xs">
+                  <div className="grid grid-cols-2 gap-4 border-t border-border/30 pt-4 text-xs">
                     <div>
-                      <span className="font-semibold text-neutral-400 dark:text-neutral-500 block">
+                      <span className="font-semibold text-muted-foreground block">
                         Runtime Environment
                       </span>
-                      <span className="font-bold text-neutral-700 dark:text-neutral-300">
+                      <span className="font-bold text-foreground">
                         Electron {process.versions.electron}
                       </span>
                     </div>
                     <div>
-                      <span className="font-semibold text-neutral-400 dark:text-neutral-500 block">
+                      <span className="font-semibold text-muted-foreground block">
                         Chrome Engine
                       </span>
-                      <span className="font-bold text-neutral-700 dark:text-neutral-300">
+                      <span className="font-bold text-foreground">
                         Chromium {process.versions.chrome}
                       </span>
                     </div>
                     <div>
-                      <span className="font-semibold text-neutral-400 dark:text-neutral-500 block">
+                      <span className="font-semibold text-muted-foreground block">
                         Node Module Engine
                       </span>
-                      <span className="font-bold text-neutral-700 dark:text-neutral-300">
-                        v{process.versions.node}
-                      </span>
+                      <span className="font-bold text-foreground">v{process.versions.node}</span>
                     </div>
                     <div>
-                      <span className="font-semibold text-neutral-400 dark:text-neutral-500 block">
+                      <span className="font-semibold text-muted-foreground block">
                         Operating System
                       </span>
-                      <span className="font-bold text-neutral-700 dark:text-neutral-300">
+                      <span className="font-bold text-foreground">
                         {process.platform === "darwin" ? "macOS" : process.platform}
                       </span>
                     </div>
