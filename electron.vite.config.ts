@@ -4,11 +4,17 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   main: {
+    build: {
+      rollupOptions: {
+        external: ["electron"],
+      },
+    },
     plugins: [externalizeDepsPlugin()],
   },
   preload: {
     build: {
       rollupOptions: {
+        external: ["electron"],
         input: {
           sidebar: resolve(__dirname, "src/preload/sidebar.ts"),
           topbar: resolve(__dirname, "src/preload/topbar.ts"),
