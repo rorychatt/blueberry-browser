@@ -299,7 +299,7 @@ steps:
   return (
     <div className="flex flex-col h-full bg-gradient-to-b from-background via-background/95 to-background/90 overflow-hidden animate-fade-in text-foreground">
       {/* Test Selector Dropdown Header */}
-      <div className="p-3 border-b border-border/30 bg-card/15 backdrop-blur-md flex items-center justify-between gap-2.5 relative shrink-0">
+      <div className="p-3 border-b border-border/30 bg-card/15 backdrop-blur-md flex items-center justify-between gap-2.5 relative shrink-0 z-20">
         <div className="relative flex-1" ref={dropdownRef}>
           <button
             onClick={() => {

@@ -263,15 +263,24 @@ export class BrowserSkills {
       z-index: 2147483647;
       left: 0;
       top: 0;
-      width: 36px;
-      height: 36px;
+      width: 28px;
+      height: 28px;
       opacity: 0;
       transform: translate3d(50vw, 105vh, 0);
       transition: transform 0.8s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s ease;
-      filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.4));
     }
     .blueberry-cursor.visible {
       opacity: 1;
+    }
+    .blueberry-cursor-inner {
+      position: absolute;
+      left: -4px;
+      top: -2.5px;
+      width: 28px;
+      height: 28px;
+      transform-origin: 4px 2.5px;
+      transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+      filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.35)) drop-shadow(0 4px 10px rgba(0, 0, 0, 0.25));
     }
     .blueberry-click-ripple {
       position: fixed;
@@ -348,10 +357,12 @@ export class BrowserSkills {
           if (!cursor) {
             cursor = document.createElement("div");
             cursor.className = "blueberry-cursor";
-            cursor.innerHTML = '<svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">' +
-              '<path d="M4 2.5L25 15.5L15.5 17.5L21.5 25.5L18.5 27L12.5 19L4 24.5V2.5Z" fill="#3b82f6" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"/>' +
-              '<circle cx="4" cy="2.5" r="3" fill="#6366f1" stroke="#ffffff" stroke-width="1.5"/>' +
-              '</svg>';
+            cursor.innerHTML = '<div class="blueberry-cursor-inner">' +
+              '<svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+              '<path d="M4 2.5L25 15.5L15.5 17.5L21.5 25.5L18.5 27L12.5 19L4 24.5V2.5Z" fill="#ffffff" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"/>' +
+              '<path d="M4 2.5L25 15.5L15.5 17.5L21.5 25.5L18.5 27L12.5 19L4 24.5V2.5Z" fill="#000000"/>' +
+              '</svg>' +
+              '</div>';
             safeAppend(cursor);
           } else if (cursor.parentElement !== document.body && document.body) {
             document.body.appendChild(cursor);
@@ -394,13 +405,41 @@ export class BrowserSkills {
               const c = ensureCursor();
               if (!c) return;
 
+              // Calculate start coordinates from last known position, defaulting to center screen
+              const startX = window.__blueberryLastCursorX !== undefined ? window.__blueberryLastCursorX : window.innerWidth / 2;
+              const startY = window.__blueberryLastCursorY !== undefined ? window.__blueberryLastCursorY : window.innerHeight * 1.05;
+
+              // Calculate distance and direction of flight to tilt the cursor toward the destination
+              const dx = x - startX;
+              const dy = y - startY;
+              const dist = Math.hypot(dx, dy);
+              let rotation = 0;
+
+              if (dist > 15) {
+                const angleRad = Math.atan2(dy, dx);
+                const angleDeg = angleRad * (180 / Math.PI);
+                // Standard macOS cursor points top-left (-135 degrees),
+                // so rotate so that the tip points in direction of motion.
+                rotation = angleDeg + 135;
+              }
+
               c.classList.add("visible");
               c.style.transform = "translate3d(" + x + "px, " + y + "px, 0)";
+
+              const inner = c.querySelector(".blueberry-cursor-inner");
+              if (inner) {
+                inner.style.transform = "rotate(" + rotation + "deg)";
+              }
 
               window.__blueberryLastCursorX = x;
               window.__blueberryLastCursorY = y;
 
               await new Promise(resolve => setTimeout(resolve, 800));
+
+              // Snap cursor back to 0 rotation once arrived
+              if (inner) {
+                inner.style.transform = "rotate(0deg)";
+              }
 
               const ripple = document.createElement("div");
               ripple.className = "blueberry-click-ripple";
