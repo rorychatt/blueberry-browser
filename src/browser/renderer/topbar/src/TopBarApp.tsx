@@ -2,8 +2,10 @@ import React from "react";
 import { BrowserProvider } from "./contexts/BrowserContext";
 import { TabBar } from "./components/TabBar";
 import { AddressBar } from "./components/AddressBar";
+import { usePrimaryColor } from "../../common/hooks/usePrimaryColor";
 
 export const TopBarApp: React.FC = () => {
+  usePrimaryColor();
   const isMac =
     typeof window !== "undefined" &&
     ((window.topBarAPI && window.topBarAPI.platform === "darwin") ||

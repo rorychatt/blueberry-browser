@@ -3,11 +3,13 @@ import { ChatProvider } from "./contexts/ChatContext";
 import { Chat } from "./components/Chat";
 import { TestRunner } from "./components/TestRunner";
 import { useDarkMode } from "@common/hooks/useDarkMode";
+import { usePrimaryColor } from "@common/hooks/usePrimaryColor";
 import { Sparkles, Terminal } from "lucide-react";
 import { cn } from "@common/lib/utils";
 
 const SidebarContent: React.FC = () => {
   const { isDarkMode } = useDarkMode();
+  usePrimaryColor();
   const [activeTab, setActiveTab] = useState<"chat" | "tests">("chat");
 
   // Apply dark mode class to the document

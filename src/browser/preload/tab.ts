@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
+import { electronAPI } from "@electron-toolkit/preload";
 
 // Tab specific APIs including Settings access
 const isSettingsPage =
@@ -23,11 +24,14 @@ if (isSettingsPage) {
   if (process.contextIsolated) {
     try {
       contextBridge.exposeInMainWorld("settingsAPI", settingsAPI);
+      contextBridge.exposeInMainWorld("electron", electronAPI);
     } catch (error) {
       console.error(error);
     }
   } else {
     // @ts-expect-error (define in dts)
     window.settingsAPI = settingsAPI;
+    // @ts-expect-error (define in dts)
+    window.electron = electronAPI;
   }
 }
