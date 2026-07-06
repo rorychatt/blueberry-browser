@@ -1059,7 +1059,7 @@ export const Chat: React.FC = () => {
             onClick={clearChat}
             title="Start new chat"
             variant="outline"
-            className="group flex items-center justify-center h-8 rounded-full border border-border/60 bg-background/80 dark:bg-card/40 hover:bg-background/95 hover:border-primary/30 backdrop-blur-md shadow-sm transition-all duration-300 ease-out px-2 hover:px-3"
+            className="group flex items-center justify-center h-8 rounded-full border border-border/60 bg-background/80 dark:bg-card/40 hover:bg-background/95 hover:border-primary/30 backdrop-blur-md shadow-sm transition-all duration-300 ease-out px-2 hover:px-3 gap-0 has-[>svg]:px-2 hover:has-[>svg]:px-3"
           >
             <Plus className="size-4 text-muted-foreground group-hover:text-primary transition-transform duration-300 group-hover:rotate-90" />
             <span className="text-xs font-semibold text-muted-foreground group-hover:text-primary overflow-hidden transition-all duration-300 max-w-0 group-hover:max-w-[70px] whitespace-nowrap opacity-0 group-hover:opacity-100 ml-0 group-hover:ml-1.5">
