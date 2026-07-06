@@ -1,19 +1,15 @@
 import type { WebContents } from "electron";
 import { type LanguageModel, type ModelMessage, streamText } from "ai";
-import { createOpenAI, openai } from "@ai-sdk/openai";
-import { anthropic } from "@ai-sdk/anthropic";
-import * as dotenv from "dotenv";
-import { join } from "node:path";
-import { existsSync } from "node:fs";
-import * as fs from "node:fs/promises";
 import type { Window } from "../components/Window";
 import { AccessibilityExtractor } from "./AccessibilityExtractor";
 import { BrowserSkills } from "./BrowserSkills";
-import { ChatHistoryManager } from "./ChatHistoryManager";
 import { writeLog } from "../utils/promptware";
 
-// Load environment variables from .env file
-dotenv.config({ path: join(__dirname, "../../src/.env") });
+import { ModelManager, type LLMProvider } from "./llm/ModelManager";
+import { compilePromptware } from "./llm/PromptwareCompiler";
+import { SessionManager } from "./llm/SessionManager";
+
+export type { LLMProvider };
 
 interface ChatRequest {
   message: string;
@@ -29,14 +25,6 @@ export type MessageContentPart =
   | { type: "text"; text: string }
   | { type: "image"; image: string }
   | { type: "file"; data: string; mediaType: string };
-
-type LLMProvider = "openai" | "anthropic" | "ollama";
-
-const DEFAULT_MODELS: Record<LLMProvider, string> = {
-  anthropic: "claude-3-5-sonnet-20241022",
-  ollama: "opencode",
-  openai: "gpt-4o-mini",
-};
 
 const MAX_CONTEXT_LENGTH = 4000;
 const DEFAULT_TEMPERATURE = 0.7;
@@ -59,20 +47,14 @@ const formatMessageContent = (content: ModelMessage["content"]): string => {
 export class LLMClient {
   private readonly webContents: WebContents;
   private window: Window | null = null;
-  private readonly provider: LLMProvider;
-  private readonly modelName: string;
-  private readonly model: LanguageModel | null;
-  private messages: ModelMessage[] = [];
-  private currentSessionId: string | null = null;
-  private sessionTitle: string | null = null;
+  private readonly modelManager: ModelManager;
+  private readonly sessionManager: SessionManager;
 
   constructor(webContents: WebContents) {
     this.webContents = webContents;
-    this.provider = this.getProvider();
-    this.modelName = this.getModelName();
-    this.model = this.initializeModel();
+    this.modelManager = new ModelManager();
+    this.sessionManager = new SessionManager(webContents);
 
-    this.logInitializationStatus();
     void this.initializeSession();
   }
 
@@ -81,171 +63,58 @@ export class LLMClient {
     this.window = window;
   }
 
-  private getProvider(): LLMProvider {
-    const provider = process.env.LLM_PROVIDER?.toLowerCase();
-    if (provider === "anthropic") {
-      return "anthropic";
-    }
-    if (provider === "ollama") {
-      return "ollama";
-    }
-    return "openai"; // Default to OpenAI
+  // Internal property getters/setters mapped to managers for backward-compatibility
+  private get provider(): LLMProvider {
+    return this.modelManager.provider;
   }
 
-  private getModelName(): string {
-    return process.env.LLM_MODEL || DEFAULT_MODELS[this.provider];
+  private get modelName(): string {
+    return this.modelManager.modelName;
   }
 
-  private initializeModel(): LanguageModel | null {
-    const apiKey = this.getApiKey();
-    if (!apiKey) {
-      return null;
-    }
-
-    switch (this.provider) {
-      case "anthropic": {
-        return anthropic(this.modelName);
-      }
-      case "openai": {
-        return openai(this.modelName);
-      }
-      case "ollama": {
-        const customOpenAI = createOpenAI({
-          apiKey: "ollama",
-          baseURL: "http://localhost:11434/v1",
-          fetch: (input, init) => this.ollamaFetch(input, init),
-        });
-        return customOpenAI.chat(this.modelName);
-      }
-      default: {
-        return null;
-      }
-    }
+  private get model(): LanguageModel | null {
+    return this.modelManager.model;
   }
 
-  private async ollamaFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-    const originalResponse = await globalThis.fetch(input, init);
-
-    if (!originalResponse.body) {
-      return originalResponse;
-    }
-
-    const modifiedStream = new ReadableStream({
-      async start(controller) {
-        const reader = originalResponse.body!.getReader();
-        const decoder = new TextDecoder("utf-8");
-        const encoder = new TextEncoder();
-        let inReasoning = false;
-        let buffer = "";
-
-        const processLine = (line: string) => {
-          if (line.startsWith("data: ")) {
-            const dataStr = line.slice(6).trim();
-            if (dataStr === "[DONE]") {
-              controller.enqueue(encoder.encode(line + "\n"));
-              return;
-            }
-
-            try {
-              const parsed = JSON.parse(dataStr);
-              const delta = parsed.choices?.[0]?.delta;
-              if (delta) {
-                const reasoning = delta.reasoning;
-                const content = delta.content;
-
-                if (reasoning && (!content || content === "")) {
-                  if (!inReasoning) {
-                    inReasoning = true;
-                    delta.content = "<think>\n" + reasoning;
-                  } else {
-                    delta.content = reasoning;
-                  }
-                  delete delta.reasoning;
-                } else if (content && content !== "") {
-                  if (inReasoning) {
-                    inReasoning = false;
-                    delta.content = "\n</think>\n\n" + content;
-                  }
-                }
-              }
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify(parsed)}\n`));
-            } catch {
-              controller.enqueue(encoder.encode(line + "\n"));
-            }
-          } else {
-            controller.enqueue(encoder.encode(line + "\n"));
-          }
-        };
-
-        try {
-          while (true) {
-            const { value, done } = await reader.read();
-            if (done) {
-              if (buffer.trim()) {
-                processLine(buffer);
-              }
-              if (inReasoning) {
-                const lastLine =
-                  'data: {"id":"chatcmpl-custom","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"\\n</think>\\n\\n"}}]}\n';
-                controller.enqueue(encoder.encode(lastLine));
-              }
-              break;
-            }
-
-            const chunkText = decoder.decode(value, { stream: true });
-            buffer += chunkText;
-            const lines = buffer.split("\n");
-            buffer = lines.pop() || "";
-
-            for (const line of lines) {
-              processLine(line);
-            }
-          }
-        } catch (err) {
-          controller.error(err);
-        } finally {
-          reader.releaseLock();
-          controller.close();
-        }
-      },
-    });
-
-    return new Response(modifiedStream, {
-      status: originalResponse.status,
-      statusText: originalResponse.statusText,
-      headers: originalResponse.headers,
-    });
+  private get messages(): ModelMessage[] {
+    return this.sessionManager.getMessagesList();
   }
 
-  private getApiKey(): string | undefined {
-    switch (this.provider) {
-      case "anthropic": {
-        return process.env.ANTHROPIC_API_KEY;
-      }
-      case "openai": {
-        return process.env.OPENAI_API_KEY;
-      }
-      case "ollama": {
-        return "ollama";
-      }
-      default: {
-        return undefined;
-      }
-    }
+  private set messages(msgs: ModelMessage[]) {
+    this.sessionManager.setMessagesList(msgs);
   }
 
-  private logInitializationStatus(): void {
-    if (this.model) {
-      console.log(
-        `✅ LLM Client initialized with ${this.provider} provider using model: ${this.modelName}`,
-      );
-    } else {
-      const keyName = this.provider === "anthropic" ? "ANTHROPIC_API_KEY" : "OPENAI_API_KEY";
-      console.error(
-        `❌ LLM Client initialization failed: ${keyName} not found in environment variables.\n` +
-          `Please add your API key to the .env file in the project root.`,
-      );
-    }
+  // Session management delegation
+  public async initializeSession(): Promise<void> {
+    return this.sessionManager.initializeSession();
+  }
+
+  public startNewSession(): void {
+    this.sessionManager.startNewSession();
+  }
+
+  public async loadSession(id: string): Promise<ModelMessage[]> {
+    return this.sessionManager.loadSession(id);
+  }
+
+  clearMessages(): void {
+    this.startNewSession();
+  }
+
+  getMessages(): ModelMessage[] {
+    return this.sessionManager.getMessagesList();
+  }
+
+  getCurrentSessionId(): string | null {
+    return this.sessionManager.getCurrentSessionId();
+  }
+
+  setSessionTitle(title: string): void {
+    this.sessionManager.setSessionTitle(title);
+  }
+
+  private sendMessagesToRenderer(): void {
+    this.sessionManager.sendMessagesToRenderer();
   }
 
   async sendChatMessage(request: ChatRequest): Promise<void> {
@@ -330,224 +199,6 @@ export class LLMClient {
     }
   }
 
-  public async initializeSession(): Promise<void> {
-    try {
-      const history = ChatHistoryManager.getInstance();
-      const sessions = await history.getSessions();
-      if (sessions.length > 0) {
-        const latest = sessions[0];
-        const fullSession = await history.getSession(latest.id);
-        if (fullSession) {
-          this.currentSessionId = fullSession.id;
-          this.sessionTitle = fullSession.title;
-          this.messages = fullSession.messages;
-          this.sendMessagesToRenderer();
-          return;
-        }
-      }
-    } catch (error) {
-      console.error("[LLMClient] Failed to load latest session:", error);
-    }
-    this.startNewSession();
-  }
-
-  public startNewSession(): void {
-    this.currentSessionId = `session-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-    this.sessionTitle = null;
-    this.messages = [];
-    this.sendMessagesToRenderer();
-    this.webContents.send("chat-sessions-updated");
-  }
-
-  public async loadSession(id: string): Promise<ModelMessage[]> {
-    const history = ChatHistoryManager.getInstance();
-    const session = await history.getSession(id);
-    if (session) {
-      this.currentSessionId = session.id;
-      this.sessionTitle = session.title;
-      this.messages = session.messages;
-      this.sendMessagesToRenderer();
-      return this.messages;
-    }
-    throw new Error(`Session ${id} not found`);
-  }
-
-  private async saveCurrentSession(): Promise<void> {
-    if (!this.currentSessionId || this.messages.length === 0) {
-      return;
-    }
-
-    if (!this.sessionTitle) {
-      const firstUserMsg = this.messages.find((m) => m.role === "user");
-      let rawTitle = "New Chat";
-      if (firstUserMsg && typeof firstUserMsg.content === "string") {
-        rawTitle = firstUserMsg.content;
-      } else if (firstUserMsg && Array.isArray(firstUserMsg.content)) {
-        const textPart = firstUserMsg.content.find(
-          (p) => typeof p === "object" && p && "type" in p && p.type === "text",
-        );
-        if (textPart) {
-          rawTitle = textPart.text;
-        }
-      }
-      this.sessionTitle = rawTitle.trim().substring(0, 40) || "New Chat";
-    }
-
-    try {
-      const history = ChatHistoryManager.getInstance();
-      await history.saveSession({
-        id: this.currentSessionId,
-        title: this.sessionTitle,
-        messages: this.messages,
-        updatedAt: Date.now(),
-      });
-      this.webContents.send("chat-sessions-updated");
-    } catch (error) {
-      console.error("[LLMClient] Failed to save current session:", error);
-    }
-  }
-
-  clearMessages(): void {
-    this.startNewSession();
-  }
-
-  getMessages(): ModelMessage[] {
-    return this.messages;
-  }
-
-  getCurrentSessionId(): string | null {
-    return this.currentSessionId;
-  }
-
-  setSessionTitle(title: string): void {
-    this.sessionTitle = title;
-  }
-
-  private sendMessagesToRenderer(): void {
-    this.webContents.send("chat-messages-updated", this.messages);
-    void this.saveCurrentSession();
-  }
-
-  private getPromptwaresDir(): string {
-    const workspaceDir = process.cwd();
-    const possiblePaths = [
-      join(workspaceDir, "src", "promptwares"),
-      join(workspaceDir, "promptwares"),
-    ];
-    for (const p of possiblePaths) {
-      try {
-        if (existsSync(p)) {
-          return p;
-        }
-      } catch {
-        // Path does not exist or is not readable
-      }
-    }
-    return "/Users/rorychatt/git/rorychatt/blueberry-browser/src/promptwares";
-  }
-
-  private async compilePromptware(name: string, headers: Record<string, string>): Promise<string> {
-    const promptwaresDir = this.getPromptwaresDir();
-    const programFolder = join(promptwaresDir, name);
-
-    let programMd = "";
-    let loadedPath = "";
-
-    const primaryPath = join(programFolder, "system_prompt.md");
-    const fallbackPath = join(programFolder, "Program.md");
-
-    if (existsSync(primaryPath)) {
-      try {
-        programMd = await fs.readFile(primaryPath, "utf8");
-        loadedPath = primaryPath;
-      } catch (error) {
-        console.error(`Failed to read system_prompt.md for promptware ${name}:`, error);
-      }
-    }
-
-    if (!programMd && existsSync(fallbackPath)) {
-      try {
-        programMd = await fs.readFile(fallbackPath, "utf8");
-        loadedPath = fallbackPath;
-      } catch (error) {
-        console.error(`Failed to read Program.md fallback for promptware ${name}:`, error);
-      }
-    }
-
-    if (!programMd) {
-      programMd = `# ${name} Program\nNo instructions found.`;
-      loadedPath = primaryPath;
-    }
-
-    // Sort keys and format frontmatter header
-    const headerStr = Object.keys(headers)
-      .toSorted()
-      .map((key) => `${key}: ${headers[key]}`)
-      .join("\n");
-
-    // Read memories from promptwares/<name>/memory/
-    const memoryDir = join(programFolder, "memory");
-    const memoryFiles: string[] = [];
-    let memoryContents = "";
-    try {
-      await fs.mkdir(memoryDir, { recursive: true });
-      const files = await fs.readdir(memoryDir);
-      const mdFiles = files.filter((f) => f.endsWith(".md") && f !== ".gitkeep");
-
-      for (const file of mdFiles) {
-        memoryFiles.push(file);
-        try {
-          const content = await fs.readFile(join(memoryDir, file), "utf8");
-          memoryContents += `### File: ${file}\n\n${content}\n\n---\n\n`;
-        } catch {
-          // Ignore files that cannot be read
-        }
-      }
-    } catch (err) {
-      console.error(`Failed to read memories for ${name}:`, err);
-    }
-
-    const memoryFilesListing =
-      memoryFiles.length === 0 ? "(no memory files yet)" : memoryFiles.join(", ");
-    const memoryContentsSection =
-      memoryContents === "" ? "(no accumulated memories yet)" : memoryContents;
-
-    const compiled = `---
-${headerStr}
----
-You are an agentic application that evolves over time.
-
-This prompt is your Firmware and is never allowed to change.
-
-The header above contains your named parameters for this execution.
-
-Your program folder is: ${programFolder}
-
-## Goal
-
-Your goal is to complete the instructions in the **Program** section below (inlined from ${loadedPath.endsWith("system_prompt.md") ? "system_prompt.md" : "Program.md"}) with the following priority:
-
-1. Completeness
-2. Speed
-3. Token efficiency
-4. Improvement over time
-
-**Memory Files:**
-${memoryFilesListing}
-
-**Accumulated Memories / Reflections:**
-${memoryContentsSection}
-
-Complete your task and return the appropriate output.
-
-## Program
-
-${programMd}
-`;
-
-    return compiled.replace("{{BrowserSkills}}", BrowserSkills.getSkillsInstructions());
-  }
-
   private async prepareMessagesWithContext(
     _request: ChatRequest,
   ): Promise<{ system: string; messages: ModelMessage[] }> {
@@ -581,7 +232,7 @@ ${programMd}
       PageContent: pageContentTruncated,
     };
 
-    const system = await this.compilePromptware("OpenCode", headers);
+    const system = await compilePromptware("OpenCode", headers);
 
     return { system, messages: this.messages };
   }
@@ -597,6 +248,7 @@ ${programMd}
     messages: ModelMessage[],
     system: string,
     messageId: string,
+    repromptCount = 0,
   ): Promise<void> {
     if (!this.model) {
       throw new Error("Model not initialized");
@@ -618,7 +270,7 @@ ${programMd}
         temperature: DEFAULT_TEMPERATURE,
       });
 
-      await this.processStream(result.textStream, messageId, controller, system);
+      await this.processStream(result.textStream, messageId, controller, system, repromptCount);
     } catch (error) {
       console.error("[LLMClient] Error during text streaming:", error);
       throw error;
@@ -630,6 +282,7 @@ ${programMd}
     messageId: string,
     controller: AbortController,
     system: string,
+    repromptCount = 0,
   ): Promise<void> {
     let accumulatedText = "";
 
@@ -783,9 +436,48 @@ ${programMd}
                   message: "Continue executing your plan based on the updated page context.",
                   messageId: `${messageId}-rerun`,
                 });
-              await this.streamResponse(rerunMessages, rerunSystem, `${messageId}-rerun`);
+              await this.streamResponse(rerunMessages, rerunSystem, `${messageId}-rerun`, 0); // Reset repromptCount on success
+            } else if (!result.success) {
+              // Action failed! Check if we can reprompt the agent
+              const MAX_REPROMPTS = 3;
+              if (repromptCount < MAX_REPROMPTS) {
+                const nextReprompt = repromptCount + 1;
+                console.log(
+                  `[LLMClient] Action failed. Reprompting agent (attempt ${nextReprompt}/${MAX_REPROMPTS})...`,
+                );
+
+                this.messages.push({
+                  role: "user",
+                  content: `❌ **Failed to execute browser action:** ${result.message}\n\nPlease analyze the error, inspect the current page content/HTML, and try again with a corrected selector or action.`,
+                });
+                this.sendMessagesToRenderer();
+
+                // Give the page a brief moment to stabilize
+                await new Promise((resolve) => setTimeout(resolve, 1000));
+
+                // Make sure visuals are shown before starting the stream rerun
+                void BrowserSkills.showAgentVisuals(this.window);
+
+                // Prepare messages with fresh context and trigger stream
+                const { system: rerunSystem, messages: rerunMessages } =
+                  await this.prepareMessagesWithContext({
+                    message: "Action failed. Retrying with updated context...",
+                    messageId: `${messageId}-reprompt-${nextReprompt}`,
+                  });
+                await this.streamResponse(
+                  rerunMessages,
+                  rerunSystem,
+                  `${messageId}-reprompt-${nextReprompt}`,
+                  nextReprompt,
+                );
+              } else {
+                console.warn(
+                  `[LLMClient] Action failed and reached max reprompt limit of ${MAX_REPROMPTS}. Stopping.`,
+                );
+                void BrowserSkills.hideAgentVisuals(this.window);
+              }
             } else {
-              // Action succeeded but did not change state, or failed -> hide visuals
+              // Action succeeded but did not change state -> hide visuals
               void BrowserSkills.hideAgentVisuals(this.window);
             }
           }
