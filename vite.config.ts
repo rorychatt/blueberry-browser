@@ -187,6 +187,9 @@ export default defineConfig({
       "use-isnan": "error",
       "valid-typeof": "error",
       "vite-plus/prefer-vite-plus-imports": "error",
+      "no-underscore-dangle": "off",
+      "no-await-in-loop": "off",
+      "react/jsx-no-constructed-context-values": "off",
     },
   },
   staged: {
