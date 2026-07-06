@@ -117,7 +117,7 @@ const TimelineCard: React.FC<{
       {hasDetails && (!isCollapsible || isOpen) && (
         <div className="mt-2.5 pt-2.5 border-t border-border/40 animate-fade-in">
           {typeof message === "string" ? (
-            <div className="text-[11px] font-mono bg-muted/50 dark:bg-muted/10 border border-border/20 rounded-lg p-2.5 text-muted-foreground break-words leading-relaxed max-h-[180px] overflow-y-auto">
+            <div className="text-[11px] font-mono bg-muted/50 dark:bg-muted/10 border border-border/20 rounded-lg p-2.5 text-muted-foreground break-all break-words leading-relaxed max-h-[180px] overflow-y-auto">
               {message}
             </div>
           ) : (
@@ -133,7 +133,7 @@ const TimelineCard: React.FC<{
 const UserMessage: React.FC<{ content: string }> = ({ content }) => (
   <div className="relative max-w-[85%] ml-auto animate-fade-in">
     <div className="bg-secondary text-secondary-foreground rounded-lg px-5 py-3 shadow-sm border border-primary/10">
-      <div className="text-sm font-medium" style={{ whiteSpace: "pre-wrap" }}>
+      <div className="text-sm font-medium break-all break-words" style={{ whiteSpace: "pre-wrap" }}>
         {content}
       </div>
     </div>
@@ -159,7 +159,7 @@ const StreamingText: React.FC<{ content: string }> = ({ content }) => {
   }, [content, currentIndex]);
 
   return (
-    <div className="whitespace-pre-wrap text-foreground">
+    <div className="whitespace-pre-wrap break-all break-words text-foreground">
       {displayedContent}
       {currentIndex < content.length && (
         <span className="inline-block w-2 h-5 bg-primary/60 dark:bg-primary/40 ml-0.5 animate-pulse" />
@@ -502,7 +502,7 @@ const ThinkingProcessCard: React.FC<{
                 )}
               </div>
               {stepMessage && (
-                <div className="text-[10px] text-muted-foreground/90 leading-relaxed max-w-full overflow-x-auto whitespace-pre-wrap font-sans pl-6">
+                <div className="text-[10px] text-muted-foreground/90 leading-relaxed max-w-full break-all break-words overflow-hidden whitespace-pre-wrap font-sans pl-6">
                   {stepMessage}
                 </div>
               )}
@@ -1042,6 +1042,13 @@ export const Chat: React.FC = () => {
 
   // Check if we need to show loading after the last group
   const showLoadingAfterLastGroup = isLoading && messages.at(-1)?.role === "user";
+
+  if (showLoadingAfterLastGroup) {
+    messageGroups.push({
+      role: "assistant",
+      messages: [],
+    });
+  }
 
   return (
     <div className="flex flex-col h-full bg-transparent">

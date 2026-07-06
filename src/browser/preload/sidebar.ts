@@ -78,6 +78,7 @@ const sidebarAPI = {
     electronAPI.ipcRenderer.invoke("run-e2e-test", filename, headful),
   runE2ETestInBrowser: async (filename: string) =>
     electronAPI.ipcRenderer.invoke("run-e2e-test-in-browser", filename),
+  killE2ETest: async () => electronAPI.ipcRenderer.invoke("kill-e2e-test"),
   onE2ETestLog: (
     callback: (data: { type: "stdout" | "stderr" | "system"; text: string }) => void,
   ) => {

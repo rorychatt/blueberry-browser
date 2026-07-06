@@ -19,6 +19,7 @@ import {
   Trash2,
   Eye,
   Activity,
+  StopCircle,
 } from "lucide-react";
 import { cn } from "@common/lib/utils";
 
@@ -50,6 +51,7 @@ export const TestRunner: React.FC = () => {
   const [isDirty, setIsDirty] = useState(false);
   const [copied, setCopied] = useState(false);
   const [lastRunStatus, setLastRunStatus] = useState<"passed" | "failed" | null>(null);
+  const [isKilling, setIsKilling] = useState(false);
 
   const logsEndRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -234,6 +236,46 @@ steps:
     }
   };
 
+  const handleKillTest = async () => {
+    if (!isRunning || isKilling) {
+      return;
+    }
+    setIsKilling(true);
+    setLogs((prev) => [
+      ...prev,
+      {
+        id: Math.random().toString(36).slice(7),
+        text: `⚠️ Sending stop signal to test process...\n`,
+        type: "system",
+      },
+    ]);
+
+    try {
+      const res = await window.sidebarAPI.killE2ETest();
+      if (!res || !res.success) {
+        setLogs((prev) => [
+          ...prev,
+          {
+            id: Math.random().toString(36).slice(7),
+            text: `❌ Error stopping test: ${res?.error || "Unknown error"}\n`,
+            type: "stderr",
+          },
+        ]);
+      }
+    } catch (err) {
+      setLogs((prev) => [
+        ...prev,
+        {
+          id: Math.random().toString(36).slice(7),
+          text: `❌ Error stopping test: ${(err as Error).message}\n`,
+          type: "stderr",
+        },
+      ]);
+    } finally {
+      setIsKilling(false);
+    }
+  };
+
   const copyLogsToClipboard = () => {
     if (logs.length === 0) {
       return;
@@ -413,57 +455,77 @@ steps:
               </button>
             </div>
 
-            {/* Run Buttons Panel */}
-            <div className="grid grid-cols-2 gap-2.5">
+            {/* Run Buttons Panel or Abort Button */}
+            {isRunning ? (
               <button
-                onClick={handleRunTestInBrowser}
-                disabled={isRunning}
-                className={cn(
-                  "flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-bold shadow-md transition-all duration-300 cursor-pointer border",
-                  isRunning
-                    ? runMode === "tab"
-                      ? "bg-primary/20 text-primary border-primary/40 animate-pulse cursor-not-allowed"
-                      : "bg-muted text-muted-foreground border-transparent opacity-40 cursor-not-allowed"
-                    : "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground border-primary/20 hover:scale-[1.02] hover:brightness-105 active:scale-98 hover:shadow-lg hover:shadow-primary/10",
-                )}
+                onClick={handleKillTest}
+                disabled={isKilling}
+                className="w-full flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-lg text-xs font-black bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 text-white shadow-md shadow-rose-500/20 hover:shadow-rose-500/30 active:scale-98 transition-all duration-300 cursor-pointer border border-rose-500/30 hover:scale-[1.01]"
               >
-                {isRunning && runMode === "tab" ? (
+                {isKilling ? (
                   <>
                     <Loader className="size-3.5 animate-spin" />
-                    Running...
+                    Stopping execution...
                   </>
                 ) : (
                   <>
-                    <Play className="size-3 fill-current" />
-                    Run in Tab
+                    <StopCircle className="size-4 animate-pulse" />
+                    Kill Running Test
                   </>
                 )}
               </button>
-              <button
-                onClick={handleRunTest}
-                disabled={isRunning}
-                className={cn(
-                  "flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-bold shadow-md transition-all duration-300 cursor-pointer border",
-                  isRunning
-                    ? runMode === "external"
-                      ? "bg-emerald-500/20 text-emerald-500 border-emerald-500/40 animate-pulse cursor-not-allowed"
-                      : "bg-muted text-muted-foreground border-transparent opacity-40 cursor-not-allowed"
-                    : "bg-gradient-to-r from-emerald-500 to-teal-600 text-white border-emerald-500/20 hover:scale-[1.02] hover:brightness-105 active:scale-98 hover:shadow-lg hover:shadow-emerald-500/10",
-                )}
-              >
-                {isRunning && runMode === "external" ? (
-                  <>
-                    <Loader className="size-3.5 animate-spin" />
-                    Running...
-                  </>
-                ) : (
-                  <>
-                    <Cpu className="size-3.5" />
-                    Run External
-                  </>
-                )}
-              </button>
-            </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2.5">
+                <button
+                  onClick={handleRunTestInBrowser}
+                  disabled={isRunning}
+                  className={cn(
+                    "flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-bold shadow-md transition-all duration-300 cursor-pointer border",
+                    isRunning
+                      ? runMode === "tab"
+                        ? "bg-primary/20 text-primary border-primary/40 animate-pulse cursor-not-allowed"
+                        : "bg-muted text-muted-foreground border-transparent opacity-40 cursor-not-allowed"
+                      : "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground border-primary/20 hover:scale-[1.02] hover:brightness-105 active:scale-98 hover:shadow-lg hover:shadow-primary/10",
+                  )}
+                >
+                  {isRunning && runMode === "tab" ? (
+                    <>
+                      <Loader className="size-3.5 animate-spin" />
+                      Running...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="size-3 fill-current" />
+                      Run in Tab
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={handleRunTest}
+                  disabled={isRunning}
+                  className={cn(
+                    "flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-bold shadow-md transition-all duration-300 cursor-pointer border",
+                    isRunning
+                      ? runMode === "external"
+                        ? "bg-emerald-500/20 text-emerald-500 border-emerald-500/40 animate-pulse cursor-not-allowed"
+                        : "bg-muted text-muted-foreground border-transparent opacity-40 cursor-not-allowed"
+                      : "bg-gradient-to-r from-emerald-500 to-teal-600 text-white border-emerald-500/20 hover:scale-[1.02] hover:brightness-105 active:scale-98 hover:shadow-lg hover:shadow-emerald-500/10",
+                  )}
+                >
+                  {isRunning && runMode === "external" ? (
+                    <>
+                      <Loader className="size-3.5 animate-spin" />
+                      Running...
+                    </>
+                  ) : (
+                    <>
+                      <Cpu className="size-3.5" />
+                      Run External
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
           </div>
         )}
 

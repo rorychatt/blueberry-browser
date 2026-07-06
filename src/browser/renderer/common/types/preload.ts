@@ -63,6 +63,7 @@ export interface SidebarAPI {
     headful?: boolean,
   ) => Promise<{ success: boolean; error?: string; code?: number }>;
   runE2ETestInBrowser: (filename: string) => Promise<{ success: boolean; error?: string }>;
+  killE2ETest: () => Promise<{ killed: boolean; success: boolean; error?: string }>;
   onE2ETestLog: (
     callback: (data: { type: "stdout" | "stderr" | "system"; text: string }) => void,
   ) => void;
