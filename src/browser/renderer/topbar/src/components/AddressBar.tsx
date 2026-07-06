@@ -1,5 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { ArrowLeft, ArrowRight, Loader2, PanelLeft, PanelLeftClose, RefreshCw } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Loader2,
+  PanelLeft,
+  PanelLeftClose,
+  RefreshCw,
+  Settings,
+} from "lucide-react";
 import { useBrowser } from "../contexts/BrowserContext";
 import { ToolBarButton } from "../components/ToolBarButton";
 import { Favicon } from "../components/Favicon";
@@ -7,7 +15,8 @@ import { DarkModeToggle } from "../components/DarkModeToggle";
 import { cn } from "@common/lib/utils";
 
 export const AddressBar: React.FC = () => {
-  const { activeTab, navigateToUrl, goBack, goForward, reload, isLoading } = useBrowser();
+  const { activeTab, navigateToUrl, goBack, goForward, reload, isLoading, createTab } =
+    useBrowser();
   const [url, setUrl] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
@@ -30,8 +39,9 @@ export const AddressBar: React.FC = () => {
 
     // Add protocol if missing
     if (!finalUrl.startsWith("http://") && !finalUrl.startsWith("https://")) {
-      // Check if it looks like a domain
-      if (finalUrl.includes(".") && !finalUrl.includes(" ")) {
+      if (finalUrl.startsWith("blueberry://")) {
+        // Allow internal protocol
+      } else if (finalUrl.includes(".") && !finalUrl.includes(" ")) {
         finalUrl = `https://${finalUrl}`;
       } else {
         // Treat as search query
@@ -136,7 +146,7 @@ export const AddressBar: React.FC = () => {
       {/* Address Bar */}
       {isFocused ? (
         // Expanded State
-        <form onSubmit={handleSubmit} className="flex-1 min-w-0 max-w-full">
+        <form onSubmit={handleSubmit} className="flex-1 min-w-0 max-w-full app-region-no-drag">
           <div className="bg-background rounded-lg border border-primary/25 dark:border-primary/45 shadow-expanded ring-2 ring-primary/5 dark:ring-primary/15 h-8 px-2 flex items-center dark:bg-secondary">
             <input
               type="text"
@@ -198,10 +208,16 @@ export const AddressBar: React.FC = () => {
       {/* Actions Menu */}
       <div className="flex items-center gap-2 app-region-no-drag">
         <DarkModeToggle />
+        <ToolBarButton Icon={Settings} onClick={() => void createTab("blueberry://settings")} />
         <ToolBarButton
           Icon={isSidebarOpen ? PanelLeftClose : PanelLeft}
           onClick={toggleSidebar}
           toggled={isSidebarOpen}
+        />
+        <ToolBarButton
+          Icon={Settings}
+          onClick={() => createTab("blueberry://settings")}
+          className="hover:rotate-45 transition-transform duration-300"
         />
       </div>
     </>
