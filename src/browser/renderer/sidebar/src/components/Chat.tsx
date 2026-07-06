@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
@@ -19,6 +19,7 @@ import {
   ChevronDown,
   ChevronUp,
   Brain,
+  RefreshCw,
 } from "lucide-react";
 import { VoiceRecorder, type VoiceStatus } from "./voice-recorder";
 import type { Message } from "../contexts/ChatContext";
@@ -26,24 +27,103 @@ import { useChat } from "../contexts/ChatContext";
 import { cn } from "@common/lib/utils";
 import { Button } from "@common/components/Button";
 
-// Auto-scroll hook
-const useAutoScroll = (messages: Message[]) => {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const prevCount = useRef(0);
+// Timeline Card Component
+const TimelineCard: React.FC<{
+  title: React.ReactNode;
+  subtitle?: string;
+  status: "running" | "success" | "error" | "info";
+  icon: React.ReactNode;
+  message?: string;
+  isCollapsible?: boolean;
+}> = ({ title, subtitle, status, icon, message, isCollapsible = true }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const hasDetails = !!message;
 
-  useLayoutEffect(() => {
-    if (messages.length > prevCount.current) {
-      setTimeout(() => {
-        scrollRef.current?.scrollIntoView({
-          behavior: "smooth",
-          block: "end",
-        });
-      }, 100);
-    }
-    prevCount.current = messages.length;
-  }, [messages.length]);
+  return (
+    <div
+      className={cn(
+        "relative w-full rounded-xl border p-3.5 backdrop-blur-sm shadow-sm transition-all duration-300 animate-fade-in my-1",
+        status === "running" &&
+          "bg-blue-500/5 dark:bg-blue-500/10 border-blue-500/20 dark:border-blue-500/30 ring-1 ring-blue-500/10",
+        status === "success" &&
+          "bg-emerald-500/5 dark:bg-emerald-500/10 border-emerald-500/20 dark:border-emerald-500/30 shadow-emerald-500/5",
+        status === "error" &&
+          "bg-destructive/5 dark:bg-destructive/10 border-destructive/20 dark:border-destructive/30 shadow-destructive/5",
+        status === "info" &&
+          "bg-indigo-500/5 dark:bg-indigo-500/10 border-indigo-500/20 dark:border-indigo-500/30 shadow-indigo-500/5",
+      )}
+    >
+      <div className="flex items-center justify-between gap-3">
+        {/* Left Side: Icon & Title */}
+        <div className="flex items-center gap-2.5">
+          <div
+            className={cn(
+              "flex items-center justify-center size-8 rounded-lg border",
+              status === "running" &&
+                "bg-blue-500/10 border-blue-500/20 animate-pulse text-blue-500",
+              status === "success" && "bg-emerald-500/10 border-emerald-500/20 text-emerald-500",
+              status === "error" && "bg-destructive/10 border-destructive/20 text-destructive",
+              status === "info" && "bg-indigo-500/10 border-indigo-500/20 text-indigo-500",
+            )}
+          >
+            {icon}
+          </div>
+          <div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-bold tracking-tight text-foreground">{title}</span>
+              {status === "success" && (
+                <span className="size-1.5 bg-emerald-500 rounded-full animate-pulse" />
+              )}
+              {status === "error" && <span className="size-1.5 bg-destructive rounded-full" />}
+            </div>
+            {subtitle && (
+              <p className="text-[10px] text-muted-foreground font-semibold mt-0.5">{subtitle}</p>
+            )}
+          </div>
+        </div>
 
-  return scrollRef;
+        {/* Right Side: Badges & Expand Button */}
+        <div className="flex items-center gap-2">
+          {status === "success" && (
+            <span className="inline-flex items-center gap-1 py-0.5 px-2 rounded-full bg-emerald-500/15 border border-emerald-500/20 text-[10px] font-bold text-emerald-500">
+              <CheckCircle2 className="size-3" />
+              SUCCESS
+            </span>
+          )}
+          {status === "error" && (
+            <span className="inline-flex items-center gap-1 py-0.5 px-2 rounded-full bg-destructive/15 border border-destructive/20 text-[10px] font-bold text-destructive">
+              <XCircle className="size-3" />
+              FAILED
+            </span>
+          )}
+          {status === "info" && (
+            <span className="inline-flex items-center gap-1 py-0.5 px-2 rounded-full bg-indigo-500/15 border border-indigo-500/20 text-[10px] font-bold text-indigo-500">
+              INFO
+            </span>
+          )}
+
+          {hasDetails && isCollapsible && (
+            <button
+              onClick={() => setIsOpen(!isOpen)}
+              className="size-7 rounded-md flex items-center justify-center border border-border/40 hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+              title={isOpen ? "Hide details" : "Show details"}
+            >
+              {isOpen ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Expandable Details Block */}
+      {hasDetails && (!isCollapsible || isOpen) && (
+        <div className="mt-2.5 pt-2.5 border-t border-border/40 animate-fade-in">
+          <div className="text-[11px] font-mono bg-muted/50 dark:bg-muted/10 border border-border/20 rounded-lg p-2.5 text-muted-foreground break-words leading-relaxed max-h-[180px] overflow-y-auto">
+            {message}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 // User Message Component - appears on the right
@@ -163,96 +243,31 @@ const ToolExecutionCard: React.FC<{
   status: "running" | "success" | "error";
   message?: string;
 }> = ({ action, status, message }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const hasDetails = !!message;
+  const icon =
+    status === "running" ? (
+      <Loader2 className="size-4 text-blue-500 animate-spin" />
+    ) : (
+      getActionIcon(action)
+    );
 
   return (
-    <div
-      className={cn(
-        "relative w-full rounded-xl border p-3.5 backdrop-blur-sm shadow-sm transition-all duration-300 animate-fade-in my-2.5",
-        status === "running" &&
-          "bg-blue-500/5 dark:bg-blue-500/10 border-blue-500/20 dark:border-blue-500/30 ring-1 ring-blue-500/10",
-        status === "success" &&
-          "bg-emerald-500/5 dark:bg-emerald-500/10 border-emerald-500/20 dark:border-emerald-500/30 shadow-emerald-500/5",
-        status === "error" &&
-          "bg-destructive/5 dark:bg-destructive/10 border-destructive/20 dark:border-destructive/30 shadow-destructive/5",
-      )}
-    >
-      <div className="flex items-center justify-between gap-3">
-        {/* Left Side: Icon & Title */}
-        <div className="flex items-center gap-2.5">
-          <div
-            className={cn(
-              "flex items-center justify-center size-8 rounded-lg border",
-              status === "running" && "bg-blue-500/10 border-blue-500/20 animate-pulse",
-              status === "success" && "bg-emerald-500/10 border-emerald-500/20",
-              status === "error" && "bg-destructive/10 border-destructive/20",
-            )}
-          >
-            {status === "running" ? (
-              <Loader2 className="size-4 text-blue-500 animate-spin" />
-            ) : (
-              getActionIcon(action)
-            )}
-          </div>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-mono font-bold tracking-tight text-foreground bg-muted px-1.5 py-0.5 rounded border border-border/40 animate-fade-in">
-                {action}
-              </span>
-              {status === "success" && (
-                <span className="size-1.5 bg-emerald-500 rounded-full animate-pulse" />
-              )}
-              {status === "error" && <span className="size-1.5 bg-destructive rounded-full" />}
-            </div>
-            <p className="text-[10px] text-muted-foreground font-semibold mt-0.5">
-              {status === "running" && "Executing browser skill..."}
-              {status === "success" && "Executed successfully"}
-              {status === "error" && "Execution failed"}
-            </p>
-          </div>
-        </div>
-
-        {/* Right Side: Action Controls & Badges */}
-        <div className="flex items-center gap-2">
-          {status === "success" && (
-            <span className="inline-flex items-center gap-1 py-0.5 px-2 rounded-full bg-emerald-500/15 border border-emerald-500/20 text-[10px] font-bold text-emerald-500">
-              <CheckCircle2 className="size-3" />
-              SUCCESS
-            </span>
-          )}
-          {status === "error" && (
-            <span className="inline-flex items-center gap-1 py-0.5 px-2 rounded-full bg-destructive/15 border border-destructive/20 text-[10px] font-bold text-destructive">
-              <XCircle className="size-3" />
-              FAILED
-            </span>
-          )}
-
-          {hasDetails && (
-            <button
-              onClick={() => setIsOpen(!isOpen)}
-              className="size-7 rounded-md flex items-center justify-center border border-border/40 hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
-              title={isOpen ? "Hide details" : "Show details"}
-            >
-              {isOpen ? (
-                <ChevronUp className="size-3.5 transition-transform" />
-              ) : (
-                <ChevronDown className="size-3.5 transition-transform" />
-              )}
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Expandable Details Block */}
-      {hasDetails && isOpen && (
-        <div className="mt-2.5 pt-2.5 border-t border-border/40 animate-fade-in">
-          <div className="text-[11px] font-mono bg-muted/50 dark:bg-muted/10 border border-border/20 rounded-lg p-2.5 text-muted-foreground break-words leading-relaxed animate-fade-in">
-            {message}
-          </div>
-        </div>
-      )}
-    </div>
+    <TimelineCard
+      title={
+        <span className="font-mono bg-muted px-1.5 py-0.5 rounded border border-border/40 text-[11px]">
+          {action}
+        </span>
+      }
+      subtitle={
+        status === "running"
+          ? "Executing browser skill..."
+          : status === "success"
+            ? "Executed successfully"
+            : "Execution failed"
+      }
+      status={status}
+      icon={icon}
+      message={message}
+    />
   );
 };
 
@@ -261,57 +276,14 @@ const ThinkingProcessCard: React.FC<{
   content: string;
   isComplete: boolean;
 }> = ({ content, isComplete }) => {
-  const [isOpen, setIsOpen] = useState(!isComplete);
-
-  useEffect(() => {
-    setIsOpen(!isComplete);
-  }, [isComplete]);
-
   return (
-    <div
-      className={cn(
-        "w-full rounded-xl border p-3.5 backdrop-blur-sm shadow-sm transition-all duration-300 animate-fade-in my-2.5",
-        isComplete
-          ? "bg-muted/30 dark:bg-muted/5 border-border/40"
-          : "bg-indigo-500/5 dark:bg-indigo-500/10 border-indigo-500/20 dark:border-indigo-500/30 ring-1 ring-indigo-500/10",
-      )}
-    >
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <div
-            className={cn(
-              "flex items-center justify-center size-8 rounded-lg border",
-              isComplete
-                ? "bg-muted border-border/50 text-muted-foreground"
-                : "bg-indigo-500/10 border-indigo-500/20 text-indigo-500 animate-pulse",
-            )}
-          >
-            <Brain className="size-4" />
-          </div>
-          <div>
-            <span className="text-xs font-bold tracking-tight text-foreground">
-              {isComplete ? "Thought Process" : "Thinking Process..."}
-            </span>
-          </div>
-        </div>
-
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className="size-7 rounded-md flex items-center justify-center border border-border/40 hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
-          title={isOpen ? "Hide thinking process" : "Show thinking process"}
-        >
-          {isOpen ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
-        </button>
-      </div>
-
-      {isOpen && (
-        <div className="mt-2.5 pt-2.5 border-t border-border/40 animate-fade-in">
-          <div className="text-[11px] font-mono text-muted-foreground leading-relaxed whitespace-pre-wrap select-text selection:bg-primary/20 max-h-[180px] overflow-y-auto pr-1">
-            {content.trim() || "(silent reasoning...)"}
-          </div>
-        </div>
-      )}
-    </div>
+    <TimelineCard
+      title={isComplete ? "Thought Process" : "Thinking Process..."}
+      status={isComplete ? "info" : "running"}
+      icon={<Brain className="size-4" />}
+      message={content.trim() || "(silent reasoning...)"}
+      isCollapsible={true}
+    />
   );
 };
 
@@ -320,10 +292,12 @@ const AssistantMessage: React.FC<{
   content: string;
   isStreaming?: boolean;
 }> = ({ content, isStreaming }) => {
+  const trimmed = content.trim();
+
   // Check if content is a tool log
   const toolRegex =
     /^⚙️ \*\*Executing Browser Action:\*\* `([^`]+)`\.\.\.(?:\n(✅ \*Success:\*|❌ \*Error:\*)([\s\S]*))?$/;
-  const match = content.trim().match(toolRegex);
+  const match = trimmed.match(toolRegex);
 
   if (match) {
     const actionName = match[1];
@@ -337,10 +311,39 @@ const AssistantMessage: React.FC<{
     return <ToolExecutionCard action={actionName} status={status} message={detailMessage} />;
   }
 
+  // Check if content is a page state update
+  if (trimmed.startsWith("🔄")) {
+    const text = trimmed.replace(/^🔄\s*/, "").replace(/^\*|\*$/g, ""); // strip 🔄 and italics markdown
+    return (
+      <TimelineCard
+        title="Page State Updated"
+        subtitle="Rerunning agent loop..."
+        status="success"
+        icon={<RefreshCw className="size-4 text-emerald-500 animate-spin" />}
+        message={text}
+        isCollapsible={false}
+      />
+    );
+  }
+
+  // Check if content is an action block parsing/execution failure
+  if (trimmed.startsWith("❌ **Failed to parse/execute action block:**")) {
+    const text = trimmed.replace(/^❌\s*\*\*Failed to parse\/execute action block:\*\*\s*/, "");
+    return (
+      <TimelineCard
+        title="Execution Failed"
+        subtitle="Action Block Parsing Error"
+        status="error"
+        icon={<XCircle className="size-4" />}
+        message={text}
+        isCollapsible={false}
+      />
+    );
+  }
+
   // Parse `<think>` tags
   const thinkStartTag = "<think>";
   const thinkEndTag = "</think>";
-  const trimmed = content.trim();
 
   // Handle prefix of <think> while it's still streaming the tag itself
   if (trimmed.length > 0 && thinkStartTag.startsWith(trimmed)) {
@@ -394,7 +397,58 @@ const AssistantMessage: React.FC<{
   );
 };
 
-const LOADING_PHASES = ["Thinking...", "Reading context...", "Tinkering..."];
+const LOADING_PHASES = [
+  "Thinking...",
+  "Tinkering...",
+  "Analyzing active tab...",
+  "Gleaning page structure...",
+  "Evaluating DOM tree...",
+  "Formulating browser strategy...",
+  "Mapping interactive elements...",
+  "Parsing accessible nodes...",
+  "Drafting automation steps...",
+  "Reading page context...",
+  "Synthesizing visual layout...",
+  "Inspecting stylesheet targets...",
+  "Refining click targets...",
+  "Composing input parameters...",
+  "Locating main content container...",
+  "Cross-referencing element positions...",
+  "Identifying input fields...",
+  "Interpreting navigation state...",
+  "Verifying scroll boundaries...",
+  "Scanning for dynamic popups...",
+  "Checking network idle state...",
+  "Decoding tab metadata...",
+  "Evaluating javascript execution context...",
+  "Optimizing locator queries...",
+  "Calculating target coordinates...",
+  "Resolving CSS selectors...",
+  "Assessing accessibility labels...",
+  "Reconstructing user flow...",
+  "Predicting next page state...",
+  "Measuring viewport bounds...",
+  "Drafting reasoning paths...",
+  "Synthesizing visual assets...",
+  "Querying internal state...",
+  "Compiling action block payload...",
+  "Double-checking navigation history...",
+  "Tracing interactive flow...",
+  "Validating form fields...",
+  "Aligning with user objective...",
+  "Filtering noise from page source...",
+  "Correlating DOM attributes...",
+  "Structuring automation payload...",
+  "Simulating potential actions...",
+  "Detecting framework-specific components...",
+  "Establishing execution context...",
+  "Verifying tab connectivity...",
+  "Inspecting shadow DOM trees...",
+  "Mapping viewport coordinates...",
+  "Constructing optimal plan...",
+  "Confirming system resources...",
+  "Polishing the next interaction...",
+];
 
 // Loading Indicator with spinning star
 const LoadingIndicator: React.FC = () => {
@@ -405,7 +459,7 @@ const LoadingIndicator: React.FC = () => {
     setIsVisible(true);
     const interval = setInterval(() => {
       setPhase((prev) => (prev + 1) % LOADING_PHASES.length);
-    }, 2000);
+    }, 1500);
     return () => clearInterval(interval);
   }, []);
 
@@ -680,58 +734,132 @@ const ChatInput: React.FC<{
   );
 };
 
-// Conversation Turn Component
-interface ConversationTurn {
-  user?: Message;
-  assistant?: Message;
+// Message Group Interface for timeline grouping
+interface MessageGroup {
+  role: "user" | "assistant";
+  messages: Message[];
 }
 
-const ConversationTurnComponent: React.FC<{
-  turn: ConversationTurn;
+// Assistant Message Group Component
+const AssistantMessageGroupComponent: React.FC<{
+  messages: Message[];
   isLoading?: boolean;
-}> = ({ turn, isLoading }) => (
-  <div className="pt-12 flex flex-col gap-8">
-    {turn.user && <UserMessage content={turn.user.content} />}
-    {turn.assistant && (
-      <AssistantMessage content={turn.assistant.content} isStreaming={turn.assistant.isStreaming} />
-    )}
-    {isLoading && (
-      <div className="flex justify-start">
-        <LoadingIndicator />
-      </div>
-    )}
-  </div>
-);
+}> = ({ messages, isLoading }) => {
+  return (
+    <div className="relative pl-7 ml-3.5 border-l border-primary/20 dark:border-primary/10 flex flex-col gap-3 my-4">
+      {messages.map((msg, index) => {
+        const trimmed = msg.content.trim();
+        const isCard =
+          trimmed.startsWith("⚙️") ||
+          trimmed.startsWith("🔄") ||
+          trimmed.startsWith("❌ **Failed to parse/execute") ||
+          msg.content.includes("<think>");
+        const dotTopClass = isCard ? "top-[26px]" : "top-[14px]";
+
+        return (
+          <div key={msg.id || index} className="relative animate-fade-in">
+            {/* A small dot on the timeline for each card/message */}
+            <div
+              className={cn(
+                "absolute -left-8 size-2 rounded-full border-2 border-primary/40 bg-background z-10",
+                dotTopClass,
+              )}
+            />
+            <AssistantMessage content={msg.content} isStreaming={msg.isStreaming} />
+          </div>
+        );
+      })}
+      {isLoading && (
+        <div className="relative animate-fade-in">
+          <div className="absolute -left-8 top-[14px] size-2 rounded-full border-2 border-primary/40 bg-background z-10" />
+          <LoadingIndicator />
+        </div>
+      )}
+    </div>
+  );
+};
 
 // Main Chat Component
 export const Chat: React.FC = () => {
   const { messages, isLoading, sendMessage, clearChat } = useChat();
-  const scrollRef = useAutoScroll(messages);
 
-  // Group messages into conversation turns
-  const conversationTurns: ConversationTurn[] = [];
-  for (let i = 0; i < messages.length; i++) {
-    if (messages[i].role === "user") {
-      const turn: ConversationTurn = { user: messages[i] };
-      if (messages[i + 1]?.role === "assistant") {
-        turn.assistant = messages[i + 1];
-        i++; // Skip next message since we've paired it
+  const containerRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
+  const [isAutoScrollEnabled, setIsAutoScrollEnabled] = useState(true);
+  const isAutoScrollEnabledRef = useRef(true);
+
+  // Sync ref with state
+  useEffect(() => {
+    isAutoScrollEnabledRef.current = isAutoScrollEnabled;
+  }, [isAutoScrollEnabled]);
+
+  // Keep scroll locked to bottom on any inner height changes (streaming, tool log cards, collapsible opens)
+  useEffect(() => {
+    const container = containerRef.current;
+    const inner = innerRef.current;
+    if (!container || !inner) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      if (isAutoScrollEnabledRef.current) {
+        container.scrollTop = container.scrollHeight - container.clientHeight;
       }
-      conversationTurns.push(turn);
-    } else if (messages[i].role === "assistant" && (i === 0 || messages[i - 1]?.role !== "user")) {
-      // Handle standalone assistant messages
-      conversationTurns.push({ assistant: messages[i] });
-    }
-  }
+    });
 
-  // Check if we need to show loading after the last turn
-  const showLoadingAfterLastTurn = isLoading && messages.at(-1)?.role === "user";
+    resizeObserver.observe(inner);
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, []);
+
+  // Force autoscroll to bottom when messages list grows (meaning new user or assistant interaction started)
+  const prevMessagesLength = useRef(0);
+  useEffect(() => {
+    if (messages.length > prevMessagesLength.current) {
+      setIsAutoScrollEnabled(true);
+      const container = containerRef.current;
+      if (container) {
+        // Use a microtask/timeout to let layout settle, then scroll to exact bottom
+        setTimeout(() => {
+          container.scrollTop = container.scrollHeight - container.clientHeight;
+        }, 50);
+      }
+    }
+    prevMessagesLength.current = messages.length;
+  }, [messages.length]);
+
+  const handleScroll = () => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const { scrollTop, scrollHeight, clientHeight } = container;
+
+    // We are at the bottom if remaining scroll height is less than 15px
+    const isAtBottom = scrollHeight - scrollTop - clientHeight < 15;
+    setIsAutoScrollEnabled(isAtBottom);
+  };
+
+  // Group messages into consecutive runs by role
+  const messageGroups: MessageGroup[] = [];
+  messages.forEach((msg) => {
+    const lastGroup = messageGroups.at(-1);
+    if (lastGroup && lastGroup.role === msg.role) {
+      lastGroup.messages.push(msg);
+    } else {
+      messageGroups.push({
+        role: msg.role === "user" ? "user" : "assistant",
+        messages: [msg],
+      });
+    }
+  });
+
+  // Check if we need to show loading after the last group
+  const showLoadingAfterLastGroup = isLoading && messages.at(-1)?.role === "user";
 
   return (
     <div className="flex flex-col h-full bg-transparent">
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="h-8 max-w-3xl mx-auto px-4">
+      <div ref={containerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto">
+        <div className="h-8 max-w-3xl mx-auto px-4 mt-2">
           {/* New Chat Button - Floating */}
           {messages.length > 0 && (
             <Button onClick={clearChat} title="Start new chat" variant="ghost">
@@ -741,7 +869,7 @@ export const Chat: React.FC = () => {
           )}
         </div>
 
-        <div className="pb-4 relative max-w-3xl mx-auto px-4">
+        <div ref={innerRef} className="pb-4 relative max-w-3xl mx-auto px-4">
           {messages.length === 0 ? (
             // Empty State
             <div className="flex items-center justify-center h-full min-h-[350px]">
@@ -770,20 +898,30 @@ export const Chat: React.FC = () => {
               </div>
             </div>
           ) : (
-            <>
-              {/* Render conversation turns */}
-              {conversationTurns.map((turn, index) => (
-                <ConversationTurnComponent
-                  key={turn.user?.id || turn.assistant?.id || index}
-                  turn={turn}
-                  isLoading={showLoadingAfterLastTurn && index === conversationTurns.length - 1}
-                />
-              ))}
-            </>
+            <div className="flex flex-col gap-6 pt-4">
+              {messageGroups.map((group, index) => {
+                const groupKey = group.messages[0]?.id || `${group.role}-${index}`;
+                if (group.role === "user") {
+                  return (
+                    <div key={groupKey} className="flex flex-col gap-4">
+                      {group.messages.map((msg) => (
+                        <UserMessage key={msg.id} content={msg.content} />
+                      ))}
+                    </div>
+                  );
+                } else {
+                  const isLastGroup = index === messageGroups.length - 1;
+                  return (
+                    <AssistantMessageGroupComponent
+                      key={groupKey}
+                      messages={group.messages}
+                      isLoading={showLoadingAfterLastGroup && isLastGroup}
+                    />
+                  );
+                }
+              })}
+            </div>
           )}
-
-          {/* Scroll anchor */}
-          <div ref={scrollRef} />
         </div>
       </div>
 
