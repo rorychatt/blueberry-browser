@@ -19,7 +19,7 @@ export class TopBar {
       webPreferences: {
         contextIsolation: true,
         nodeIntegration: false,
-        preload: join(__dirname, "../preload/topbar.js"),
+        preload: join(__dirname, "../preload/topbar.mjs"),
         sandbox: false, // Need to disable sandbox for preload to work
       },
     });

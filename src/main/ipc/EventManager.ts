@@ -5,6 +5,16 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { spawn } from "node:child_process";
 
+interface E2EStep {
+  type: string;
+  url?: string;
+  ms?: number;
+  selector?: string;
+  text?: string;
+  path?: string;
+  prompt?: string;
+}
+
 export class EventManager {
   private readonly mainWindow: Window;
 
@@ -398,7 +408,7 @@ export class EventManager {
         for (let index = 0; index < steps.length; index++) {
           const step = steps[index];
           const stepNum = index + 1;
-          
+
           if (!this.mainWindow.activeTab) {
             throw new Error("No active tab found in the browser to run tests on.");
           }
@@ -407,7 +417,7 @@ export class EventManager {
 
           if (step.type === "navigate") {
             log("system", `  [${stepNum}] Navigate to '${step.url}'...\n`);
-            await webContents.loadURL(step.url);
+            await webContents.loadURL(step.url!);
             await new Promise<void>((resolve) => {
               if (!webContents.isLoading()) {
                 resolve();
@@ -459,7 +469,9 @@ export class EventManager {
               try {
                 found = await webContents.executeJavaScript(checkJs);
                 if (found) break;
-              } catch {}
+              } catch {
+                // Ignore error, retry on next attempt
+              }
               await new Promise((resolve) => setTimeout(resolve, 500));
             }
             if (found) {
@@ -471,13 +483,13 @@ export class EventManager {
             log("system", `  [${stepNum}] Take screenshot saved to '${step.path}'...\n`);
             const image = await webContents.capturePage();
             const buffer = image.toPNG();
-            const screenshotPath = path.join(process.cwd(), "tests", step.path);
+            const screenshotPath = path.join(process.cwd(), "tests", step.path!);
             await fs.writeFile(screenshotPath, buffer);
             log("stdout", `✓ Saved screenshot to '${step.path}'\n`);
           } else if (step.type === "agent") {
             log("system", `  [${stepNum}] Local Ollama Agent evaluation: '${step.prompt}'...\n`);
             const pageText = await webContents.executeJavaScript("document.body.innerText");
-            
+
             const endpoint = process.env.OLLAMA_ENDPOINT || "http://localhost:11434";
             const model = process.env.OLLAMA_MODEL || "qwen3.6";
 
@@ -495,25 +507,28 @@ Only output the JSON object. Do not include markdown code blocks or conversation
               prompt: `Goal/Assertion: ${step.prompt}\n\nWebpage Text Content:\n---\n${pageText}\n---\n\nRespond with the JSON object:`,
               system: systemPrompt,
               options: {
-                temperature: 0.1
+                temperature: 0.1,
               },
-              stream: false
+              stream: false,
             };
 
             const response = await fetch(`${endpoint}/api/generate`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(payload)
+              body: JSON.stringify(payload),
             });
 
             if (!response.ok) {
               throw new Error(`Ollama returned status ${response.status}`);
             }
 
-            const json: any = await response.json();
+            const json = (await response.json()) as { response?: string };
             let responseText = json.response || "";
-            responseText = responseText.replace(/^```json/, "").replace(/```$/, "").trim();
-            
+            responseText = responseText
+              .replace(/^```json/, "")
+              .replace(/```$/, "")
+              .trim();
+
             const parsedRes = JSON.parse(responseText);
             if (parsedRes.success) {
               log("stdout", `✓ Agent Assertion Passed!\n     AI Reason: ${parsedRes.reason}\n`);
@@ -533,10 +548,10 @@ Only output the JSON object. Do not include markdown code blocks or conversation
     });
   }
 
-  private parseYamlSteps(yamlStr: string): any[] {
-    const steps: any[] = [];
+  private parseYamlSteps(yamlStr: string): E2EStep[] {
+    const steps: E2EStep[] = [];
     const lines = yamlStr.split("\n");
-    let currentStep: any = null;
+    let currentStep: E2EStep | null = null;
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();

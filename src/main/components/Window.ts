@@ -100,9 +100,10 @@ export class Window {
 
     // Set the bounds to fill the window below the topbar and to the left of sidebar
     const bounds = this._baseWindow.getBounds();
+    const sidebarWidth = this._sideBar.getIsVisible() ? 400 : 0;
     tab.view.setBounds({
       height: bounds.height - 88, // Subtract topbar height
-      width: bounds.width - 400, // Subtract sidebar width
+      width: bounds.width - sidebarWidth, // Subtract sidebar width if visible
       x: 0,
       y: 88, // Start below the topbar
     });

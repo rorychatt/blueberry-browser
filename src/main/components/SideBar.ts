@@ -8,7 +8,7 @@ export class SideBar {
   private readonly webContentsView: WebContentsView;
   private readonly baseWindow: BaseWindow;
   private readonly llmClient: LLMClient;
-  private isVisible: boolean = true;
+  private isVisible: boolean = false;
 
   constructor(baseWindow: BaseWindow) {
     this.baseWindow = baseWindow;
@@ -25,7 +25,7 @@ export class SideBar {
       webPreferences: {
         contextIsolation: true,
         nodeIntegration: false,
-        preload: join(__dirname, "../preload/sidebar.js"),
+        preload: join(__dirname, "../preload/sidebar.mjs"),
         sandbox: false, // Need to disable sandbox for preload to work
       },
     });
@@ -43,24 +43,15 @@ export class SideBar {
   }
 
   private setupBounds(): void {
-    if (!this.isVisible) {
-      return;
-    }
-
     const bounds = this.baseWindow.getBounds();
-    this.webContentsView.setBounds({
-      height: bounds.height - 88, // Subtract topbar height
-      width: 400,
-      x: bounds.width - 400, // 400px width sidebar on the right
-      y: 88, // Start below the topbar
-    });
-  }
-
-  updateBounds(): void {
     if (this.isVisible) {
-      this.setupBounds();
+      this.webContentsView.setBounds({
+        height: bounds.height - 88, // Subtract topbar height
+        width: 400,
+        x: bounds.width - 400, // 400px width sidebar on the right
+        y: 88, // Start below the topbar
+      });
     } else {
-      // Hide the sidebar
       this.webContentsView.setBounds({
         height: 0,
         width: 0,
@@ -68,6 +59,10 @@ export class SideBar {
         y: 0,
       });
     }
+  }
+
+  updateBounds(): void {
+    this.setupBounds();
   }
 
   get view(): WebContentsView {
