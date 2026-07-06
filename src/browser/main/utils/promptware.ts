@@ -171,8 +171,38 @@ export async function saveReflectionMemory(
   const promptwaresDir = getPromptwaresDir();
   const memoryDir = path.join(promptwaresDir, promptwareName, "memory");
   await fs.mkdir(memoryDir, { recursive: true });
-  const filePath = path.join(memoryDir, filename);
 
+  const newCoreNormalized = coreReflection
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "")
+    .trim();
+
+  // Cross-file duplicate checking
+  try {
+    const files = await fs.readdir(memoryDir);
+    for (const file of files) {
+      if (file.endsWith(".md")) {
+        const filePath = path.join(memoryDir, file);
+        const fileContent = await fs.readFile(filePath, "utf8");
+        const entries = fileContent
+          .split(/\n\s*---\s*\n/)
+          .map((e) => e.trim())
+          .filter((e) => e.length > 0);
+
+        const isDuplicate = entries.some((entry) => getCoreText(entry) === newCoreNormalized);
+        if (isDuplicate) {
+          console.log(
+            `[saveReflectionMemory] Duplicate memory entry found in ${file}. Skipping write.`,
+          );
+          return file;
+        }
+      }
+    }
+  } catch (err) {
+    console.error("[saveReflectionMemory] Error checking duplicates across files:", err);
+  }
+
+  const filePath = path.join(memoryDir, filename);
   let existingContent = "";
   try {
     existingContent = await fs.readFile(filePath, "utf8");
@@ -186,17 +216,6 @@ export async function saveReflectionMemory(
       .split(/\n\s*---\s*\n/)
       .map((e) => e.trim())
       .filter((e) => e.length > 0);
-
-    const newCoreNormalized = coreReflection
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, "")
-      .trim();
-
-    // Check if any existing entry has the same normalized core reflection
-    const isDuplicate = entries.some((entry) => getCoreText(entry) === newCoreNormalized);
-    if (isDuplicate) {
-      return filename;
-    }
 
     // Add the new entry
     entries.push(fullRefContent.trim());

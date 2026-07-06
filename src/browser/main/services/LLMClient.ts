@@ -677,6 +677,27 @@ export class LLMClient {
       if (this.window) {
         void BrowserSkills.hideAgentVisuals(this.window);
       }
+
+      // Save final result/findings to memory
+      if (accumulatedText && accumulatedText.trim()) {
+        const reflectionTitle = `${prompt.replace(/[^a-zA-Z0-9]/g, "_").slice(0, 35)}_result`;
+        const fullRefContent = `# OpenCode Reflection\n\n- **Prompt**: ${prompt}\n- **Action**: chat\n- **Reflection/Learning**:\nWhen asked about "${prompt}", the final result was:\n${accumulatedText.trim()}\n`;
+        try {
+          const reflectionFilename = await saveReflectionMemory(
+            "OpenCode",
+            reflectionTitle,
+            fullRefContent,
+            accumulatedText.trim(),
+          );
+          console.log(`[LLMClient] Saved final result to memory: ${reflectionFilename}`);
+
+          // Append the notification directly to the streamed message to avoid grouping issues in Chat.tsx
+          assistantMessage.content = `${accumulatedText.trim()}\n\n💡 **Saved final result to memory:** \`${reflectionFilename}\``;
+          this.sendMessagesToRenderer();
+        } catch (saveErr) {
+          console.error("[LLMClient] Failed to save final result memory:", saveErr);
+        }
+      }
     }
   }
 

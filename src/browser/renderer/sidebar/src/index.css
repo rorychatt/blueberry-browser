@@ -132,3 +132,26 @@
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(var(--primary), 0.5);
 }
+
+/* Sidebar non-user content font size standardization */
+.prose {
+  font-size: 0.75rem !important;
+  /* text-xs equivalent */
+}
+
+.prose p,
+.prose li,
+.prose ul,
+.prose ol,
+.prose code,
+.prose pre,
+.prose strong,
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4,
+.prose h5,
+.prose h6 {
+  font-size: 0.75rem !important;
+  line-height: 1.5 !important;
+}

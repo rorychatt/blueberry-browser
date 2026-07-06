@@ -341,7 +341,7 @@ steps:
                   )}
                 >
                   <span className="font-bold text-foreground truncate">{test.name}</span>
-                  <span className="text-[10px] text-muted-foreground truncate font-mono">
+                  <span className="text-xs text-muted-foreground truncate font-mono">
                     {test.filename}
                   </span>
                 </button>
@@ -374,18 +374,18 @@ steps:
           )}
         >
           <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-900 bg-zinc-900/60 backdrop-blur-sm shrink-0">
-            <span className="text-[10px] font-bold text-zinc-400 flex items-center gap-1.5 uppercase tracking-wider font-sans">
+            <span className="text-xs font-bold text-zinc-400 flex items-center gap-1.5 uppercase tracking-wider font-sans">
               <Compass className="size-3.5 text-primary animate-spin-slow" />
               YAML Script Editor
             </span>
             {selectedFilename && (
               <div className="flex items-center gap-3">
                 {isDirty ? (
-                  <span className="flex items-center gap-1.5 px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[9px] font-bold animate-pulse">
+                  <span className="flex items-center gap-1.5 px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs font-bold animate-pulse">
                     Unsaved
                   </span>
                 ) : (
-                  <span className="flex items-center gap-1.5 px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[9px] font-bold">
+                  <span className="flex items-center gap-1.5 px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-xs font-bold">
                     Saved
                   </span>
                 )}
@@ -393,7 +393,7 @@ steps:
                   onClick={handleSave}
                   disabled={!isDirty}
                   className={cn(
-                    "flex items-center gap-1.5 text-[11px] font-bold transition-all cursor-pointer py-0.5 px-1.5 rounded",
+                    "flex items-center gap-1.5 text-xs font-bold transition-all cursor-pointer py-0.5 px-1.5 rounded",
                     isDirty
                       ? "text-primary hover:bg-primary/10 active:scale-95 hover:underline"
                       : "text-zinc-600 cursor-not-allowed",
@@ -417,7 +417,7 @@ steps:
               setIsFocused(false);
             }}
             placeholder="# Write your E2E test YAML here..."
-            className="flex-1 p-3.5 font-mono text-[11px] bg-transparent text-emerald-400/90 outline-none resize-none leading-relaxed overflow-y-auto caret-primary selection:bg-primary/20"
+            className="flex-1 p-3.5 font-mono text-xs bg-transparent text-emerald-400/90 outline-none resize-none leading-relaxed overflow-y-auto caret-primary selection:bg-primary/20"
           />
         </div>
 
@@ -427,11 +427,11 @@ steps:
             {/* Visual Window Option */}
             <div className="flex items-center justify-between px-1">
               <div className="flex flex-col gap-0.5">
-                <span className="text-[11px] font-bold flex items-center gap-1.5 text-foreground">
+                <span className="text-xs font-bold flex items-center gap-1.5 text-foreground">
                   <Eye className="size-3.5 text-primary" />
                   Headful Mode
                 </span>
-                <span className="text-[9px] text-muted-foreground">
+                <span className="text-xs text-muted-foreground">
                   Launch visible browser window for external runs
                 </span>
               </div>
@@ -546,7 +546,7 @@ steps:
                   setActiveTab("logs");
                 }}
                 className={cn(
-                  "px-3 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition-all duration-300 cursor-pointer",
+                  "px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all duration-300 cursor-pointer",
                   activeTab === "logs"
                     ? "bg-zinc-800 text-zinc-100 border border-zinc-700/60 shadow-inner"
                     : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60",
@@ -560,7 +560,7 @@ steps:
                   setActiveTab("screenshots");
                 }}
                 className={cn(
-                  "px-3 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition-all duration-300 cursor-pointer relative",
+                  "px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all duration-300 cursor-pointer relative",
                   activeTab === "screenshots"
                     ? "bg-zinc-800 text-zinc-100 border border-zinc-700/60 shadow-inner"
                     : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60",
@@ -569,7 +569,7 @@ steps:
                 <ImageIcon className="size-3.5" />
                 Screenshots
                 {screenshots.length > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[8px] font-black text-primary-foreground shadow-sm">
+                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-xs font-black text-primary-foreground shadow-sm">
                     {screenshots.length}
                   </span>
                 )}
@@ -579,19 +579,19 @@ steps:
             {/* Run Status Display on Right */}
             <div className="flex items-center gap-2">
               {isRunning && (
-                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-[9px] font-bold animate-pulse">
+                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold animate-pulse">
                   <Activity className="size-2.5 animate-spin" />
                   RUNNING
                 </div>
               )}
               {!isRunning && lastRunStatus === "passed" && (
-                <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-black animate-fade-in shadow-[0_0_10px_rgba(16,185,129,0.05)]">
+                <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-black animate-fade-in shadow-[0_0_10px_rgba(16,185,129,0.05)]">
                   <CheckCircle className="size-2.5" />
                   PASSED
                 </div>
               )}
               {!isRunning && lastRunStatus === "failed" && (
-                <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[9px] font-black animate-fade-in shadow-[0_0_10px_rgba(244,63,94,0.05)]">
+                <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-black animate-fade-in shadow-[0_0_10px_rgba(244,63,94,0.05)]">
                   <XCircle className="size-2.5" />
                   FAILED
                 </div>
@@ -626,7 +626,7 @@ steps:
           </div>
 
           {/* Console Content Window */}
-          <div className="flex-1 p-3.5 font-mono text-[10.5px] overflow-y-auto min-h-0 relative select-text scrollbar-thin bg-zinc-950 text-zinc-300">
+          <div className="flex-1 p-3.5 font-mono text-xs overflow-y-auto min-h-0 relative select-text scrollbar-thin bg-zinc-950 text-zinc-300">
             {activeTab === "logs" ? (
               <div className="flex flex-col gap-1.5">
                 {logs.map((log) => {
@@ -666,7 +666,7 @@ steps:
                 {logs.length === 0 && (
                   <div className="text-zinc-500 flex flex-col items-center justify-center h-full min-h-[120px] gap-2.5 my-auto">
                     <Terminal className="size-8 opacity-25" />
-                    <p className="text-center text-[11px] font-sans px-4">
+                    <p className="text-center text-xs font-sans px-4">
                       Select an E2E test and run it to inspect terminal outputs.
                     </p>
                   </div>
@@ -693,7 +693,7 @@ steps:
                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all duration-300 backdrop-blur-[1px]">
                           <Maximize2 className="size-4.5 text-white animate-fade-in" />
                         </div>
-                        <div className="absolute bottom-1.5 left-2 bg-black/75 backdrop-blur-md px-1.5 py-0.5 rounded text-[9px] text-white font-sans font-bold border border-zinc-800">
+                        <div className="absolute bottom-1.5 left-2 bg-black/75 backdrop-blur-md px-1.5 py-0.5 rounded text-xs text-white font-sans font-bold border border-zinc-800">
                           Step #{idx + 1}
                         </div>
                       </div>
@@ -702,7 +702,7 @@ steps:
                 ) : (
                   <div className="text-zinc-500 flex flex-col items-center justify-center h-full min-h-[120px] gap-2.5 my-auto">
                     <ImageIcon className="size-8 opacity-25" />
-                    <p className="text-center font-sans text-[11px] px-4">
+                    <p className="text-center font-sans text-xs px-4">
                       No screenshots taken yet. Add a screenshot step in your YAML.
                     </p>
                   </div>

@@ -86,7 +86,7 @@ const TimelineCard: React.FC<{
               {status === "error" && <span className="size-1.5 bg-destructive rounded-full" />}
             </div>
             {subtitle && (
-              <p className="text-[10px] text-muted-foreground font-semibold mt-0.5">{subtitle}</p>
+              <p className="text-xs text-muted-foreground font-semibold mt-0.5">{subtitle}</p>
             )}
           </div>
         </div>
@@ -94,19 +94,19 @@ const TimelineCard: React.FC<{
         {/* Right Side: Badges & Expand Button */}
         <div className="flex items-center gap-2">
           {status === "success" && (
-            <span className="inline-flex items-center gap-1 py-0.5 px-2 rounded-full bg-emerald-500/15 border border-emerald-500/20 text-[10px] font-bold text-emerald-500">
+            <span className="inline-flex items-center gap-1 py-0.5 px-2 rounded-full bg-emerald-500/15 border border-emerald-500/20 text-xs font-bold text-emerald-500">
               <CheckCircle2 className="size-3" />
               SUCCESS
             </span>
           )}
           {status === "error" && (
-            <span className="inline-flex items-center gap-1 py-0.5 px-2 rounded-full bg-destructive/15 border border-destructive/20 text-[10px] font-bold text-destructive">
+            <span className="inline-flex items-center gap-1 py-0.5 px-2 rounded-full bg-destructive/15 border border-destructive/20 text-xs font-bold text-destructive">
               <XCircle className="size-3" />
               FAILED
             </span>
           )}
           {status === "info" && (
-            <span className="inline-flex items-center gap-1 py-0.5 px-2 rounded-full bg-indigo-500/15 border border-indigo-500/20 text-[10px] font-bold text-indigo-500">
+            <span className="inline-flex items-center gap-1 py-0.5 px-2 rounded-full bg-indigo-500/15 border border-indigo-500/20 text-xs font-bold text-indigo-500">
               INFO
             </span>
           )}
@@ -127,7 +127,7 @@ const TimelineCard: React.FC<{
       {hasDetails && (!isCollapsible || isOpen) && (
         <div className="mt-2.5 pt-2.5 border-t border-border/40 animate-fade-in">
           {typeof message === "string" ? (
-            <div className="text-[11px] font-mono bg-muted/50 dark:bg-muted/10 border border-border/20 rounded-lg p-2.5 text-muted-foreground break-all break-words leading-relaxed max-h-[180px] overflow-y-auto">
+            <div className="text-xs font-mono bg-muted/50 dark:bg-muted/10 border border-border/20 rounded-lg p-2.5 text-muted-foreground break-all break-words leading-relaxed max-h-[180px] overflow-y-auto">
               {message}
             </div>
           ) : (
@@ -169,10 +169,10 @@ const StreamingText: React.FC<{ content: string }> = ({ content }) => {
   }, [content, currentIndex]);
 
   return (
-    <div className="whitespace-pre-wrap break-all break-words text-foreground">
+    <div className="whitespace-pre-wrap break-all break-words text-xs text-foreground">
       {displayedContent}
       {currentIndex < content.length && (
-        <span className="inline-block w-2 h-5 bg-primary/60 dark:bg-primary/40 ml-0.5 animate-pulse" />
+        <span className="inline-block w-2 h-4 bg-primary/60 dark:bg-primary/40 ml-0.5 animate-pulse" />
       )}
     </div>
   );
@@ -182,7 +182,7 @@ const CustomCode: React.FC<React.ComponentProps<"code">> = ({ className, childre
   const inline = !className;
   return inline ? (
     <code
-      className="bg-muted dark:bg-muted/50 px-1 py-0.5 rounded text-sm text-foreground whitespace-pre-wrap break-all break-words"
+      className="bg-muted dark:bg-muted/50 px-1 py-0.5 rounded text-xs text-foreground whitespace-pre-wrap break-all break-words"
       {...props}
     >
       {children}
@@ -214,7 +214,7 @@ const Markdown: React.FC<{ content: string }> = ({ content }) => (
                     prose-ol:text-foreground prose-li:text-foreground
                     prose-a:text-primary hover:prose-a:underline
                     prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 
-                    prose-code:rounded prose-code:text-sm prose-code:text-foreground
+                    prose-code:rounded prose-code:text-xs prose-code:text-foreground
                     prose-code:whitespace-pre-wrap prose-code:break-all prose-code:break-words
                     prose-pre:bg-muted dark:prose-pre:bg-muted/50 prose-pre:p-3 
                     prose-pre:rounded-lg prose-pre:overflow-x-auto"
@@ -395,7 +395,7 @@ export const ActionCard: React.FC<ActionCardProps> = ({ action, params, status, 
           <div className="flex items-center gap-2 bg-muted/40 dark:bg-muted/10 border border-border/30 rounded-lg p-2.5 transition-all hover:bg-muted/60 dark:hover:bg-muted/20">
             <Globe className="size-4 text-teal-500 shrink-0" />
             <div className="flex-1 overflow-hidden">
-              <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">
+              <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider block">
                 Target URL
               </span>
               <a
@@ -417,7 +417,7 @@ export const ActionCard: React.FC<ActionCardProps> = ({ action, params, status, 
               <div className="col-span-2 flex items-center gap-2 bg-muted/40 dark:bg-muted/10 border border-border/30 rounded-lg p-2.5">
                 <Globe className="size-4 text-sky-500 shrink-0" />
                 <div className="overflow-hidden">
-                  <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">
+                  <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider block">
                     Initial URL
                   </span>
                   <span className="text-foreground font-mono font-medium truncate block">
@@ -429,7 +429,7 @@ export const ActionCard: React.FC<ActionCardProps> = ({ action, params, status, 
             {p.activate !== undefined && (
               <div className="col-span-1 flex items-center gap-2 bg-muted/40 dark:bg-muted/10 border border-border/30 rounded-lg p-2.5">
                 <div className="overflow-hidden">
-                  <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">
+                  <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider block">
                     Auto-Activate
                   </span>
                   <span className="text-foreground font-semibold">{p.activate ? "Yes" : "No"}</span>
@@ -445,7 +445,7 @@ export const ActionCard: React.FC<ActionCardProps> = ({ action, params, status, 
               <div className="flex items-center gap-2 bg-muted/40 dark:bg-muted/10 border border-border/30 rounded-lg p-2.5">
                 <Hash className="size-4 text-indigo-500 shrink-0" />
                 <div className="overflow-hidden">
-                  <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">
+                  <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider block">
                     Element Selector
                   </span>
                   <span className="text-foreground font-mono font-medium break-all">
@@ -458,10 +458,10 @@ export const ActionCard: React.FC<ActionCardProps> = ({ action, params, status, 
               <div className="flex items-start gap-2 bg-muted/40 dark:bg-muted/10 border border-border/30 rounded-lg p-2.5">
                 <Type className="size-4 text-indigo-500 mt-1 shrink-0" />
                 <div className="flex-1 overflow-hidden">
-                  <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">
+                  <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider block">
                     Keys Pressed
                   </span>
-                  <div className="bg-background border border-border/50 rounded px-2 py-1.5 font-mono text-[11px] text-foreground mt-1 break-all max-h-[80px] overflow-y-auto">
+                  <div className="bg-background border border-border/50 rounded px-2 py-1.5 font-mono text-xs text-foreground mt-1 break-all max-h-[80px] overflow-y-auto">
                     {p.text}
                   </div>
                 </div>
@@ -474,7 +474,7 @@ export const ActionCard: React.FC<ActionCardProps> = ({ action, params, status, 
           <div className="flex items-center gap-2 bg-muted/40 dark:bg-muted/10 border border-border/30 rounded-lg p-2.5">
             <MousePointerClick className="size-4 text-amber-500 shrink-0" />
             <div className="overflow-hidden">
-              <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">
+              <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider block">
                 Target Element
               </span>
               <span className="text-foreground font-mono font-medium break-all">{p.selector}</span>
@@ -486,7 +486,7 @@ export const ActionCard: React.FC<ActionCardProps> = ({ action, params, status, 
           <div className="flex items-center gap-2 bg-muted/40 dark:bg-muted/10 border border-border/30 rounded-lg p-2.5 w-fit">
             <Clock className="size-4 text-orange-400 shrink-0" />
             <div>
-              <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">
+              <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider block">
                 Sleep Duration
               </span>
               <span className="text-foreground font-semibold">
@@ -500,7 +500,7 @@ export const ActionCard: React.FC<ActionCardProps> = ({ action, params, status, 
           <div className="flex items-center gap-2 bg-muted/40 dark:bg-muted/10 border border-border/30 rounded-lg p-2.5 w-fit">
             <ArrowUpDown className="size-4 text-emerald-500 shrink-0" />
             <div>
-              <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">
+              <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider block">
                 Direction
               </span>
               <span className="text-foreground font-semibold capitalize">{p.direction}</span>
@@ -512,7 +512,7 @@ export const ActionCard: React.FC<ActionCardProps> = ({ action, params, status, 
           <div className="flex items-center gap-2 bg-muted/40 dark:bg-muted/10 border border-border/30 rounded-lg p-2.5 w-fit">
             <Terminal className="size-4 text-violet-500 shrink-0" />
             <div>
-              <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">
+              <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider block">
                 Tab Identifier
               </span>
               <span className="text-foreground font-mono font-medium">{p.tabId}</span>
@@ -561,21 +561,21 @@ export const ActionCard: React.FC<ActionCardProps> = ({ action, params, status, 
               {status === "running" ? (
                 <>
                   <span className="size-2 bg-blue-500 rounded-full animate-ping shrink-0" />
-                  <span className="text-[10px] text-blue-500 font-bold uppercase tracking-wider animate-pulse">
+                  <span className="text-xs text-blue-500 font-bold uppercase tracking-wider animate-pulse">
                     In Progress...
                   </span>
                 </>
               ) : status === "success" ? (
                 <>
                   <span className="size-2 bg-emerald-500 rounded-full shrink-0" />
-                  <span className="text-[10px] text-emerald-500 font-bold uppercase tracking-wider">
+                  <span className="text-xs text-emerald-500 font-bold uppercase tracking-wider">
                     Completed
                   </span>
                 </>
               ) : (
                 <>
                   <span className="size-2 bg-destructive rounded-full shrink-0" />
-                  <span className="text-[10px] text-destructive font-bold uppercase tracking-wider">
+                  <span className="text-xs text-destructive font-bold uppercase tracking-wider">
                     Failed
                   </span>
                 </>
@@ -587,7 +587,7 @@ export const ActionCard: React.FC<ActionCardProps> = ({ action, params, status, 
         {/* Top-right Status Pill */}
         <span
           className={cn(
-            "inline-flex items-center gap-1.5 py-1 px-3 rounded-full border text-[10px] font-extrabold tracking-wider shadow-sm select-none",
+            "inline-flex items-center gap-1.5 py-1 px-3 rounded-full border text-xs font-extrabold tracking-wider shadow-sm select-none",
             theme.badge,
           )}
         >
@@ -604,12 +604,12 @@ export const ActionCard: React.FC<ActionCardProps> = ({ action, params, status, 
       {/* Show error/success details if any */}
       {message && (
         <div className="mt-3 pt-3 border-t border-border/20 relative z-10">
-          <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block mb-1">
+          <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider block mb-1">
             Execution Details
           </span>
           <div
             className={cn(
-              "text-[10px] font-mono p-2.5 rounded-lg border leading-relaxed break-all break-words max-h-[120px] overflow-y-auto whitespace-pre-wrap shadow-inner",
+              "text-xs font-mono p-2.5 rounded-lg border leading-relaxed break-all break-words max-h-[120px] overflow-y-auto whitespace-pre-wrap shadow-inner",
               status === "error"
                 ? "bg-destructive/5 border-destructive/10 text-destructive"
                 : "bg-muted/30 border-border/30 text-muted-foreground",
@@ -800,7 +800,7 @@ const ThinkingProcessCard: React.FC<{
         } else if (step.type === "tool_execution") {
           stepIcon = getActionIcon(step.toolAction || "");
           stepTitle = (
-            <span className="font-mono bg-muted px-1 py-0.5 rounded border border-border/40 text-[10px]">
+            <span className="font-mono bg-muted px-1 py-0.5 rounded border border-border/40 text-xs">
               {step.toolAction}
             </span>
           );
@@ -874,17 +874,17 @@ const ThinkingProcessCard: React.FC<{
                 >
                   {stepIcon}
                 </div>
-                <span className="text-[11px] font-bold tracking-tight text-foreground/90">
+                <span className="text-xs font-bold tracking-tight text-foreground/90">
                   {stepTitle}
                 </span>
                 {stepSubtitle && (
-                  <span className="text-[9px] text-muted-foreground font-semibold">
+                  <span className="text-xs text-muted-foreground font-semibold">
                     {stepSubtitle}
                   </span>
                 )}
               </div>
               {stepMessage && (
-                <div className="text-[10px] text-muted-foreground/90 leading-relaxed max-w-full break-all break-words overflow-hidden whitespace-pre-wrap font-sans pl-6">
+                <div className="text-xs text-muted-foreground/90 leading-relaxed max-w-full break-all break-words overflow-hidden whitespace-pre-wrap font-sans pl-6">
                   {stepMessage}
                 </div>
               )}
@@ -1175,7 +1175,7 @@ const ChatInput: React.FC<{
         {voiceStatus !== "idle" && (
           <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-destructive/10 dark:bg-destructive/20 border border-destructive/20 animate-fade-in">
             <span className="size-1.5 bg-destructive rounded-full animate-ping" />
-            <span className="text-[10px] font-mono font-bold text-destructive dark:text-destructive-foreground/90">
+            <span className="text-xs font-mono font-bold text-destructive dark:text-destructive-foreground/90">
               {formatTime(duration)}
             </span>
             <div className="flex items-center gap-0.5 h-4 px-1">
@@ -1560,19 +1560,19 @@ export const Chat: React.FC = () => {
                   <span className="text-2xl filter drop-shadow-md">🫐</span>
                 </div>
                 <div>
-                  <h3 className="text-base font-bold tracking-tight bg-gradient-to-r from-primary to-indigo-400 bg-clip-text text-transparent">
+                  <h3 className="text-xs font-extrabold tracking-wider bg-gradient-to-r from-primary to-indigo-400 bg-clip-text text-transparent uppercase">
                     Blueberry Copilot
                   </h3>
                   <p className="text-muted-foreground text-xs mt-1">
                     Ready to assist you with browsing and E2E automation.
                   </p>
                 </div>
-                <div className="flex items-center justify-center gap-1 py-1 px-2.5 rounded bg-background border border-border/40 text-[10px] font-semibold text-muted-foreground shadow-sm w-fit mx-auto">
-                  <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border text-[9px] font-mono shadow-sm">
+                <div className="flex items-center justify-center gap-1 py-1 px-2.5 rounded bg-background border border-border/40 text-xs font-semibold text-muted-foreground shadow-sm w-fit mx-auto">
+                  <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border text-xs font-mono shadow-sm">
                     ⌘
                   </kbd>
                   <span>+</span>
-                  <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border text-[9px] font-mono shadow-sm">
+                  <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border text-xs font-mono shadow-sm">
                     E
                   </kbd>
                   <span className="ml-1 text-muted-foreground/80">to toggle sidebar</span>
@@ -1675,7 +1675,7 @@ export const Chat: React.FC = () => {
                   {searchQuery ? "No matching sessions" : "No recent chats"}
                 </p>
                 {!searchQuery && (
-                  <p className="text-[10px] mt-0.5">Your conversations will appear here.</p>
+                  <p className="text-xs mt-0.5">Your conversations will appear here.</p>
                 )}
               </div>
             ) : (
@@ -1736,7 +1736,7 @@ export const Chat: React.FC = () => {
                           <div className="font-semibold text-xs text-foreground truncate leading-normal">
                             {session.title || "Untitled Session"}
                           </div>
-                          <div className="text-[10px] text-muted-foreground font-semibold mt-0.5 flex items-center gap-1.5">
+                          <div className="text-xs text-muted-foreground font-semibold mt-0.5 flex items-center gap-1.5">
                             <span>{formatRelativeTime(session.updatedAt)}</span>
                             {session.messages && (
                               <>
