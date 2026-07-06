@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useDarkMode } from "@common/hooks/useDarkMode";
+import { usePrimaryColor } from "@common/hooks/usePrimaryColor";
 import {
   Keyboard,
   Undo2,
@@ -12,6 +13,7 @@ import {
   Sun,
   Moon,
   Palette,
+  Sliders,
 } from "lucide-react";
 
 interface ShortcutConfig {
@@ -28,6 +30,7 @@ interface AppSettings {
   shortcuts: ShortcutConfig;
   landingPage: string;
   theme: "light" | "dark" | "system";
+  primaryColor?: string;
 }
 
 const SHORTCUT_LABELS: Record<keyof ShortcutConfig, { label: string; desc: string }> = {
@@ -73,11 +76,12 @@ const PREDEFINED_LANDING_PAGES: Record<string, { label: string; url: string; des
 
 export const SettingsApp: React.FC = () => {
   const { isDarkMode, toggleDarkMode } = useDarkMode();
+  const { primaryColor, setPrimaryColor } = usePrimaryColor();
   const [shortcuts, setShortcuts] = useState<ShortcutConfig | null>(null);
   const [recordingKey, setRecordingKey] = useState<keyof ShortcutConfig | null>(null);
   const [isSaved, setIsSaved] = useState(false);
   const [activeTab, setActiveTab] = useState<
-    "general" | "shortcuts" | "about" | "shortcuts_legacy"
+    "general" | "theming" | "shortcuts" | "about" | "shortcuts_legacy"
   >("general");
 
   // Safe checks for platform and version info to prevent renderer crashes
@@ -123,6 +127,11 @@ export const SettingsApp: React.FC = () => {
               if (isDark !== isDarkMode) {
                 toggleDarkMode();
               }
+            }
+
+            // Sync theme color
+            if (data.primaryColor) {
+              setPrimaryColor(data.primaryColor);
             }
           }
         } catch (err) {
@@ -229,6 +238,7 @@ export const SettingsApp: React.FC = () => {
       shortcuts,
       landingPage: finalLandingPage,
       theme: isDarkMode ? ("dark" as const) : ("light" as const),
+      primaryColor: primaryColor,
     };
 
     if (window.settingsAPI && window.settingsAPI.saveSettings) {
@@ -247,9 +257,11 @@ export const SettingsApp: React.FC = () => {
     } else if (activeTab === "general") {
       setSelectedLandingOption("google");
       setCustomLandingUrl("");
+    } else if (activeTab === "theming") {
       if (isDarkMode) {
         toggleDarkMode();
       }
+      setPrimaryColor("#4361ee");
     }
   };
 
@@ -294,8 +306,20 @@ export const SettingsApp: React.FC = () => {
                   : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
               }`}
             >
-              <Palette className="size-4" />
+              <Sliders className="size-4" />
               General Settings
+            </button>
+
+            <button
+              onClick={() => setActiveTab("theming")}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+                activeTab === "theming"
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
+              }`}
+            >
+              <Palette className="size-4" />
+              Theming Settings
             </button>
 
             <button
@@ -342,16 +366,20 @@ export const SettingsApp: React.FC = () => {
               <h2 className="text-xl font-bold tracking-tight text-foreground">
                 {activeTab === "general"
                   ? "General Settings"
-                  : activeTab === "shortcuts"
-                    ? "Keyboard Shortcuts"
-                    : "About Blueberry"}
+                  : activeTab === "theming"
+                    ? "Theming Settings"
+                    : activeTab === "shortcuts"
+                      ? "Keyboard Shortcuts"
+                      : "About Blueberry"}
               </h2>
               <p className="text-xs text-muted-foreground">
                 {activeTab === "general"
-                  ? "Configure your home page preferences, general behaviors, and interface aesthetics."
-                  : activeTab === "shortcuts"
-                    ? "Re-bind browser shortcuts to fully customize your browsing experience."
-                    : "Blueberry Browser build version and specifications."}
+                  ? "Configure your home page preferences and general browser behaviors."
+                  : activeTab === "theming"
+                    ? "Configure your interface aesthetics, light/dark mode preference, and primary colors."
+                    : activeTab === "shortcuts"
+                      ? "Re-bind browser shortcuts to fully customize your browsing experience."
+                      : "Blueberry Browser build version and specifications."}
               </p>
             </div>
 
@@ -368,85 +396,7 @@ export const SettingsApp: React.FC = () => {
           <div className="flex-1 overflow-y-auto px-8 py-6">
             {activeTab === "general" && (
               <div className="flex flex-col gap-8">
-                {/* 1. Theme Selector */}
-                <div className="flex flex-col gap-3">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
-                    Interface Color Theme
-                  </h3>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    Choose between our light and dark color themes. The theme will apply immediately
-                    across all open windows.
-                  </p>
-
-                  <div className="grid grid-cols-2 gap-4 mt-2">
-                    {/* Light Theme Card */}
-                    <div
-                      onClick={() => {
-                        if (isDarkMode) toggleDarkMode();
-                      }}
-                      className={`relative flex flex-col gap-4 p-5 rounded-2xl border transition-all duration-300 cursor-pointer select-none group ${
-                        !isDarkMode
-                          ? "border-primary bg-card shadow-lg shadow-primary/5 text-foreground"
-                          : "border-border/40 bg-secondary/30 hover:bg-secondary/50 text-muted-foreground"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div
-                          className={`p-2.5 rounded-xl ${!isDarkMode ? "bg-primary/10 text-primary" : "bg-secondary text-muted-foreground"}`}
-                        >
-                          <Sun className="size-5" />
-                        </div>
-                        {!isDarkMode && (
-                          <span className="flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                            <Check className="size-3 stroke-[3]" />
-                          </span>
-                        )}
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-sm">Light Mode</h4>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Fresh, high-contrast, clean monochromatic surfaces.
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Dark Theme Card */}
-                    <div
-                      onClick={() => {
-                        if (!isDarkMode) toggleDarkMode();
-                      }}
-                      className={`relative flex flex-col gap-4 p-5 rounded-2xl border transition-all duration-300 cursor-pointer select-none group ${
-                        isDarkMode
-                          ? "border-primary bg-card shadow-lg shadow-primary/5 text-foreground"
-                          : "border-border/40 bg-secondary/30 hover:bg-secondary/50 text-muted-foreground"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div
-                          className={`p-2.5 rounded-xl ${isDarkMode ? "bg-primary/10 text-primary" : "bg-secondary text-muted-foreground"}`}
-                        >
-                          <Moon className="size-5" />
-                        </div>
-                        {isDarkMode && (
-                          <span className="flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                            <Check className="size-3 stroke-[3]" />
-                          </span>
-                        )}
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-sm">Dark Mode</h4>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Premium deep-slate shades designed for low-light comfort.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Divider */}
-                <div className="h-px bg-border/30 w-full" />
-
-                {/* 2. Default Landing Page */}
+                {/* Default Landing Page */}
                 <div className="flex flex-col gap-3">
                   <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
                     Default Landing Page
@@ -530,6 +480,219 @@ export const SettingsApp: React.FC = () => {
                       </p>
                     </div>
                   )}
+                </div>
+
+                {/* Actions Bar inside content */}
+                <div className="flex items-center justify-between gap-4 mt-4 pt-4 border-t border-border/30">
+                  <button
+                    onClick={handleRestoreDefaults}
+                    className="flex items-center gap-2 px-5 py-3 rounded-xl border border-border text-sm font-semibold text-foreground hover:bg-secondary/50 active:brightness-95 transition-all duration-200"
+                  >
+                    <Undo2 className="size-4" />
+                    Restore Defaults
+                  </button>
+
+                  <button
+                    onClick={handleSave}
+                    className="flex items-center gap-2 px-6 py-3 rounded-xl bg-primary hover:bg-primary/90 active:bg-primary/85 text-primary-foreground text-sm font-semibold shadow-lg shadow-primary/10 active:brightness-95 transition-all duration-200"
+                  >
+                    <Save className="size-4" />
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "theming" && (
+              <div className="flex flex-col gap-8">
+                {/* 1. Theme Selector */}
+                <div className="flex flex-col gap-3">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                    Interface Color Theme
+                  </h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Choose between our light and dark color themes. The theme will apply immediately
+                    across all open windows.
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-4 mt-2">
+                    {/* Light Theme Card */}
+                    <div
+                      onClick={() => {
+                        if (isDarkMode) toggleDarkMode();
+                      }}
+                      className={`relative flex flex-col gap-4 p-5 rounded-2xl border transition-all duration-300 cursor-pointer select-none group ${
+                        !isDarkMode
+                          ? "border-primary bg-card shadow-lg shadow-primary/5 text-foreground"
+                          : "border-border/40 bg-secondary/30 hover:bg-secondary/50 text-muted-foreground"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div
+                          className={`p-2.5 rounded-xl ${!isDarkMode ? "bg-primary/10 text-primary" : "bg-secondary text-muted-foreground"}`}
+                        >
+                          <Sun className="size-5" />
+                        </div>
+                        {!isDarkMode && (
+                          <span className="flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                            <Check className="size-3 stroke-[3]" />
+                          </span>
+                        )}
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-sm">Light Mode</h4>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Fresh, high-contrast, clean monochromatic surfaces.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Dark Theme Card */}
+                    <div
+                      onClick={() => {
+                        if (!isDarkMode) toggleDarkMode();
+                      }}
+                      className={`relative flex flex-col gap-4 p-5 rounded-2xl border transition-all duration-300 cursor-pointer select-none group ${
+                        isDarkMode
+                          ? "border-primary bg-card shadow-lg shadow-primary/5 text-foreground"
+                          : "border-border/40 bg-secondary/30 hover:bg-secondary/50 text-muted-foreground"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div
+                          className={`p-2.5 rounded-xl ${isDarkMode ? "bg-primary/10 text-primary" : "bg-secondary text-muted-foreground"}`}
+                        >
+                          <Moon className="size-5" />
+                        </div>
+                        {isDarkMode && (
+                          <span className="flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                            <Check className="size-3 stroke-[3]" />
+                          </span>
+                        )}
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-sm">Dark Mode</h4>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Premium deep-slate shades designed for low-light comfort.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Divider */}
+                <div className="h-px bg-border/30 w-full" />
+
+                {/* 2. Primary Accent Color */}
+                <div className="flex flex-col gap-3">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                    Primary Accent Color
+                  </h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Personalize your browser’s accent color. This color is used for focus
+                    highlights, active buttons, tabs, and interface details.
+                  </p>
+
+                  {/* Curated Color Presets Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-2">
+                    {[
+                      { name: "Blueberry Cobalt", hex: "#4361ee", desc: "Signature brand blue" },
+                      { name: "Sunset Rose", hex: "#f72585", desc: "Vibrant energetic pink" },
+                      { name: "Violet Aurora", hex: "#7209b7", desc: "Deep mystical purple" },
+                      { name: "Emerald Shore", hex: "#06d6a0", desc: "Fresh tropical green" },
+                      { name: "Amber Sunset", hex: "#f77f00", desc: "Warm glowing orange" },
+                      { name: "Slate Breeze", hex: "#64748b", desc: "Sleek balanced gray" },
+                    ].map((preset) => {
+                      const isSelected = primaryColor.toLowerCase() === preset.hex.toLowerCase();
+                      return (
+                        <div
+                          key={preset.hex}
+                          onClick={() => setPrimaryColor(preset.hex)}
+                          className={`relative flex flex-col p-4 rounded-xl border transition-all duration-300 cursor-pointer select-none group hover:scale-[1.01] ${
+                            isSelected
+                              ? "border-primary bg-primary/5 text-primary shadow-sm"
+                              : "border-border/40 bg-secondary/30 hover:bg-secondary/50 text-foreground"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className="size-4 rounded-full border border-black/10 dark:border-white/10 shrink-0 shadow-sm"
+                                style={{ backgroundColor: preset.hex }}
+                              />
+                              <span className="font-bold text-sm truncate">{preset.name}</span>
+                            </div>
+                            {isSelected && (
+                              <span className="flex size-4 items-center justify-center rounded-full bg-primary text-primary-foreground shrink-0">
+                                <Check className="size-2.5 stroke-[3]" />
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[11px] text-muted-foreground mt-1 leading-normal">
+                            {preset.desc}
+                          </span>
+                        </div>
+                      );
+                    })}
+
+                    {/* Custom Color Picker Card */}
+                    {(() => {
+                      const isPreset = [
+                        "#4361ee",
+                        "#f72585",
+                        "#7209b7",
+                        "#06d6a0",
+                        "#f77f00",
+                        "#64748b",
+                      ].includes(primaryColor.toLowerCase());
+
+                      return (
+                        <div
+                          onClick={() => {
+                            document.getElementById("custom-color-input")?.click();
+                          }}
+                          className={`relative flex flex-col p-4 rounded-xl border transition-all duration-300 cursor-pointer select-none group hover:scale-[1.01] ${
+                            !isPreset
+                              ? "border-primary bg-primary/5 text-primary shadow-sm"
+                              : "border-border/40 bg-secondary/30 hover:bg-secondary/50 text-foreground"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className="size-4 rounded-full border border-black/10 dark:border-white/10 shrink-0 shadow-sm flex items-center justify-center bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500"
+                                style={
+                                  !isPreset
+                                    ? { backgroundColor: primaryColor, backgroundImage: "none" }
+                                    : undefined
+                                }
+                              />
+                              <span className="font-bold text-sm truncate">
+                                {!isPreset ? "Custom Shade" : "Custom Color"}
+                              </span>
+                            </div>
+                            {!isPreset && (
+                              <span className="flex size-4 items-center justify-center rounded-full bg-primary text-primary-foreground shrink-0">
+                                <Check className="size-2.5 stroke-[3]" />
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[11px] text-muted-foreground mt-1 leading-normal">
+                            {!isPreset
+                              ? `Hex code: ${primaryColor.toUpperCase()}`
+                              : "Select any custom color tone"}
+                          </span>
+                          <input
+                            id="custom-color-input"
+                            type="color"
+                            value={primaryColor}
+                            onChange={(e) => setPrimaryColor(e.target.value)}
+                            className="absolute inset-0 opacity-0 cursor-pointer w-0 h-0"
+                          />
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </div>
 
                 {/* Actions Bar inside content */}
