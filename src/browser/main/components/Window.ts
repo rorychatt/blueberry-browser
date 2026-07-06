@@ -102,7 +102,7 @@ export class Window {
   }
 
   // Tab management methods
-  createTab(url?: string): Tab {
+  createTab(url?: string, activate: boolean = true): Tab {
     // If the url is blueberry://settings, check if we already have a tab with this url
     if (url === "blueberry://settings") {
       const existingSettingsTab = [...this.tabsMap.values()].find(
@@ -131,11 +131,10 @@ export class Window {
     // Store the tab
     this.tabsMap.set(tabId, tab);
 
-    // If this is the first tab, make it active
-    if (this.tabsMap.size === 1) {
+    if (activate) {
       this.switchActiveTab(tabId);
     } else {
-      // Hide the tab initially if it's not the first one
+      // Hide the tab initially if not activating
       tab.hide();
     }
 
@@ -200,6 +199,9 @@ export class Window {
     // Show the new active tab
     tab.show();
     this.activeTabId = tabId;
+
+    // Focus the tab's WebContents
+    tab.webContents.focus();
 
     // Update the window title to match the tab title
     this._baseWindow.setTitle(tab.title || "Blueberry Browser");
