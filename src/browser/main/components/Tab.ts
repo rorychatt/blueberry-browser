@@ -3,6 +3,8 @@ import { WebContentsView } from "electron";
 import { is } from "@electron-toolkit/utils";
 import { join } from "node:path";
 
+import { HistoryManager } from "../services/HistoryManager";
+
 export class Tab {
   private readonly webContentsView: WebContentsView;
   private readonly _id: string;
@@ -40,6 +42,7 @@ export class Tab {
     this.webContentsView.webContents.on("page-title-updated", (_, title) => {
       this._title = title;
       this.onUpdate?.();
+      void HistoryManager.getInstance().addHistoryEntry(this._url, title);
     });
 
     // Update URL when navigation occurs
@@ -50,6 +53,7 @@ export class Tab {
         this._url = url;
       }
       this.onUpdate?.();
+      void HistoryManager.getInstance().addHistoryEntry(this._url, this._title);
     });
 
     this.webContentsView.webContents.on("did-navigate-in-page", (_, url) => {
@@ -59,6 +63,7 @@ export class Tab {
         this._url = url;
       }
       this.onUpdate?.();
+      void HistoryManager.getInstance().addHistoryEntry(this._url, this._title);
     });
   }
 

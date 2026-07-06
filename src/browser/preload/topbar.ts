@@ -26,6 +26,15 @@ const topBarAPI = {
   toggleSidebar: async () => electronAPI.ipcRenderer.invoke("toggle-sidebar"),
 };
 
+const historyAPI = {
+  getHistory: async () => electronAPI.ipcRenderer.invoke("get-history"),
+  deleteHistoryEntry: async (id: string) =>
+    electronAPI.ipcRenderer.invoke("delete-history-entry", id),
+  clearHistory: async () => electronAPI.ipcRenderer.invoke("clear-history"),
+  getHistorySuggestions: async (historyList: unknown, currentPage: unknown) =>
+    electronAPI.ipcRenderer.invoke("get-history-suggestions", historyList, currentPage),
+};
+
 // Use `contextBridge` APIs to expose Electron APIs to
 // Renderer only if context isolation is enabled, otherwise
 // Just add to the DOM global.
@@ -33,6 +42,7 @@ if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld("electron", electronAPI);
     contextBridge.exposeInMainWorld("topBarAPI", topBarAPI);
+    contextBridge.exposeInMainWorld("historyAPI", historyAPI);
   } catch (error) {
     console.error(error);
   }
@@ -41,4 +51,6 @@ if (process.contextIsolated) {
   window.electron = electronAPI;
   // @ts-expect-error (define in dts)
   window.topBarAPI = topBarAPI;
+  // @ts-expect-error (define in dts)
+  window.historyAPI = historyAPI;
 }

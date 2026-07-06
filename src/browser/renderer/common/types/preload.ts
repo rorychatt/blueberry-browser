@@ -32,6 +32,8 @@ export interface TabInfo {
   title: string;
   url: string;
   isActive: boolean;
+  canGoBack?: boolean;
+  canGoForward?: boolean;
 }
 
 export interface SidebarAPI {
@@ -99,11 +101,36 @@ export interface SettingsAPI {
   };
 }
 
+export interface HistoryEntry {
+  id: string;
+  url: string;
+  title: string;
+  timestamp: number;
+}
+
+export interface HistorySuggestion {
+  title: string;
+  url: string;
+  reason: string;
+  type: "search" | "history" | "tool";
+}
+
+export interface HistoryAPI {
+  getHistory: () => Promise<HistoryEntry[]>;
+  deleteHistoryEntry: (id: string) => Promise<boolean>;
+  clearHistory: () => Promise<boolean>;
+  getHistorySuggestions: (
+    historyList: HistoryEntry[],
+    currentPage: { url: string; title: string } | null,
+  ) => Promise<{ suggestions: HistorySuggestion[] }>;
+}
+
 declare global {
   interface Window {
     electron: import("@electron-toolkit/preload").ElectronAPI;
     sidebarAPI: SidebarAPI;
     topBarAPI: TopBarAPI;
     settingsAPI: SettingsAPI;
+    historyAPI: HistoryAPI;
   }
 }

@@ -20,11 +20,20 @@ const settingsAPI = {
   }),
 };
 
+const historyAPI = {
+  getHistory: async () => ipcRenderer.invoke("get-history"),
+  deleteHistoryEntry: async (id: string) => ipcRenderer.invoke("delete-history-entry", id),
+  clearHistory: async () => ipcRenderer.invoke("clear-history"),
+  getHistorySuggestions: async (historyList: unknown, currentPage: unknown) =>
+    ipcRenderer.invoke("get-history-suggestions", historyList, currentPage),
+};
+
 if (isSettingsPage) {
   if (process.contextIsolated) {
     try {
       contextBridge.exposeInMainWorld("settingsAPI", settingsAPI);
       contextBridge.exposeInMainWorld("electron", electronAPI);
+      contextBridge.exposeInMainWorld("historyAPI", historyAPI);
     } catch (error) {
       console.error(error);
     }
@@ -33,5 +42,7 @@ if (isSettingsPage) {
     window.settingsAPI = settingsAPI;
     // @ts-expect-error (define in dts)
     window.electron = electronAPI;
+    // @ts-expect-error (define in dts)
+    window.historyAPI = historyAPI;
   }
 }
