@@ -23,6 +23,12 @@ import {
   ExternalLink,
   Hash,
   Type,
+  Search,
+  Trash2,
+  Edit2,
+  Check,
+  X,
+  MessageSquare,
 } from "lucide-react";
 import { VoiceRecorder, type VoiceStatus } from "./voice-recorder";
 import type { Message } from "../contexts/ChatContext";
@@ -247,8 +253,7 @@ const getActionIcon = (action: string): React.ReactNode => {
 
 interface ParsedAction {
   action: string;
-  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-  params: Record<string, any>;
+  params: Record<string, string | number | boolean | undefined>;
   isIncomplete?: boolean;
 }
 
@@ -258,7 +263,7 @@ const tryParseAction = (text: string): ParsedAction | null => {
     if (parsed && typeof parsed === "object" && typeof parsed.action === "string") {
       return {
         action: parsed.action,
-        params: parsed.params || {},
+        params: (parsed.params || {}) as Record<string, string | number | boolean | undefined>,
         isIncomplete: false,
       };
     }
@@ -268,8 +273,7 @@ const tryParseAction = (text: string): ParsedAction | null => {
     if (actionMatch) {
       const action = actionMatch[1];
       // Try to extract some params using regex
-      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-      const params: Record<string, any> = {};
+      const params: Record<string, string | number | boolean | undefined> = {};
 
       // Match key-value string pairs like "url": "https://..."
       const stringParamMatches = text.matchAll(/"([^"]+)"\s*:\s*"([^"]*)"/g);
@@ -312,8 +316,7 @@ const stripJsonBlocks = (text: string): string => {
 
 interface ActionCardProps {
   action: string;
-  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-  params: Record<string, any>;
+  params: Record<string, string | number | boolean | undefined>;
   status: "running" | "success" | "error";
   message?: string;
 }
@@ -382,10 +385,12 @@ const ActionCard: React.FC<ActionCardProps> = ({ action, params, status, message
   // Render action-specific parameter details in a beautiful way
   const renderParams = () => {
     if (!params || Object.keys(params).length === 0) return null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const p = params as any;
 
     return (
       <div className="mt-3 space-y-2 text-xs">
-        {action === "navigate" && params.url && (
+        {action === "navigate" && p.url && (
           <div className="flex items-center gap-2 bg-muted/40 dark:bg-muted/10 border border-border/30 rounded-lg p-2.5 transition-all hover:bg-muted/60 dark:hover:bg-muted/20">
             <Globe className="size-4 text-teal-500 shrink-0" />
             <div className="flex-1 overflow-hidden">
@@ -393,12 +398,12 @@ const ActionCard: React.FC<ActionCardProps> = ({ action, params, status, message
                 Target URL
               </span>
               <a
-                href={params.url}
+                href={p.url}
                 target="_blank"
                 rel="noreferrer"
                 className="text-foreground font-mono font-medium hover:underline break-all block truncate"
               >
-                {params.url}
+                {p.url}
               </a>
             </div>
             <ExternalLink className="size-3.5 text-muted-foreground shrink-0" />
@@ -407,7 +412,7 @@ const ActionCard: React.FC<ActionCardProps> = ({ action, params, status, message
 
         {action === "open_tab" && (
           <div className="grid grid-cols-2 gap-2">
-            {params.url && (
+            {p.url && (
               <div className="col-span-2 flex items-center gap-2 bg-muted/40 dark:bg-muted/10 border border-border/30 rounded-lg p-2.5">
                 <Globe className="size-4 text-sky-500 shrink-0" />
                 <div className="overflow-hidden">
@@ -415,20 +420,18 @@ const ActionCard: React.FC<ActionCardProps> = ({ action, params, status, message
                     Initial URL
                   </span>
                   <span className="text-foreground font-mono font-medium truncate block">
-                    {params.url}
+                    {p.url}
                   </span>
                 </div>
               </div>
             )}
-            {params.activate !== undefined && (
+            {p.activate !== undefined && (
               <div className="col-span-1 flex items-center gap-2 bg-muted/40 dark:bg-muted/10 border border-border/30 rounded-lg p-2.5">
                 <div className="overflow-hidden">
                   <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">
                     Auto-Activate
                   </span>
-                  <span className="text-foreground font-semibold">
-                    {params.activate ? "Yes" : "No"}
-                  </span>
+                  <span className="text-foreground font-semibold">{p.activate ? "Yes" : "No"}</span>
                 </div>
               </div>
             )}
@@ -437,7 +440,7 @@ const ActionCard: React.FC<ActionCardProps> = ({ action, params, status, message
 
         {action === "type" && (
           <div className="space-y-2">
-            {params.selector && (
+            {p.selector && (
               <div className="flex items-center gap-2 bg-muted/40 dark:bg-muted/10 border border-border/30 rounded-lg p-2.5">
                 <Hash className="size-4 text-indigo-500 shrink-0" />
                 <div className="overflow-hidden">
@@ -445,12 +448,12 @@ const ActionCard: React.FC<ActionCardProps> = ({ action, params, status, message
                     Element Selector
                   </span>
                   <span className="text-foreground font-mono font-medium break-all">
-                    {params.selector}
+                    {p.selector}
                   </span>
                 </div>
               </div>
             )}
-            {params.text !== undefined && (
+            {p.text !== undefined && (
               <div className="flex items-start gap-2 bg-muted/40 dark:bg-muted/10 border border-border/30 rounded-lg p-2.5">
                 <Type className="size-4 text-indigo-500 mt-1 shrink-0" />
                 <div className="flex-1 overflow-hidden">
@@ -458,7 +461,7 @@ const ActionCard: React.FC<ActionCardProps> = ({ action, params, status, message
                     Keys Pressed
                   </span>
                   <div className="bg-background border border-border/50 rounded px-2 py-1.5 font-mono text-[11px] text-foreground mt-1 break-all max-h-[80px] overflow-y-auto">
-                    {params.text}
+                    {p.text}
                   </div>
                 </div>
               </div>
@@ -466,21 +469,19 @@ const ActionCard: React.FC<ActionCardProps> = ({ action, params, status, message
           </div>
         )}
 
-        {action === "click" && params.selector && (
+        {action === "click" && p.selector && (
           <div className="flex items-center gap-2 bg-muted/40 dark:bg-muted/10 border border-border/30 rounded-lg p-2.5">
             <MousePointerClick className="size-4 text-amber-500 shrink-0" />
             <div className="overflow-hidden">
               <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">
                 Target Element
               </span>
-              <span className="text-foreground font-mono font-medium break-all">
-                {params.selector}
-              </span>
+              <span className="text-foreground font-mono font-medium break-all">{p.selector}</span>
             </div>
           </div>
         )}
 
-        {action === "wait" && params.ms && (
+        {action === "wait" && p.ms && (
           <div className="flex items-center gap-2 bg-muted/40 dark:bg-muted/10 border border-border/30 rounded-lg p-2.5 w-fit">
             <Clock className="size-4 text-orange-400 shrink-0" />
             <div>
@@ -488,32 +489,32 @@ const ActionCard: React.FC<ActionCardProps> = ({ action, params, status, message
                 Sleep Duration
               </span>
               <span className="text-foreground font-semibold">
-                {(params.ms / 1000).toFixed(1)} seconds
+                {(p.ms / 1000).toFixed(1)} seconds
               </span>
             </div>
           </div>
         )}
 
-        {action === "scroll_to" && params.direction && (
+        {action === "scroll_to" && p.direction && (
           <div className="flex items-center gap-2 bg-muted/40 dark:bg-muted/10 border border-border/30 rounded-lg p-2.5 w-fit">
             <ArrowUpDown className="size-4 text-emerald-500 shrink-0" />
             <div>
               <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">
                 Direction
               </span>
-              <span className="text-foreground font-semibold capitalize">{params.direction}</span>
+              <span className="text-foreground font-semibold capitalize">{p.direction}</span>
             </div>
           </div>
         )}
 
-        {(action === "switch_tab" || action === "close_tab") && params.tabId && (
+        {(action === "switch_tab" || action === "close_tab") && p.tabId && (
           <div className="flex items-center gap-2 bg-muted/40 dark:bg-muted/10 border border-border/30 rounded-lg p-2.5 w-fit">
             <Terminal className="size-4 text-violet-500 shrink-0" />
             <div>
               <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">
                 Tab Identifier
               </span>
-              <span className="text-foreground font-mono font-medium">{params.tabId}</span>
+              <span className="text-foreground font-mono font-medium">{p.tabId}</span>
             </div>
           </div>
         )}
@@ -1380,15 +1381,46 @@ const AssistantMessageGroupComponent: React.FC<{
   );
 };
 
+const formatRelativeTime = (timestamp: number): string => {
+  const now = Date.now();
+  const diff = now - timestamp;
+  if (diff < 60 * 1000) return "Just now";
+  const mins = Math.floor(diff / (60 * 1000));
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(diff / (60 * 60 * 1000));
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(diff / (24 * 60 * 60 * 1000));
+  if (days === 1) return "Yesterday";
+  if (days < 7) return `${days}d ago`;
+  const date = new Date(timestamp);
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+};
+
 // Main Chat Component
 export const Chat: React.FC = () => {
-  const { messages, isLoading, sendMessage, clearChat } = useChat();
+  const {
+    messages,
+    isLoading,
+    sendMessage,
+    clearChat,
+    sessions,
+    currentSessionId,
+    loadSession,
+    deleteSession,
+    renameSession,
+  } = useChat();
 
   const containerRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
   const [_isAutoScrollEnabled, _setIsAutoScrollEnabled] = useState(true);
   const isAutoScrollEnabledRef = useRef(true);
   const lastScrollTopRef = useRef(0);
+
+  // History UI States
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
 
   const setIsAutoScrollEnabled = (enabled: boolean) => {
     _setIsAutoScrollEnabled(enabled);
@@ -1452,6 +1484,23 @@ export const Chat: React.FC = () => {
     lastScrollTopRef.current = scrollTop;
   };
 
+  const startRename = (id: string, currentTitle: string) => {
+    setEditingSessionId(id);
+    setEditingTitle(currentTitle);
+  };
+
+  const handleRename = async (id: string) => {
+    if (editingTitle.trim()) {
+      await renameSession(id, editingTitle.trim());
+    }
+    setEditingSessionId(null);
+  };
+
+  // Filter sessions based on search query
+  const filteredSessions = sessions.filter((s) =>
+    s.title.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
+
   // Group messages into consecutive runs by role
   const messageGroups: MessageGroup[] = [];
   messages.forEach((msg) => {
@@ -1477,31 +1526,38 @@ export const Chat: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col h-full bg-transparent relative">
-      {/* Sticky New Chat Button */}
-      {messages.length > 0 && (
-        <div className="absolute top-3 right-3 z-30">
-          <Button
-            onClick={clearChat}
-            title="Start new chat"
-            variant="outline"
-            className="group flex items-center justify-center h-8 rounded-full border border-border/60 bg-background/80 dark:bg-card/40 hover:bg-background/95 hover:border-primary/30 backdrop-blur-md shadow-sm transition-all duration-300 ease-out px-2 hover:px-3 gap-0 has-[>svg]:px-2 hover:has-[>svg]:px-3"
-          >
-            <Plus className="size-4 text-muted-foreground group-hover:text-primary transition-transform duration-300 group-hover:rotate-90" />
-            <span className="text-xs font-semibold text-muted-foreground group-hover:text-primary overflow-hidden transition-all duration-300 max-w-0 group-hover:max-w-[70px] whitespace-nowrap opacity-0 group-hover:opacity-100 ml-0 group-hover:ml-1.5">
-              New Chat
-            </span>
-          </Button>
-        </div>
-      )}
+    <div className="flex flex-col h-full bg-transparent relative overflow-hidden">
+      {/* Permanent Top Header Bar */}
+      <div className="h-11 border-b border-border/40 px-3 flex items-center justify-between bg-background/65 backdrop-blur-md relative z-30 shrink-0">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setIsHistoryOpen(true)}
+          className="size-8 rounded-lg text-muted-foreground hover:text-foreground"
+          title="Chat History"
+        >
+          <Clock className="size-4" />
+        </Button>
+        <span className="text-xs font-extrabold tracking-wider bg-gradient-to-r from-primary via-indigo-400 to-indigo-500 bg-clip-text text-transparent select-none">
+          Blueberry Copilot
+        </span>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={clearChat}
+          className="size-8 rounded-lg text-muted-foreground hover:text-foreground hover:rotate-90 transition-transform duration-300"
+          title="Start new chat"
+        >
+          <Plus className="size-4" />
+        </Button>
+      </div>
 
       {/* Messages Area */}
       <div ref={containerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto">
         <div
           ref={innerRef}
           className={cn(
-            "pb-4 relative max-w-3xl mx-auto px-4",
-            messages.length > 0 ? "pt-12" : "pt-0",
+            "pb-4 relative max-w-3xl mx-auto px-4 pt-4",
             messages.length === 0 && "h-full flex flex-col justify-center",
           )}
         >
@@ -1561,9 +1617,174 @@ export const Chat: React.FC = () => {
       </div>
 
       {/* Input Area */}
-      <div className="p-4">
+      <div className="p-4 shrink-0">
         <ChatInput onSend={sendMessage} disabled={isLoading} />
       </div>
+
+      {/* History Panel Drawer Overlay */}
+      {isHistoryOpen && (
+        <div className="absolute inset-0 z-40 bg-background/95 backdrop-blur-md flex flex-col animate-fade-in">
+          {/* Drawer Header */}
+          <div className="h-11 border-b border-border/40 px-3 flex items-center justify-between bg-transparent shrink-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                setIsHistoryOpen(false);
+                setEditingSessionId(null);
+              }}
+              className="size-8 rounded-lg text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="size-4" />
+            </Button>
+            <span className="text-xs font-bold tracking-tight text-foreground select-none">
+              Chat History
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                setIsHistoryOpen(false);
+                setEditingSessionId(null);
+              }}
+              className="size-8 rounded-lg text-muted-foreground hover:text-foreground"
+            >
+              <X className="size-4" />
+            </Button>
+          </div>
+
+          {/* Search bar */}
+          <div className="p-3 shrink-0">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Search history..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full h-8 pl-9 pr-8 bg-muted/40 dark:bg-muted/10 border border-border/40 rounded-lg text-xs placeholder:text-muted-foreground focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/10 transition-all font-semibold"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 size-4 flex items-center justify-center text-muted-foreground hover:text-foreground cursor-pointer"
+                >
+                  <X className="size-3" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Sessions List */}
+          <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-1">
+            {filteredSessions.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full py-12 text-center text-muted-foreground">
+                <MessageSquare className="size-8 mb-2 text-muted-foreground/40 animate-pulse" />
+                <p className="text-xs font-medium">
+                  {searchQuery ? "No matching sessions" : "No recent chats"}
+                </p>
+                {!searchQuery && (
+                  <p className="text-[10px] mt-0.5">Your conversations will appear here.</p>
+                )}
+              </div>
+            ) : (
+              filteredSessions.map((session) => {
+                const isActive = session.id === currentSessionId;
+                const isEditing = session.id === editingSessionId;
+
+                return (
+                  <div
+                    key={session.id}
+                    className={cn(
+                      "group relative flex items-center justify-between p-2.5 rounded-lg border text-left transition-all duration-200 shadow-sm",
+                      isActive
+                        ? "bg-primary/5 dark:bg-primary/10 border-primary/25 dark:border-primary/30 ring-1 ring-primary/10"
+                        : "bg-muted/10 hover:bg-muted/20 border-border/30 hover:border-border/50",
+                    )}
+                  >
+                    {isEditing ? (
+                      <div className="flex items-center gap-1.5 w-full pr-1">
+                        <input
+                          type="text"
+                          value={editingTitle}
+                          onChange={(e) => setEditingTitle(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              void handleRename(session.id);
+                            } else if (e.key === "Escape") {
+                              setEditingSessionId(null);
+                            }
+                          }}
+                          className="flex-1 h-7 px-2 bg-background border border-primary/30 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary/20 font-semibold text-foreground"
+                          autoFocus
+                        />
+                        <button
+                          onClick={() => void handleRename(session.id)}
+                          className="size-6 rounded bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-500 flex items-center justify-center cursor-pointer transition-colors"
+                          title="Save title"
+                        >
+                          <Check className="size-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setEditingSessionId(null)}
+                          className="size-6 rounded bg-destructive/10 hover:bg-destructive/20 border border-destructive/20 text-destructive flex items-center justify-center cursor-pointer transition-colors"
+                          title="Cancel"
+                        >
+                          <X className="size-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <button
+                          onClick={async () => {
+                            await loadSession(session.id);
+                            setIsHistoryOpen(false);
+                          }}
+                          className="flex-1 min-w-0 pr-12 text-left cursor-pointer"
+                        >
+                          <div className="font-semibold text-xs text-foreground truncate leading-normal">
+                            {session.title || "Untitled Session"}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground font-semibold mt-0.5 flex items-center gap-1.5">
+                            <span>{formatRelativeTime(session.updatedAt)}</span>
+                            {session.messages && (
+                              <>
+                                <span className="size-1 bg-muted-foreground/30 rounded-full" />
+                                <span>
+                                  {session.messages.length} msg
+                                  {session.messages.length === 1 ? "" : "s"}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </button>
+
+                        {/* Inline Actions (Visible on Hover / Active) */}
+                        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150 bg-gradient-to-l from-background/90 via-background/90 to-transparent pl-4 h-full pr-1">
+                          <button
+                            onClick={() => startRename(session.id, session.title)}
+                            className="size-6 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center cursor-pointer border border-transparent hover:border-border/40 transition-colors"
+                            title="Rename chat"
+                          >
+                            <Edit2 className="size-3" />
+                          </button>
+                          <button
+                            onClick={() => deleteSession(session.id)}
+                            className="size-6 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive flex items-center justify-center cursor-pointer border border-transparent hover:border-border/40 transition-colors"
+                            title="Delete chat"
+                          >
+                            <Trash2 className="size-3" />
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
