@@ -135,7 +135,7 @@ async fn main() -> Result<()> {
                             step_num, type_step.text, type_step.selector
                         );
                         match browser
-                            .type_text(&type_step.selector, &type_step.text)
+                            .type_text(&type_step.selector, &type_step.text, false)
                             .await
                         {
                             Ok(_) => println!("✓ ({:?})", step_start.elapsed()),

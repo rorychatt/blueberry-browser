@@ -14,6 +14,7 @@ pub struct PromptwareAction {
     pub url: Option<String>,
     pub selector: Option<String>,
     pub text: Option<String>,
+    pub submit: Option<bool>,
     pub ms: Option<u64>,
     pub reason: Option<String>,
     pub reflection: Option<String>,
@@ -470,11 +471,12 @@ pub async fn run_e2e_loop(
                 let text = action
                     .text
                     .ok_or_else(|| anyhow!("Action 'type' requires a 'text' field"))?;
+                let submit = action.submit.unwrap_or(false);
                 println!(
-                    "  [Step {}] ⌨️ Typing '{}' into '{}'...",
-                    step_num, text, selector
+                    "  [Step {}] ⌨️ Typing '{}' into '{}'{}...",
+                    step_num, text, selector, if submit { " and submitting" } else { "" }
                 );
-                browser.type_text(&selector, &text).await?;
+                browser.type_text(&selector, &text, submit).await?;
             }
             "wait" => {
                 let ms = action.ms.unwrap_or(1000);

@@ -56,7 +56,7 @@ impl BrowserEngine {
         Ok(())
     }
 
-    pub async fn type_text(&self, selector: &str, text: &str) -> Result<()> {
+    pub async fn type_text(&self, selector: &str, text: &str, submit: bool) -> Result<()> {
         let element = self
             .tab
             .wait_for_element(selector)
@@ -73,6 +73,34 @@ impl BrowserEngine {
         element
             .type_into(text)
             .map_err(|e| anyhow!("Failed to type into element '{}': {}", selector, e))?;
+
+        if submit {
+            let submit_js = format!(
+                r#"(() => {{
+                    const el = document.querySelector('{}');
+                    if (el) {{
+                        el.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                        el.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                        const form = el.form || el.closest("form");
+                        if (form) {{
+                            form.requestSubmit();
+                        }} else {{
+                            const enterEvent = new KeyboardEvent("keydown", {{
+                                key: "Enter",
+                                code: "Enter",
+                                keyCode: 13,
+                                which: 13,
+                                bubbles: true,
+                                cancelable: true
+                            }});
+                            el.dispatchEvent(enterEvent);
+                        }}
+                    }}
+                }})()"#,
+                selector.replace('\'', "\\'")
+            );
+            let _ = self.run_js(&submit_js).await;
+        }
 
         Ok(())
     }
