@@ -1,41 +1,48 @@
 # Blueberry Browser Architecture
 
-Welcome to the **Blueberry Browser** and **Blueberry Playwright** central architecture review document. This document acts as a high-fidelity blueprint and status report detailing the unified system design, completed restructurings, dependency modernizations, and the AI-native end-to-end (E2E) testing framework.
+Welcome to the **Blueberry Browser** and **Blueberry Playwright** central architecture review document. This document acts as a high-fidelity blueprint and status report detailing the unified system design, codebase advancements, the self-evolving Promptware framework, and the AI-native end-to-end (E2E) testing runtime.
 
 ---
 
 ## 🗺️ Architectural Ecosystem Overview
 
-Blueberry Browser is a highly modern, AI-enhanced Electron application built with React, TypeScript, and Rust. The ecosystem is designed to deliver both a premium browsing environment and an offline-first, AI-native E2E testing framework (**Blueberry Playwright**).
+Blueberry Browser is a state-of-the-art, AI-native desktop browser and testing platform. The ecosystem integrates an Electron and React desktop application, an offline-first AI core, and a lightweight, high-performance Rust E2E runtime.
 
 ```mermaid
 graph TD
-    User([User / Developer]) -->|YAML / TS DSL| CoreCLI[blueberry-core CLI]
-    User -->|Electron UI| BrowserUI[Blueberry Sidebar UI]
-
-    subgraph Rust E2E Runtime: blueberry-core
-        CoreCLI --> Runner[Test Runner Engine]
-        Runner --> Parser[YAML Test Parser]
-        Runner --> Interaction[CDP Browser Interaction]
-        Runner --> Agent[Ollama Agentic Assertion]
-    end
-
-    subgraph local_env [Local Offline Environment]
-        Interaction -->|Chrome DevTools Protocol| HeadlessChrome[Headless / Headful Chrome]
-        Agent -->|HTTP API: /api/generate| LocalOllama[Ollama: qwen3.6]
-    end
-
-    subgraph ts_sdk [TypeScript SDK]
-        TSSDK[blueberry-sdk] -->|Spawns / IPC| CoreCLI
-    end
+    User([User / Developer]) -->|Electron UI| BrowserUI[Blueberry Sidebar UI]
+    User -->|YAML Suites / CLI| CoreCLI[blueberry-core CLI]
 
     subgraph electron_app [Electron Host: Blueberry Browser]
         BrowserUI -->|React Renderer IPC| MainProcess[Electron Main Process]
         MainProcess -->|IPC Router| EventManager[ipc/EventManager]
-        MainProcess -->|Orchestrates| SideBarComponent[components/SideBar]
-        MainProcess -->|Vercel AI SDK / LLM Client| LLMClient[services/LLMClient]
-        LLMClient -->|API| OpenAI[OpenAI / Anthropic Cloud APIs]
-        LLMClient -->|Offline API / Local LLM| LocalOllama
+        MainProcess -->|Orchestrates| TabComponent[components/Tab]
+        MainProcess -->|Compiles OpenCode| LLMClient[services/LLMClient]
+        LLMClient -->|Extracts Structure| AccessibilityExtractor[services/AccessibilityExtractor]
+        LLMClient -->|Intercepts JSON| BrowserSkills[services/BrowserSkills]
+        BrowserSkills -->|Runs Page Actions| TabComponent
+    end
+
+    subgraph Rust E2E Runtime: blueberry-core
+        CoreCLI --> Runner[Test Runner Engine]
+        Runner --> Parser[YAML Test Parser]
+        Runner --> PromptwareRS[promptware::run_e2e_loop]
+        PromptwareRS -->|Compiles E2ETest| AgentClient[ollama_agent::OllamaAgent]
+        PromptwareRS -->|Executes CDP| Interaction[browser::BrowserEngine]
+    end
+
+    subgraph local_env [Local Offline Environment]
+        AgentClient -->|HTTP API: /api/generate| LocalOllama[Ollama: qwen3.6]
+        LLMClient -->|Local API / qwen3.6| LocalOllama
+        Interaction -->|Direct WebSockets CDP| HeadlessChrome[Headless / Headful Chrome]
+    end
+
+    subgraph ts_sdk [TypeScript SDK]
+        TSSDK[blueberry-sdk] -->|Spawns / Programmatic builder| CoreCLI
+    end
+
+    subgraph cloud_env [Cloud AI Environment]
+        LLMClient -->|Vercel AI SDK| CloudLLM[OpenAI / Anthropic Cloud APIs]
     end
 ```
 
@@ -45,179 +52,225 @@ graph TD
 
 ### 1. Unified Toolchain: Vite+ (`vp`)
 
-Rather than relying on classic separate lint, test, format, and bundler utilities, this codebase has been migrated to **Vite+**—a modern, unified toolchain wrapper built on top of high-performance tools:
+The project utilizes **Vite+**—a high-performance, consolidated web development toolchain that unifies building, formatting, linting, and environment workflows:
 
-- **Vite & Rolldown**: Underpinning bundler/bundling layer.
-- **tsdown**: Fast TypeScript compilation.
-- **Oxlint & Oxfmt**: Ultra-fast Rust-powered linting and formatting.
-- **Vite Task**: Integrated script running and configuration lifecycle.
-- **`vp` CLI**: Standardized project manager replacing fragmented run commands (`vp install`, `vp check`, `vp build`, `vp run <script>`).
+- **Vite & Rolldown**: Advanced bundler and client-side bundler layer.
+- **tsdown**: Fast, lightweight compiler for TypeScript.
+- **Oxlint & Oxfmt**: Rust-powered linting and formatting utilities delivering near-instant validation.
+- **Vite Task**: Lifecycle integration managing monorepos and local developer runs.
+- **`vp` CLI**: Single-entry CLI replacing loose scripts (`vp install`, `vp check`, `vp build`, `vp run <script>`).
 
-### 2. Electron Frontend Runtime
+### 2. Electron Desktop Runtime
 
-- **Electron (v43.0.0)**: Chromium-powered main process shell.
-- **React (v19.2.7) & TypeScript (v6.0.3)**: High-performance renderer UI with TailwindCSS and custom CSS layers.
-- **Vercel AI SDK (v7.0.15)**: Integrated streaming LLM pipeline.
+- **Electron (v43.0.0)**: Chromium-powered main process environment.
+- **React (v19.2.7) & TypeScript (v6.0.3)**: High-performance React renderer utilizing custom CSS variables and TailwindCSS layers.
+- **TailwindCSS (v4.3.2)**: Integrated via modern CSS-first `@tailwindcss/postcss` for optimal layout styling.
+- **Vercel AI SDK (v7.0.15) & AI Core (`ai`)**: Standardized multi-provider LLM connector.
 
-### 3. Native E2E Test Runner (`blueberry-core`)
+### 3. Native Rust Core (`blueberry-core`)
 
-- **Rust (edition 2021)**: Lightweight, memory-safe testing backend.
-- **`headless_chrome` CDP Client**: Native Rust bindings to direct Chrome DevTools Protocol websocket connections (speed-optimized, zero external binary dependency on Node WebDriver).
-- **`serde` & `serde_yaml`**: Strongly-typed schema deserialization for YAML test files.
+- **Rust (Edition 2021)**: High-performance, memory-safe backend executable (`blueberry-core`).
+- **`headless_chrome` CDP Client**: Direct WebSocket bindings communicating with the Chrome DevTools Protocol, eliminating heavy Node WebDriver and Java Selenium dependencies.
+- **`serde` & `serde_json`**: Strongly typed serialization/deserialization for AST parsing and structured agent outputs.
 
 ---
 
-## 📂 Codebase Restructuring & Directory Map
+## 📂 Codebase Directory Map
 
-To support scalability, we standardized the folder structure of the main process from a flat array of loose files into a clean **Model-View-Component (MVC) and Service-Oriented pattern** conforming to modern production-grade Vite+ applications.
+The repository is organized under a modularized monorepo/workspace-based architecture:
 
 ```
 blueberry-browser/
 ├── src/
 │   ├── browser/                  # Electron Host: Blueberry Browser
 │   │   ├── main/                 # Electron Main Process (Modularized)
-│   │   │   ├── index.ts          # System bootstrap & entrypoint
-│   │   │   ├── components/       # Window, sidebars, tabs, menu logic
-│   │   │   │   ├── Window.ts
-│   │   │   │   ├── Menu.ts
-│   │   │   │   ├── SideBar.ts
-│   │   │   │   ├── Tab.ts
-│   │   │   │   └── TopBar.ts
-│   │   │   ├── ipc/              # Main-to-Renderer IPC Bridges
-│   │   │   │   └── EventManager.ts
-│   │   │   └── services/         # External integration services
-│   │   │       └── LLMClient.ts  # Multi-provider chat client
-│   │   ├── renderer/             # React UI layer
-│   │   └── preload/              # Electron security preloads
-│   ├── code/                     # Rust-based E2E Test Runner (blueberry-core)
-│   │   ├── Cargo.toml            # Rust package manifest
+│   │   │   ├── index.ts          # System bootstrap & window management
+│   │   │   ├── components/       # Window, menus, and browser frame logic
+│   │   │   │   ├── Window.ts     # Main window & sidebar host
+│   │   │   │   ├── Menu.ts       # Context & app menu systems
+│   │   │   │   ├── SideBar.ts    # Floating AI assistant pane
+│   │   │   │   ├── Tab.ts        # Isolation wrapper for webContents
+│   │   │   │   └── TopBar.ts     # Browser frame headers and address controls
+│   │   │   ├── ipc/              # Inter-Process Communication Bridges
+│   │   │   │   └── EventManager.ts # Direct IPC message routing & E2E events
+│   │   │   └── services/         # Core application services
+│   │   │       ├── LLMClient.ts  # System-prompt compiler & streaming LLM router
+│   │   │       ├── AccessibilityExtractor.ts # Client-side DOM outline engine
+│   │   │       └── BrowserSkills.ts          # Page control actions registry
+│   │   ├── renderer/             # React App UI layer (Sidebar, Settings, Frame)
+│   │   └── preload/              # Electron secure bridges and API exposure
+│   ├── promptwares/              # Self-evolving agentic application firmware
+│   │   ├── OpenCode/             # Master browser companion chat loop
+│   │   ├── E2ETest/              # Autonomous test runner loop
+│   │   ├── AssertionAgent/       # Semantic assertion checking module
+│   │   └── ChatCompanion/        # Template-based offline conversational helper
+│   │       ├── Program.md / system_prompt.md  # Immutable agent firmware instructions
+│   │       ├── user_prompt.md                 # Substitutable template triggers
+│   │       ├── memory/                        # Evolving markdown learnings/rules
+│   │       └── logs/                          # Run history and performance logs
+│   ├── code/                     # Rust E2E CLI core (blueberry-core)
+│   │   ├── Cargo.toml            # Rust manifest
 │   │   └── src/
-│   │       ├── main.rs           # CLI interface, runner, and orchestrator
-│   │       ├── browser.rs        # Chrome DevTools Protocol interaction engine
-│   │       ├── yaml_parser.rs    # YAML deserialization & AST schemas
-│   │       └── ollama_agent.rs   # Semantic AI Agent loop for offline assertions
+│   │       ├── main.rs           # CLI interface & subcommand router
+│   │       ├── browser.rs        # Headless Chrome WebSocket controller
+│   │       ├── yaml_parser.rs    # YAML AST schema parser
+│   │       ├── promptware.rs     # Rust promptware compiler & runner
+│   │       └── ollama_agent.rs   # Local Ollama client & assertion loop
 │   └── sdk/                      # TypeScript SDK (blueberry-sdk)
-│       ├── package.json          # SDK package manifest
-│       └── src/
-│           └── index.ts          # Programmatic builder API
-├── AGENTS.md                     # Custom agent developer instructions
-├── package.json                  # Pinned, non-drifting dependency index
-└── pnpm-workspace.yaml           # Monorepo / local package catalog config
+│       └── src/index.ts          # Programmatic builder interface
+├── AGENTS.md                     # Agent specific instructions & linter definitions
+├── package.json                  # Pinned monorepo index
+└── pnpm-workspace.yaml           # Catalog configurations
 ```
 
 ---
 
-## 🧩 Deep-Dive: Component Architecture
+## 🧩 The Promptware Framework
 
-### 1. Main Process Components (`src/main/components`)
+A core architectural breakthrough in Blueberry Browser is **Promptwares**—self-contained, "evolving agentic applications" designed to compile dynamically, query local/remote LLMs, record execution logs, and write persistent, self-improving memory reflections.
 
-- **`Window.ts`**: Encapsulates `BrowserWindow` generation, custom sidebar injection, glassmorphism UI window states, and lifecycle hooks.
-- **`Tab.ts`**: Implements browser tab isolation. Directly interfaces with Chromium's webContents, enabling title/URL synchronization, screenshot generation, and custom JavaScript-to-Text contexts.
-- **`SideBar.ts`**: Orchestrates the persistent LLM companion panel. Injects a custom sidebar view aligned with the viewport layout.
-- **`TopBar.ts`**: Core browser controls (back, forward, refresh, address bar binding).
-- **`Menu.ts`**: Context and OS menu overrides.
+### 1. File Structure of a Promptware Folder
 
-### 2. Main Process IPC & Services
+Each promptware folder (e.g. `AssertionAgent`, `E2ETest`, `OpenCode`) operates as an isolated package:
 
-- **`ipc/EventManager.ts`**: The central communication hub. Listens to IPC requests from the sidebar and topbar renderers, handles browser navigation triggers, and routes streaming LLM tokens.
-- **`services/LLMClient.ts`**: Integrated stream-processing LLM router supporting **OpenAI (GPT-4o-mini)**, **Anthropic (Claude 3.5 Sonnet)**, and **Ollama (Local Offline/Offline-first)**. It captures screenshots of active tabs directly on chat message submission, sending raw image payloads alongside page textual context to provide multimodal web assistance.
+1. **Firmware (`system_prompt.md` or `Program.md`)**: The immutable, system-level instructions directing the agent's core capabilities, operating constraints, and expected output format.
+2. **Trigger (`user_prompt.md`)**: A markdown template compiled at runtime, substituting variables wrapped in double-curly braces (e.g., `{{CurrentUrl}}`, `{{Prompt}}`).
+3. **Memory (`memory/*.md`)**: Persistent, user-editable markdown files where the agent reads compiled historical learnings and writes back reflections after each execution loop.
+4. **Logs (`logs/*.md`)**: Dynamic job output transcripts detailing timestamps, extracted parameters, model responses, and actions.
 
----
+### 2. Compilation and Substitution Pipeline
 
-## 🤖 Blueberry Playwright Engine (`blueberry-core`)
+When a promptware is compiled (by `LLMClient.ts` in JS or `promptware.rs` in Rust):
 
-The defining competitive feature of Blueberry Browser is **Blueberry Playwright**—an offline-first, AI-native alternative to Playwright designed to operate on local resources via Ollama.
-
-### 1. E2E Test Plan Steps (AST Schema)
-
-E2E tests are represented as highly readable YAML suites. Below is the parser schema mapping defined in `yaml_parser.rs`:
-
-| Step Command     | Serialization Format                     | Functional Description                                            |
-| :--------------- | :--------------------------------------- | :---------------------------------------------------------------- |
-| **`navigate`**   | `navigate: "URL"`                        | Loads the specified URL and waits for page load resolution        |
-| **`click`**      | `click: "selector"`                      | Resolves selector in DOM and triggers a physical click event      |
-| **`type`**       | `type: { selector: "...", text: "..." }` | Clears target input field and types input text sequentially       |
-| **`wait`**       | `wait: milliseconds`                     | Sleep execution thread for the requested duration                 |
-| **`wait_for`**   | `wait_for: "selector"`                   | Block thread and poll for selector existence up to a 10s timeout  |
-| **`screenshot`** | `screenshot: "filepath.png"`             | Captures a high-resolution PNG of the viewport                    |
-| **`agent`**      | `agent: "natural language prompt"`       | Triggers the Ollama Agent semantic evaluation (Visual Assertions) |
-
-### 2. CLI Executable Commands
-
-The Rust binary compiles into a command-line utility called `blueberry-core` exposing two core subcommands:
-
-- `blueberry-core run <file.yaml> [--headful]`: Loads a test suite from disk, spawns a headless (or headful) Chrome browser via CDP, executes each step, and logs comprehensive execution timing.
-- `blueberry-core agent "<prompt>" --context-file <file.txt>`: Offline utility to evaluate local page content files directly through Ollama.
-
-### 3. The Agentic Assertion Cycle (`ollama_agent.rs`)
-
-Traditional testing requires brittle CSS assertions (e.g. `expect(el.text()).toContain("Success")`). Blueberry Playwright introduces semantic testing:
-
-```
-[YAML Step: agent]
-       │
-       ▼
-[browser.rs] ──► Extracts Body InnerText
-       │
-       ▼
-[ollama_agent.rs] ──► Formulates structured LLM payload with System Rules
-       │
-       ▼
-[Ollama HTTP API] ──► Submits raw payload to '/api/generate' (Model: qwen3.6)
-       │
-       ▼
-[Strict JSON Extraction] ──► Extracts and deserializes response:
-                             {
-                               "success": true | false,
-                               "reason": "..."
-                             }
-       │
-       ▼
-[Test Engine] ──► Logs semantic evaluation and proceeds or aborts test suite
-```
-
-> [!NOTE]
-> **System Instruction Constraints**: The Ollama agent is configured with strict instructions to enforce a low temperature (0.1) for deterministic evaluations and output a strict JSON payload. Markdown wrapping formatting is automatically detected and stripped before deserialization.
+- The compiler loads the core firmware file.
+- It scans the `memory/` directory, aggregating all accumulated learnings, reflections, and historical rules into the system prompt context.
+- It injects execution-specific headers (e.g., `CurrentTime`, `CurrentUrl`, `PageContent`, `AccessibilityContext`).
+- If required, it substitutes custom markdown placeholders (such as `{{BrowserSkills}}`) with detailed API instructions.
 
 ---
 
-## 🚀 Future Integrations & Extensions
+## 🤖 The Electron Sidebar & OpenCode Master Agent
 
-### 1. TypeScript SDK Builder Pattern (`blueberry-sdk`)
+The persistent LLM Companion Panel (the Sidebar chat) is orchestrated by the **OpenCode** master browser agent.
 
-To allow developers to code their E2E tests programmatically, a lightweight TypeScript SDK is designed to sit alongside the Rust binary. The SDK implements a builder design pattern compiling via `tsc`:
+````
+[User Message] ──► [LLMClient] ──► Extracts tab screenshot (multimodal)
+                         │
+                         ▼
+        Compiles OpenCode Promptware with context:
+        - CurrentTime, CurrentUrl
+        - PageContent (Truncated)
+        - AccessibilityContext (from AccessibilityExtractor)
+                         │
+                         ▼
+             [Streaming LLM Response]
+                         │
+                         ▼
+             Check for JSON Code Block:
+             ```json
+             { "action": "click", "params": { "selector": "#btn" } }
+             ```
+                         │
+                         ▼
+         [EventManager / BrowserSkills] Executes Action
+                         │
+                         ▼
+        State Changed? ──► YES ──► (Sleep 1.5s) ──► Re-trigger OpenCode Loop!
+            │
+            └──► NO ──► Render final explanation to User
+````
 
-```typescript
-import { Blueberry } from "blueberry-sdk";
+### 1. AccessibilityExtractor
 
-const test = new Blueberry();
-await test
-  .navigate("https://news.ycombinator.com")
-  .wait_for(".storylink")
-  .screenshot("hacker_news.png")
-  .agent("Verify that there is a story about artificial intelligence on the front page")
-  .run();
+To feed lightweight but complete DOM context to the agent without exceeding LLM context windows, `AccessibilityExtractor.ts` runs client-side DOM-inspection scripts to build a highly structured, semantic Markdown outline:
+
+- **Landmarks & Sections**: Summarizes structural roles (`<nav>`, `<main>`, `<header>`, `section`).
+- **Headings Hierarchy**: Indents headings based on tag level (`H1`, `H2`, `H3`).
+- **Interactive Elements**: Filters for actionable anchors, buttons, inputs, textareas, and inputs with custom roles, appending current state flags (`Disabled`, `Checked`, `Required`) and extracting unique, clean CSS selectors.
+
+### 2. BrowserSkills & Dynamic Permissions
+
+`BrowserSkills.ts` handles the execution of actions parsed from the agent's JSON output. It maps schema parameters to programmatic browser APIs and manages a dynamic permissions gate:
+
+| Skill Action     | Description                         | Parameters Schema                                                                      |
+| :--------------- | :---------------------------------- | :------------------------------------------------------------------------------------- |
+| **`open_tab`**   | Opens a new browser tab.            | `url` (optional, string), `activate` (optional, boolean)                               |
+| **`close_tab`**  | Closes a tab by its ID.             | `tabId` (required, string)                                                             |
+| **`switch_tab`** | Activates another tab by its ID.    | `tabId` (required, string)                                                             |
+| **`navigate`**   | Navigates the current tab to a URL. | `url` (required, string)                                                               |
+| **`click`**      | Simulates a physical DOM click.     | `selector` (required, string)                                                          |
+| **`type`**       | Inputs text into a target field.    | `selector` (required, string), `text` (required, string), `submit` (optional, boolean) |
+| **`scroll_to`**  | Scrolls the active viewport.        | `direction` (required: `'up' \| 'down' \| 'top' \| 'bottom'`)                          |
+| **`wait`**       | Sleeps the current thread.          | `ms` (required, number)                                                                |
+| **`go_back`**    | Standard back navigation.           | _(No parameters)_                                                                      |
+| **`go_forward`** | Standard forward navigation.        | _(No parameters)_                                                                      |
+
+> [!TIP]
+> **Dynamic Permissions Gate**: Each skill is registered in a permissions map. If an action's permission is programmatically disabled (e.g., due to user preferences or security profiles), the execution is aborted immediately, returning a standard restriction payload to the agent.
+
+---
+
+## ⚡ Rust Dynamic E2E Test Runner (`blueberry-core`)
+
+The localized alternative to Playwright is the compiled `blueberry-core` Rust binary. It parses YAML test plans and supports both classical sequential actions and completely autonomous Promptware-driven E2E loops.
+
+### 1. YAML Parser Schema Layout (`yaml_parser.rs`)
+
+Test suites are declared in highly structured YAML configurations. The engine supports two execution branches:
+
+#### Option A: Classical Step-by-Step Executions
+
+```yaml
+name: "Search Flow Test"
+steps:
+  - navigate: "https://www.google.com"
+  - wait_for: "input[name='q']"
+  - type:
+      selector: "input[name='q']"
+      text: "Blueberry Browser"
+  - click: "input[type='submit']"
+  - wait: 2000
+  - screenshot: "google_results.png"
+  - agent: "Verify that 'blueberry' is shown in the search results"
 ```
 
-### 2. Sidebar Test Dashboard UI (`TestRunner.tsx`)
+#### Option B: E2E Promptware Autonomous Loop
 
-Integration of a dedicated test monitoring suite into the Electron Renderer Sidebar:
+```yaml
+name: "Search Flow Autonomous Agent Test"
+prompt: "Search for Blueberry Browser on Google and verify that the results are loaded correctly"
+```
 
-- **YAML Registry**: Auto-detects local `.yaml` test plans in a `tests/` workspace folder.
-- **Execution Panel**: Start/stop controls triggering the `blueberry-core` CLI via the Electron main-to-local shell process.
-- **Real-time Console**: Stream stdout/stderr logs from the Rust compiler and CDP engine directly into a beautiful dark-mode terminal window with glassmorphism styling.
-- **Interactive Gallery**: Real-time display of captured PNG screenshots showing exactly where the agent is running in Chrome.
-- **Natural Language Generation**: Interactive dialog with the sidebar LLM companion to describe a test flow (e.g. _"Create a test that searches for Apple on Google"_), generating and saving a production-ready `.yaml` E2E test.
+### 2. Rust Promptware Run Loop (`promptware::run_e2e_loop`)
+
+If a YAML file specifies a global `prompt` instead of a static sequence of `steps`, the Rust runner launches an **Autonomous Agent Loop**:
+
+1. It initializes an active `BrowserEngine` viewport and registers a randomized `job_id`.
+2. It extracts the current URL and page text context (automatically truncating deep text blocks to 5,000 characters to optimize local LLM latency).
+3. It compiles the local `E2ETest` Promptware, stitching the user's objective, compiled memory logs, and current page context into an LLM system prompt.
+4. It calls the local Ollama API (`/api/generate` using `qwen3.6`), pulling a deterministic low-temperature response.
+5. It parses the returned JSON action. If the action is a page navigation or interaction, it executes it through WebSocket CDP channels and iterates.
+6. The loop continues for up to 20 steps. At conclusion (success or failure), it outputs a final `reflection` written back to `E2ETest/memory/learnings.md` and saves the complete transcript inside `E2ETest/logs/job_*.md`.
+
+### 3. CLI Subcommand Reference
+
+`blueberry-core` exposes the following terminal utilities:
+
+- `blueberry-core run <file.yaml> [--headful]`: Loads and runs a step-based or prompt-based E2E test plan.
+- `blueberry-core agent "<prompt>" --context-file <file.txt>`: Quick CLI utility to verify assertions on offline text contexts.
+- `blueberry-core promptware-run <name> --input "<text>"`: Directly compiles and runs any promptware module offline.
+- `blueberry-core promptware-read-memory <name> <filename>`: Reads compiled learnings.
+- `blueberry-core promptware-write-memory <name> <filename> <content>`: Overwrites/updates promptware memories.
 
 ---
 
 ## 🧹 Repository Hygiene & Policies
 
-To keep our codebase premium and ensure that we maintain high software engineering standards, we enforce the following rules:
+To ensure stability across developer workspaces, the codebase strictly enforces:
 
 > [!IMPORTANT]
-> **1. Version Pinning**: All packages inside `package.json` are fixed and pinned to exact versions (e.g. `"react": "19.2.7"` instead of `^19.1.0`). Pinned versions prevent dependency-drift bugs across developer workspaces.
+> **1. Package Version Pinning**: All dependencies inside `package.json` are fixed and pinned to exact, deterministic versions. Carets (`^`), tildes (`~`), and `latest` modifiers are strictly forbidden.
 >
-> **2. Build Artifact Isolation**: All compiled type-definition files (`*.d.ts`) must never be committed to VCS. Build steps or local script generation tools (e.g. `vp check` or `tsc`) should regenerate these files dynamically on the developer machine.
+> **2. Clean Types Compilation**: Automatically generated type declaration files (`*.d.ts`) must never be checked into git. Let `vp check` or typescript configurations recompile definitions dynamically.
 >
-> **3. Continuous Verification**: Developers should always run the local unified toolchain validation commands `vp check` (for Oxlint/Oxfmt compilation, lints, and format rules) and `vp build` before pushing code changes to guarantee zero syntax or compilation regressions.
+> **3. Continuous Verification**: Before pushing features or finalizing refactors, always execute `vp check` (running Oxlint and Oxfmt linting/formatting tests) and `vp build` to guarantee compilation success.
