@@ -4,6 +4,8 @@ import { createOpenAI, openai } from "@ai-sdk/openai";
 import { anthropic } from "@ai-sdk/anthropic";
 import * as dotenv from "dotenv";
 import { join } from "node:path";
+import { existsSync } from "node:fs";
+import * as fs from "node:fs/promises";
 import type { Window } from "../components/Window";
 
 // Load environment variables from .env file
@@ -203,6 +205,104 @@ export class LLMClient {
     this.webContents.send("chat-messages-updated", this.messages);
   }
 
+  private getPromptwaresDir(): string {
+    const workspaceDir = process.cwd();
+    const possiblePaths = [
+      join(workspaceDir, "src", "promptwares"),
+      join(workspaceDir, "promptwares"),
+    ];
+    for (const p of possiblePaths) {
+      try {
+        if (existsSync(p)) {
+          return p;
+        }
+      } catch {
+        // Path does not exist or is not readable
+      }
+    }
+    return "/Users/rorychatt/git/rorychatt/blueberry-browser/src/promptwares";
+  }
+
+  private async compilePromptware(name: string, headers: Record<string, string>): Promise<string> {
+    const promptwaresDir = this.getPromptwaresDir();
+    const programFolder = join(promptwaresDir, name);
+    const programMdPath = join(programFolder, "Program.md");
+
+    let programMd = "";
+    try {
+      programMd = await fs.readFile(programMdPath, "utf8");
+    } catch (error) {
+      console.error(`Failed to read Program.md for promptware ${name}:`, error);
+      programMd = `# ${name} Program\nNo instructions found.`;
+    }
+
+    // Sort keys and format frontmatter header
+    const headerStr = Object.keys(headers)
+      .toSorted()
+      .map((key) => `${key}: ${headers[key]}`)
+      .join("\n");
+
+    // Read memories from promptwares/<name>/memory/
+    const memoryDir = join(programFolder, "memory");
+    const memoryFiles: string[] = [];
+    let memoryContents = "";
+    try {
+      await fs.mkdir(memoryDir, { recursive: true });
+      const files = await fs.readdir(memoryDir);
+      const mdFiles = files.filter((f) => f.endsWith(".md"));
+
+      for (const file of mdFiles) {
+        memoryFiles.push(file);
+        try {
+          const content = await fs.readFile(join(memoryDir, file), "utf8");
+          memoryContents += `### File: ${file}\n\n${content}\n\n---\n\n`;
+        } catch {
+          // Ignore files that cannot be read
+        }
+      }
+    } catch (err) {
+      console.error(`Failed to read memories for ${name}:`, err);
+    }
+
+    const memoryFilesListing =
+      memoryFiles.length === 0 ? "(no memory files yet)" : memoryFiles.join(", ");
+    const memoryContentsSection =
+      memoryContents === "" ? "(no accumulated memories yet)" : memoryContents;
+
+    return `---
+${headerStr}
+---
+You are an agentic application that evolves over time.
+
+This prompt is your Firmware and is never allowed to change.
+
+The header above contains your named parameters for this execution.
+
+Your program folder is: ${programFolder}
+
+## Goal
+
+Your goal is to complete the instructions in the **Program** section below (inlined from Program.md) with the following priority:
+
+1. Completeness
+2. Speed
+3. Token efficiency
+4. Improvement over time
+
+**Memory Files:**
+${memoryFilesListing}
+
+**Accumulated Memories / Reflections:**
+${memoryContentsSection}
+
+Complete your task and return the appropriate output.
+
+## Program
+
+${programMd}
+`;
+  }
+
   private async prepareMessagesWithContext(
     _request: ChatRequest,
   ): Promise<{ system: string; messages: ModelMessage[] }> {
@@ -222,33 +322,16 @@ export class LLMClient {
       }
     }
 
-    const system = this.buildSystemPrompt(pageUrl, pageText);
+    const pageContentTruncated = this.truncateText(pageText || "", MAX_CONTEXT_LENGTH);
+    const headers: Record<string, string> = {
+      CurrentTime: new Date().toISOString(),
+      CurrentUrl: pageUrl || "about:blank",
+      PageContent: pageContentTruncated,
+    };
+
+    const system = await this.compilePromptware("ChatCompanion", headers);
 
     return { system, messages: this.messages };
-  }
-
-  private buildSystemPrompt(url: string | null, pageText: string | null): string {
-    const parts: string[] = [
-      "You are a helpful AI assistant integrated into a web browser.",
-      "You can analyze and discuss web pages with the user.",
-      "The user's messages may include screenshots of the current page as the first image.",
-    ];
-
-    if (url) {
-      parts.push(`\nCurrent page URL: ${url}`);
-    }
-
-    if (pageText) {
-      const truncatedText = this.truncateText(pageText, MAX_CONTEXT_LENGTH);
-      parts.push(`\nPage content (text):\n${truncatedText}`);
-    }
-
-    parts.push(
-      "\nPlease provide helpful, accurate, and contextual responses about the current webpage.",
-      "If the user asks about specific content, refer to the page content and/or screenshot provided.",
-    );
-
-    return parts.join("\n");
   }
 
   private truncateText(text: string, maxLength: number): string {

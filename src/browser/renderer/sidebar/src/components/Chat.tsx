@@ -3,6 +3,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
 import { ArrowUp, Plus } from "lucide-react";
+import { VoiceRecorder, type VoiceStatus } from "./voice-recorder";
 import type { Message } from "../contexts/ChatContext";
 import { useChat } from "../contexts/ChatContext";
 import { cn } from "@common/lib/utils";
@@ -160,6 +161,12 @@ const LoadingIndicator: React.FC = () => {
   );
 };
 
+const formatTime = (secs: number) => {
+  const mins = Math.floor(secs / 60);
+  const remaining = secs % 60;
+  return `${mins.toString().padStart(2, "0")}:${remaining.toString().padStart(2, "0")}`;
+};
+
 // Chat Input Component with pill design
 const ChatInput: React.FC<{
   onSend: (message: string) => void;
@@ -168,6 +175,15 @@ const ChatInput: React.FC<{
   const [value, setValue] = useState("");
   const [isFocused, setIsFocused] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Voice recording state
+  const [voiceStatus, setVoiceStatus] = useState<VoiceStatus>("idle");
+  const [duration, setDuration] = useState(0);
+  const [volume, setVolume] = useState(0);
+  const [recordError, setRecordError] = useState<string | null>(null);
+
+  const recorderRef = useRef<VoiceRecorder | null>(null);
+  const timerRef = useRef<number | null>(null);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -179,8 +195,42 @@ const ChatInput: React.FC<{
     }
   }, [value]);
 
+  // Timer logic for voice recording
+  useEffect(() => {
+    if (voiceStatus === "recording") {
+      setDuration(0);
+      timerRef.current = window.setInterval(() => {
+        setDuration((d) => d + 1);
+      }, 1000);
+    } else {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    }
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [voiceStatus]);
+
+  // Stop recording when component unmounts
+  useEffect(() => {
+    return () => {
+      if (recorderRef.current) {
+        recorderRef.current.stop();
+        // Prevent state updates on unmounted component
+        (recorderRef.current as unknown as { options: unknown }).options = {
+          onStatusChange: () => {},
+          onResult: () => {},
+          onError: () => {},
+          onVolumeChange: () => {},
+        };
+      }
+    };
+  }, []);
+
   const handleSubmit = () => {
-    if (value.trim() && !disabled) {
+    if (value.trim() && !disabled && voiceStatus === "idle") {
       onSend(value.trim());
       setValue("");
       // Reset textarea height
@@ -197,6 +247,45 @@ const ChatInput: React.FC<{
     }
   };
 
+  const toggleRecording = async () => {
+    if (voiceStatus === "idle") {
+      setRecordError(null);
+      setVolume(0);
+      const recorder = new VoiceRecorder({
+        endpoint: "wss://tendril-api.ivy.app/transcribe/ws",
+        onStatusChange: (status) => setVoiceStatus(status),
+        onResult: (transcription) => {
+          console.log("[ChatInput] Transcription result received:", transcription);
+          if (transcription.trim() === "") {
+            setRecordError(
+              "The transcription did not contain enough information. Please try again and speak clearly.",
+            );
+            return;
+          }
+          setValue((prev) => {
+            const next = prev ? `${prev} ${transcription}` : transcription;
+            console.log("[ChatInput] Next text state:", next);
+            return next;
+          });
+        },
+        onError: (err) => setRecordError(err),
+        onVolumeChange: (vol) => setVolume(vol),
+      });
+      recorderRef.current = recorder;
+      await recorder.start();
+    } else {
+      recorderRef.current?.stop();
+    }
+  };
+
+  // Generate real audio level height modifications
+  const barCount = 10;
+  const bars = Array.from({ length: barCount }, (_, i) => {
+    const baseHeight = 4 + (i % 3) * 6; // base height between 4px and 16px
+    const dynamicScale = 1 + volume * 18; // scale based on volume
+    return Math.min(28, baseHeight * dynamicScale);
+  });
+
   return (
     <div
       className={cn(
@@ -205,6 +294,19 @@ const ChatInput: React.FC<{
         isFocused ? "border-primary/20 dark:border-primary/30" : "border-border",
       )}
     >
+      {/* Error banner */}
+      {recordError && (
+        <div className="mb-2 p-2.5 rounded-md bg-destructive/15 border border-destructive/20 text-destructive text-xs flex items-center justify-between gap-2 animate-fade-in">
+          <span>{recordError}</span>
+          <button
+            onClick={() => setRecordError(null)}
+            className="font-bold hover:opacity-80 text-sm px-1"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {/* Input Area */}
       <div className="w-full px-3 py-2">
         <div className="w-full flex items-start gap-3">
@@ -222,7 +324,8 @@ const ChatInput: React.FC<{
                 setIsFocused(false);
               }}
               onKeyDown={handleKeyDown}
-              placeholder="Send a message..."
+              placeholder={voiceStatus === "recording" ? "Listening..." : "Send a message..."}
+              disabled={voiceStatus === "connecting" || voiceStatus === "processing"}
               className="w-full resize-none outline-none bg-transparent 
                                      text-foreground placeholder:text-muted-foreground
                                      min-h-[24px] max-h-[200px]"
@@ -233,12 +336,68 @@ const ChatInput: React.FC<{
         </div>
       </div>
 
-      {/* Send Button */}
+      {/* Action Row */}
       <div className="w-full flex items-center gap-1.5 px-1 mt-2 mb-1">
+        {/* Equalizer Waveform & Recording Timer */}
+        {voiceStatus !== "idle" && (
+          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-destructive/10 dark:bg-destructive/20 border border-destructive/20 animate-fade-in">
+            <span className="size-1.5 bg-destructive rounded-full animate-ping" />
+            <span className="text-[10px] font-mono font-bold text-destructive dark:text-destructive-foreground/90">
+              {formatTime(duration)}
+            </span>
+            <div className="flex items-center gap-0.5 h-4 px-1">
+              {bars.map((h, i) => (
+                <div
+                  // eslint-disable-next-line react/no-array-index-key
+                  key={i}
+                  className="w-0.5 bg-destructive dark:bg-destructive-foreground/90 rounded-sm transition-all duration-75"
+                  style={{ height: `${(h / 28) * 16}px` }}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="flex-1" />
+
+        {/* Mic Button */}
+        <button
+          onClick={toggleRecording}
+          disabled={disabled}
+          title="Voice input"
+          type="button"
+          className={cn(
+            "size-9 rounded-md flex items-center justify-center transition-all duration-200",
+            voiceStatus === "idle" &&
+              "bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground",
+            voiceStatus === "connecting" && "bg-secondary text-primary cursor-not-allowed",
+            voiceStatus === "recording" &&
+              "bg-destructive text-destructive-foreground hover:opacity-90",
+            voiceStatus === "processing" && "bg-secondary text-primary cursor-not-allowed",
+          )}
+        >
+          {voiceStatus === "connecting" || voiceStatus === "processing" ? (
+            <div className="size-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+          ) : voiceStatus === "recording" ? (
+            <div className="size-3 bg-current rounded-sm" />
+          ) : (
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              className="size-5"
+            >
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+              <path d="M19 10v1a7 7 0 0 1-14 0v-1M12 19v3M8 22h8" />
+            </svg>
+          )}
+        </button>
+
+        {/* Send Button */}
         <button
           onClick={handleSubmit}
-          disabled={disabled || !value.trim()}
+          disabled={disabled || !value.trim() || voiceStatus !== "idle"}
           className={cn(
             "size-9 rounded-md flex items-center justify-center",
             "transition-all duration-200",
